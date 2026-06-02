@@ -8,8 +8,6 @@ using Prn222Chatbot.Web.Services.Indexing;
 using Prn222Chatbot.Web.Services.Parsing;
 using Prn222Chatbot.Web.Services.Retrieval;
 
-EnvFileConfiguration.Load(Directory.GetCurrentDirectory());
-
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Missing ConnectionStrings:DefaultConnection in appsettings.json.");

@@ -3,7 +3,7 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
-# dotenv files
+# Local environment files. The app does not load .env; keep ignored for secret safety.
 .env
 
 # User-specific files

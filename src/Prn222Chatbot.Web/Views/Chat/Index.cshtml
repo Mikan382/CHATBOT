@@ -25,11 +25,11 @@
                 <div class="model-option @(Model.FineTuneConfigured ? "" : "disabled")">
                     <input class="form-check-input" type="radio" name="modelType" id="ft" value="fine_tuned_only" @(Model.FineTuneConfigured ? "" : "disabled")>
                     <label class="form-check-label" for="ft">Fine-tuned Only</label>
-                    <p class="text-muted small mb-0">@(Model.FineTuneConfigured ? "Custom REST endpoint is configured." : "FineTune__EndpointUrl is not configured.")</p>
+                    <p class="text-muted small mb-0">@(Model.FineTuneConfigured ? "Custom REST endpoint is configured." : "FineTune:EndpointUrl is not configured.")</p>
                 </div>
 
                 <div class="alert @(Model.GeminiConfigured ? "alert-success" : "alert-warning") small mt-3 mb-0">
-                    Gemini: @(Model.GeminiConfigured ? "configured" : "GEMINI_API_KEY is missing")
+                    Gemini: @(Model.GeminiConfigured ? "configured" : "API key is missing")
                 </div>
             </div>
         </div>

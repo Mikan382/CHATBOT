@@ -18,7 +18,7 @@ public class GeminiClient : IGeminiClient
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
 
-    private string? ApiKey => Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? _configuration["GEMINI_API_KEY"];
+    private string? ApiKey => _configuration["Gemini:ApiKey"];
 
     private string Model => _configuration["Gemini:Model"] ?? "gemini-1.5-flash";
 
@@ -26,7 +26,7 @@ public class GeminiClient : IGeminiClient
     {
         if (!IsConfigured)
         {
-            throw new InvalidOperationException("GEMINI_API_KEY is not configured.");
+            throw new InvalidOperationException("Gemini API key is not configured.");
         }
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{Model}:generateContent?key={Uri.EscapeDataString(ApiKey!)}";

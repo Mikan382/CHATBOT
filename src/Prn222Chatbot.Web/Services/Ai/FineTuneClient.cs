@@ -16,9 +16,9 @@ public class FineTuneClient : IFineTuneClient
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(EndpointUrl);
 
-    private string? EndpointUrl => Environment.GetEnvironmentVariable("FineTune__EndpointUrl") ?? _configuration["FineTune:EndpointUrl"];
+    private string? EndpointUrl => _configuration["FineTune:EndpointUrl"];
 
-    private string? ApiKey => Environment.GetEnvironmentVariable("FineTune__ApiKey") ?? _configuration["FineTune:ApiKey"];
+    private string? ApiKey => _configuration["FineTune:ApiKey"];
 
     public async Task<FineTuneResponse> GenerateAsync(FineTuneRequest request, CancellationToken cancellationToken)
     {

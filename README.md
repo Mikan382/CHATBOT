@@ -9,6 +9,7 @@ ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets 
 - SDK pin: `global.json` uses .NET SDK `9.0.304` with feature roll-forward.
 - Database: SQL Server LocalDB by default.
 - Architecture boundary: `Controller/Hub -> Service -> Repository -> AppDbContext -> SQL Server`.
+- Configuration source: `appsettings.json`, User Secrets, and environment variables; no `.env` support.
 - UI language: English.
 
 ## Features
@@ -77,31 +78,54 @@ Important constraints:
 
 ## Configuration
 
-The default connection string is stored in `src/Prn222Chatbot.Web/appsettings.json`:
+`src/Prn222Chatbot.Web/appsettings.json` is committed and must contain only non-secret defaults. It stores the required database connection string and safe model settings:
 
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Server=(localdb)\\MSSQLLocalDB;Database=Prn222RagChatbot;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+  },
+  "Gemini": {
+    "Model": "gemini-1.5-flash"
+  },
+  "FineTune": {
+    "EndpointUrl": ""
   }
 }
 ```
 
-Local secrets can be placed in a root `.env` file. Use `.env.example` as a template:
+Do not put real model/API keys in committed `appsettings.json` or `appsettings.Development.json`.
 
-```env
-GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-FineTune__EndpointUrl=""
-FineTune__ApiKey=""
-ConnectionStrings__DefaultConnection="Server=(localdb)\\MSSQLLocalDB;Database=Prn222RagChatbot;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+For local model keys, use User Secrets. The project already has `UserSecretsId` configured.
+
+Set Gemini:
+
+```powershell
+dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\Prn222Chatbot.Web
+```
+
+Set the custom fine-tuned endpoint:
+
+```powershell
+dotnet user-secrets set "FineTune:EndpointUrl" "https://your-fine-tuned-endpoint.example/chat" --project .\src\Prn222Chatbot.Web
+dotnet user-secrets set "FineTune:ApiKey" "YOUR_FINE_TUNE_API_KEY" --project .\src\Prn222Chatbot.Web
+```
+
+For deployment or CI, use standard ASP.NET Core environment variables:
+
+```powershell
+$env:Gemini__ApiKey="YOUR_GEMINI_KEY"
+$env:FineTune__EndpointUrl="https://your-fine-tuned-endpoint.example/chat"
+$env:FineTune__ApiKey="YOUR_FINE_TUNE_API_KEY"
 ```
 
 Notes:
 
-- `GEMINI_API_KEY` is required for live RAG answer generation.
-- `FineTune__EndpointUrl` and `FineTune__ApiKey` are optional.
-- If `FineTune__EndpointUrl` is empty, fine-tuned chat and benchmark options are disabled instead of being mocked.
 - `ConnectionStrings:DefaultConnection` must exist in `appsettings.json`; the app fails fast if it is missing.
+- `Gemini:ApiKey` is required for live RAG answer generation.
+- `FineTune:EndpointUrl` and `FineTune:ApiKey` are optional.
+- If `FineTune:EndpointUrl` is empty, fine-tuned chat and benchmark options are disabled instead of being mocked.
+- `.env` files are not used by this application.
 
 ## Run Locally
 
@@ -217,6 +241,8 @@ dotnet build .\Prn222Chatbot.sln
 rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\\." src/Prn222Chatbot.Web/Controllers src/Prn222Chatbot.Web/Hubs src/Prn222Chatbot.Web/Services
 rg "@inject\\s+.*(DbContext|AppDbContext)" src/Prn222Chatbot.Web/Views
 rg "AddSingleton<.*DbContext|AddSingleton\\(.*DbContext" src/Prn222Chatbot.Web/Program.cs
+rg "EnvFileConfiguration|\\.env.example|ConnectionStrings__DefaultConnection" . -g "!src/**/bin/**" -g "!src/**/obj/**" -g "!README.md"
+rg "\"ApiKey\"" src/Prn222Chatbot.Web/appsettings.json
 ```
 
 Expected:
@@ -225,6 +251,8 @@ Expected:
 - Controllers, Hubs, and Services do not use EF Core or `AppDbContext` directly.
 - Razor Views do not inject `AppDbContext`.
 - `AppDbContext` is not registered as singleton.
+- There is no custom `.env` loader and no `.env.example` configuration template.
+- Committed `appsettings.json` does not contain API key fields.
 
 Suggested browser checks:
 
