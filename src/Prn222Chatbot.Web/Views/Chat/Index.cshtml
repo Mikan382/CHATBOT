@@ -1,0 +1,59 @@
+@model Prn222Chatbot.Web.ViewModels.ChatIndexViewModel
+@{
+    ViewData["Title"] = "Chat";
+}
+
+<div class="chat-page row g-4">
+    <div class="col-lg-3 chat-sidebar">
+        <div class="card app-card">
+            <div class="card-body">
+                <h5 class="card-title">Model Settings</h5>
+                <p class="text-muted small">Session: <span id="sessionId">@Model.SessionId</span></p>
+
+                <div class="model-option">
+                    <input class="form-check-input" type="radio" name="modelType" id="rag" value="rag_standard" checked>
+                    <label class="form-check-label" for="rag">RAG Standard</label>
+                    <p class="text-muted small mb-0">Retrieve PRN222 documents and answer with citations.</p>
+                </div>
+
+                <div class="model-option">
+                    <input class="form-check-input" type="radio" name="modelType" id="hybrid" value="rag_hybrid">
+                    <label class="form-check-label" for="hybrid">Hybrid FT + RAG</label>
+                    <p class="text-muted small mb-0">Use RAG when context exists; fallback to the fine-tuned endpoint.</p>
+                </div>
+
+                <div class="model-option @(Model.FineTuneConfigured ? "" : "disabled")">
+                    <input class="form-check-input" type="radio" name="modelType" id="ft" value="fine_tuned_only" @(Model.FineTuneConfigured ? "" : "disabled")>
+                    <label class="form-check-label" for="ft">Fine-tuned Only</label>
+                    <p class="text-muted small mb-0">@(Model.FineTuneConfigured ? "Custom REST endpoint is configured." : "FineTune__EndpointUrl is not configured.")</p>
+                </div>
+
+                <div class="alert @(Model.GeminiConfigured ? "alert-success" : "alert-warning") small mt-3 mb-0">
+                    Gemini: @(Model.GeminiConfigured ? "configured" : "GEMINI_API_KEY is missing")
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-9 chat-main">
+        <div class="card app-card chat-shell">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>PRN222 Chat Room</strong>
+                    <div class="small text-muted">SignalR realtime + SQL Server history</div>
+                </div>
+                <button id="clearButton" class="btn btn-sm btn-outline-danger">Clear</button>
+            </div>
+            <div id="messages" class="chat-log"></div>
+            <form id="chatForm" class="chat-form">
+                <input id="messageInput" class="form-control" autocomplete="off" placeholder="Ask about MVC, Razor Pages, Blazor, SignalR, Worker Service..." />
+                <button class="btn btn-primary" type="submit">Send</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script src="~/js/chat.js" asp-append-version="true"></script>
+}

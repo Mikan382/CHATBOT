@@ -1,0 +1,75 @@
+@model Prn222Chatbot.Web.ViewModels.DocumentIndexViewModel
+@{
+    ViewData["Title"] = "Documents";
+}
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card app-card">
+            <div class="card-body">
+                <h5 class="card-title">Upload PRN222 Documents</h5>
+                <p class="text-muted small">Supports PDF, DOCX, TXT, and MD. Limit: 20MB per file.</p>
+                @if (!string.IsNullOrWhiteSpace(Model.Message))
+                {
+                    <div class="alert alert-success small">@Model.Message</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Error))
+                {
+                    <div class="alert alert-danger small">@Model.Error</div>
+                }
+                <form asp-action="Upload" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Chapter</label>
+                        <select class="form-select" name="chapterId" required>
+                            @foreach (var chapter in Model.Chapters)
+                            {
+                                <option value="@chapter.Id">@chapter.Order. @chapter.Title</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">File</label>
+                        <input class="form-control" type="file" name="file" accept=".pdf,.docx,.txt,.md" required />
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit">Upload & Queue Indexing</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card app-card">
+            <div class="card-body">
+                <h5 class="card-title">Indexed Documents</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Chapter</th>
+                            <th>Status</th>
+                            <th>Chunks</th>
+                            <th>Uploaded</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var doc in Model.Documents)
+                        {
+                            <tr>
+                                <td>@doc.OriginalFileName<br><span class="text-muted small">@doc.FileType / @(doc.FileSizeBytes / 1024) KB</span></td>
+                                <td>@doc.Chapter?.Title</td>
+                                <td><span class="badge bg-secondary">@doc.IndexStatus</span></td>
+                                <td>@doc.Chunks.Count</td>
+                                <td class="small">@doc.UploadedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            </tr>
+                            @if (!string.IsNullOrWhiteSpace(doc.IndexError))
+                            {
+                                <tr><td colspan="5" class="text-danger small">@doc.IndexError</td></tr>
+                            }
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

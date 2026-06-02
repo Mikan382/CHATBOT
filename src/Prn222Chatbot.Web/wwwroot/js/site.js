@@ -1,0 +1,1 @@
+// Shared site script placeholder.

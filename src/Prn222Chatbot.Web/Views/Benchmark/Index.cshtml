@@ -1,0 +1,79 @@
+@model Prn222Chatbot.Web.ViewModels.BenchmarkIndexViewModel
+@{
+    ViewData["Title"] = "Benchmark";
+    var latest = Model.Results.FirstOrDefault();
+}
+
+<div class="card app-card mb-4">
+    <div class="card-body d-flex flex-column flex-lg-row justify-content-between gap-3">
+        <div>
+            <h4>RBL Benchmark Dashboard</h4>
+            <p class="text-muted mb-0">50 PRN222 ground-truth questions, RAGAS-like scoring, and RAG vs fine-tuned endpoint comparison.</p>
+        </div>
+        <button id="runBenchmark" class="btn btn-primary">Run 5 Questions</button>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3"><div class="metric-card"><span>Gemini</span><strong>@(Model.GeminiConfigured ? "Configured" : "Missing")</strong></div></div>
+    <div class="col-md-3"><div class="metric-card"><span>Fine-tuned</span><strong>@(Model.FineTuneConfigured ? "Configured" : "Disabled")</strong></div></div>
+    <div class="col-md-3"><div class="metric-card"><span>Questions</span><strong>@Model.Questions.Count</strong></div></div>
+    <div class="col-md-3"><div class="metric-card"><span>Latest Faithfulness</span><strong>@(latest?.Faithfulness.ToString("0.00") ?? "-")</strong></div></div>
+</div>
+
+<div id="benchmarkStatus" class="alert alert-info d-none"></div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card app-card">
+            <div class="card-body">
+                <h5>Evaluation Results</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>Question</th><th>Status</th><th>Faith</th><th>Rel</th><th>Recall</th><th>Cite</th></tr></thead>
+                        <tbody id="resultsBody">
+                        @foreach (var result in Model.Results)
+                        {
+                            <tr>
+                                <td>@result.EvaluationQuestion?.Question</td>
+                                <td>@result.Status</td>
+                                <td>@result.Faithfulness.ToString("0.00")</td>
+                                <td>@result.AnswerRelevance.ToString("0.00")</td>
+                                <td>@result.RetrievalRecall.ToString("0.00")</td>
+                                <td>@result.CitationAccuracy.ToString("0.00")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card app-card mb-4">
+            <div class="card-body">
+                <h5>Chunking Strategy Benchmark</h5>
+                <ul class="small mb-0">
+                    <li>Paragraph-based: default strategy that balances context and citations.</li>
+                    <li>Fixed-size: fast, but may split meaning across chunks.</li>
+                    <li>Semantic: more accurate, but requires model support and higher cost.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card app-card">
+            <div class="card-body">
+                <h5>Embedding Model Comparison</h5>
+                <table class="table table-sm small mb-0">
+                    <tr><td>multilingual-e5-base</td><td>Open source baseline</td></tr>
+                    <tr><td>text-embedding-3-small</td><td>Commercial baseline</td></tr>
+                    <tr><td>PhoBERT-base</td><td>Vietnamese-specific</td></tr>
+                    <tr><td>bge-m3</td><td>Hybrid retrieval reference</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/benchmark.js" asp-append-version="true"></script>
+}
