@@ -14,9 +14,14 @@ public class DocumentsController : Controller
     }
 
     [HttpGet("/documents")]
-    public async Task<IActionResult> Index(string? message, string? error, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(
+        string? searchTerm,
+        Guid? chapterId,
+        string? message,
+        string? error,
+        CancellationToken cancellationToken)
     {
-        return await BuildIndexViewAsync(message, error, cancellationToken);
+        return await BuildIndexViewAsync(message, error, searchTerm, chapterId, cancellationToken);
     }
 
     [HttpPost("/documents/upload")]
@@ -26,7 +31,7 @@ public class DocumentsController : Controller
     {
         if (!ModelState.IsValid)
         {
-            return await BuildIndexViewAsync(null, ValidationSummary(), cancellationToken);
+            return await BuildIndexViewAsync(null, ValidationSummary(), null, null, cancellationToken);
         }
 
         try
@@ -37,6 +42,35 @@ public class DocumentsController : Controller
         catch (Exception ex)
         {
             return RedirectToAction(nameof(Index), new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("/documents/{id:guid}/delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(
+        Guid id,
+        string? searchTerm,
+        Guid? chapterId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _documentService.DeleteAsync(id, cancellationToken);
+            return RedirectToAction(nameof(Index), new
+            {
+                searchTerm,
+                chapterId,
+                message = "Document and related chunks were deleted."
+            });
+        }
+        catch (Exception ex)
+        {
+            return RedirectToAction(nameof(Index), new
+            {
+                searchTerm,
+                chapterId,
+                error = ex.Message
+            });
         }
     }
 
@@ -54,13 +88,20 @@ public class DocumentsController : Controller
         return Json(new { success = true, chunks });
     }
 
-    private async Task<IActionResult> BuildIndexViewAsync(string? message, string? error, CancellationToken cancellationToken)
+    private async Task<IActionResult> BuildIndexViewAsync(
+        string? message,
+        string? error,
+        string? searchTerm,
+        Guid? chapterId,
+        CancellationToken cancellationToken)
     {
-        var data = await _documentService.GetIndexDataAsync(cancellationToken);
+        var data = await _documentService.GetIndexDataAsync(searchTerm, chapterId, cancellationToken);
         return View("Index", new DocumentIndexViewModel
         {
             Chapters = data.Chapters,
             Documents = data.Documents,
+            SearchTerm = searchTerm,
+            SelectedChapterId = chapterId,
             Message = message,
             Error = error
         });

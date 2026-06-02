@@ -25,16 +25,19 @@ public class DocumentService
         _queue = queue;
     }
 
-    public async Task<(IReadOnlyList<Chapter> Chapters, IReadOnlyList<Document> Documents)> GetIndexDataAsync(CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<Chapter> Chapters, IReadOnlyList<Document> Documents)> GetIndexDataAsync(
+        string? searchTerm,
+        Guid? chapterId,
+        CancellationToken cancellationToken)
     {
         var chapters = await _chapterRepository.ListOrderedAsync(cancellationToken);
-        var documents = await _documentRepository.ListWithChapterAndChunksAsync(cancellationToken);
+        var documents = await _documentRepository.ListWithChapterAndChunksAsync(searchTerm, chapterId, cancellationToken);
         return (chapters, documents);
     }
 
     public async Task<IReadOnlyList<DocumentApiDto>> ListDocumentsAsync(CancellationToken cancellationToken)
     {
-        var documents = await _documentRepository.ListWithChapterAndChunksAsync(cancellationToken);
+        var documents = await _documentRepository.ListWithChapterAndChunksAsync(null, null, cancellationToken);
         return documents.Select(x => new DocumentApiDto(
             x.Id,
             x.OriginalFileName,
@@ -57,6 +60,15 @@ public class DocumentService
             x.SourceName,
             x.Content,
             x.CreatedAtUtc)).ToList();
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var deleted = await _documentRepository.DeleteAsync(id, cancellationToken);
+        if (!deleted)
+        {
+            throw new InvalidOperationException("Document was not found.");
+        }
     }
 
     public async Task<Document> UploadAsync(Guid chapterId, IFormFile file, CancellationToken cancellationToken)

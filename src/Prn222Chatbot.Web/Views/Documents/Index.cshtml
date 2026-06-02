@@ -40,6 +40,33 @@
         <div class="card app-card">
             <div class="card-body">
                 <h5 class="card-title">Indexed Documents</h5>
+                <form method="get" action="/documents" class="row g-2 align-items-end mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label small text-muted" for="searchTerm">File name</label>
+                        <input id="searchTerm" class="form-control form-control-sm" type="text" name="searchTerm" value="@Model.SearchTerm" placeholder="Search file name..." />
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small text-muted" for="chapterId">Chapter</label>
+                        <select id="chapterId" class="form-select form-select-sm" name="chapterId">
+                            <option value="">All chapters</option>
+                            @foreach (var chapter in Model.Chapters)
+                            {
+                                if (Model.SelectedChapterId == chapter.Id)
+                                {
+                                    <option value="@chapter.Id" selected>@chapter.Order. @chapter.Title</option>
+                                }
+                                else
+                                {
+                                    <option value="@chapter.Id">@chapter.Order. @chapter.Title</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-2">
+                        <button class="btn btn-sm btn-primary flex-fill" type="submit">Search</button>
+                        <a class="btn btn-sm btn-outline-secondary" href="/documents">Clear</a>
+                    </div>
+                </form>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle">
                         <thead>
@@ -49,21 +76,42 @@
                             <th>Status</th>
                             <th>Chunks</th>
                             <th>Uploaded</th>
+                            <th>Actions</th>
                         </tr>
                         </thead>
                         <tbody>
-                        @foreach (var doc in Model.Documents)
+                        @if (Model.Documents.Count == 0)
                         {
                             <tr>
-                                <td>@doc.OriginalFileName<br><span class="text-muted small">@doc.FileType / @(doc.FileSizeBytes / 1024) KB</span></td>
-                                <td>@doc.Chapter?.Title</td>
-                                <td><span class="badge bg-secondary">@doc.IndexStatus</span></td>
-                                <td>@doc.Chunks.Count</td>
-                                <td class="small">@doc.UploadedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td colspan="6" class="text-muted small">No documents match the current filters.</td>
                             </tr>
-                            @if (!string.IsNullOrWhiteSpace(doc.IndexError))
+                        }
+                        else
+                        {
+                            @foreach (var doc in Model.Documents)
                             {
-                                <tr><td colspan="5" class="text-danger small">@doc.IndexError</td></tr>
+                                <tr>
+                                    <td>@doc.OriginalFileName<br><span class="text-muted small">@doc.FileType / @(doc.FileSizeBytes / 1024) KB</span></td>
+                                    <td>@doc.Chapter?.Title</td>
+                                    <td><span class="badge bg-secondary">@doc.IndexStatus</span></td>
+                                    <td>@doc.Chunks.Count</td>
+                                    <td class="small">@doc.UploadedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        <form method="post" action="/documents/@doc.Id/delete" class="document-delete-form d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="searchTerm" value="@Model.SearchTerm" />
+                                            @if (Model.SelectedChapterId.HasValue)
+                                            {
+                                                <input type="hidden" name="chapterId" value="@Model.SelectedChapterId.Value" />
+                                            }
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @if (!string.IsNullOrWhiteSpace(doc.IndexError))
+                                {
+                                    <tr><td colspan="6" class="text-danger small">@doc.IndexError</td></tr>
+                                }
                             }
                         }
                         </tbody>
@@ -73,3 +121,15 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".document-delete-form").forEach((form) => {
+            form.addEventListener("submit", (event) => {
+                if (!confirm("Delete this document and all related chunks?")) {
+                    event.preventDefault();
+                }
+            });
+        });
+    </script>
+}

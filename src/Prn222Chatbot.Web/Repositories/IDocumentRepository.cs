@@ -8,9 +8,10 @@ namespace Prn222Chatbot.Web.Repositories;
 public interface IDocumentRepository
 {
     Task AddAsync(Document document, CancellationToken cancellationToken);
-    Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? chapterId, CancellationToken cancellationToken);
     Task<IReadOnlyList<DocumentChunk>> ListChunksAsync(Guid documentId, CancellationToken cancellationToken);
     Task<Document?> GetForIndexingAsync(Guid documentId, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task ReplaceChunksAsync(Guid documentId, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<Guid>> ListPendingOrProcessingIdsAsync(CancellationToken cancellationToken);
@@ -32,11 +33,25 @@ public class DocumentRepository : IDocumentRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? chapterId, CancellationToken cancellationToken)
     {
-        return await _db.Documents
+        var query = _db.Documents
             .Include(x => x.Chapter)
             .Include(x => x.Chunks)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var normalizedSearchTerm = searchTerm.Trim();
+            query = query.Where(x => x.OriginalFileName.Contains(normalizedSearchTerm));
+        }
+
+        if (chapterId.HasValue)
+        {
+            query = query.Where(x => x.ChapterId == chapterId.Value);
+        }
+
+        return await query
             .OrderByDescending(x => x.UploadedAtUtc)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
@@ -56,6 +71,19 @@ public class DocumentRepository : IDocumentRepository
         return await _db.Documents
             .Include(x => x.Chapter)
             .FirstOrDefaultAsync(x => x.Id == documentId, cancellationToken);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var document = await _db.Documents.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (document is null)
+        {
+            return false;
+        }
+
+        _db.Documents.Remove(document);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task ReplaceChunksAsync(Guid documentId, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken)
