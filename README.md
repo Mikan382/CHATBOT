@@ -8,7 +8,7 @@ ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets 
 - Target framework: `net8.0`.
 - SDK pin: `global.json` uses .NET SDK `9.0.304` with feature roll-forward.
 - Database: SQL Server LocalDB by default.
-- Architecture boundary: `Controller/Hub -> Service -> Repository -> AppDbContext -> SQL Server`.
+- Architecture boundary: `PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server`.
 - Configuration source: `appsettings.json`, User Secrets, and environment variables; no `.env` support.
 - UI language: English.
 
@@ -48,16 +48,25 @@ ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets 
 ```text
 Prn222Chatbot.sln
 src/
-  Prn222Chatbot.Web/
+  PresentationLayer/
     Controllers/      MVC controllers and API endpoints
     Hubs/             SignalR hub
-    Services/         Business logic, AI clients, indexing, retrieval
-    Repositories/     Data access boundary
-    Data/             AppDbContext, migrations, seed/bootstrapper
-    Domain/           EF Core entities and enums
     ViewModels/       View and input models
     Views/            Razor views
     wwwroot/          CSS, JavaScript, client assets
+
+  BusinessLayer/
+    Services/         Chat, document, course, and evaluation orchestration
+    AI/               Gemini, Hugging Face embedding, and fine-tuned clients
+    Indexing/         Background worker and chunking logic
+    Parsing/          PDF, DOCX, PPTX, TXT, and MD text extraction
+    Retrieval/        Embedding retrieval and lexical fallback
+    DTOs/             Data transfer records
+
+  DataAccessLayer/
+    Repositories/     Data access boundary
+    Data/             AppDbContext, migrations, seed/bootstrapper
+    Entities/         EF Core entities and enums
 ```
 
 ## Architecture Rules
@@ -66,9 +75,17 @@ The code follows a 3-layer structure:
 
 | Layer | Responsibility |
 |---|---|
-| Presentation | Razor Views, Controllers, SignalR Hub |
-| Business Logic | Services, AI clients, retrieval, scoring, indexing orchestration |
-| Data Access | Repositories, AppDbContext, EF Core, SQL Server |
+| PresentationLayer | Razor Views, Controllers, SignalR Hub, ViewModels, browser assets |
+| BusinessLayer | Services, AI clients, parsing, retrieval, scoring, indexing orchestration, DTOs |
+| DataAccessLayer | Repositories, AppDbContext, EF Core entities, migrations, SQL Server |
+
+Project references:
+
+| Project | References |
+|---|---|
+| `DataAccessLayer` | none |
+| `BusinessLayer` | `DataAccessLayer` |
+| `PresentationLayer` | `BusinessLayer`, `DataAccessLayer` |
 
 Important constraints:
 
@@ -80,7 +97,7 @@ Important constraints:
 
 ## Configuration
 
-`src/Prn222Chatbot.Web/appsettings.json` is committed and must contain only non-secret defaults. It stores the required database connection string and safe model settings:
+`src/PresentationLayer/appsettings.json` is committed and must contain only non-secret defaults. It stores the required database connection string and safe model settings:
 
 ```json
 {
@@ -107,20 +124,20 @@ For local model keys, use User Secrets. The project already has `UserSecretsId` 
 Set Gemini:
 
 ```powershell
-dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\Prn222Chatbot.Web
+dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\PresentationLayer
 ```
 
 Set Hugging Face for embeddings:
 
 ```powershell
-dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\Prn222Chatbot.Web
+dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\PresentationLayer
 ```
 
 Set the custom fine-tuned endpoint:
 
 ```powershell
-dotnet user-secrets set "FineTune:EndpointUrl" "https://your-fine-tuned-endpoint.example/chat" --project .\src\Prn222Chatbot.Web
-dotnet user-secrets set "FineTune:ApiKey" "YOUR_FINE_TUNE_API_KEY" --project .\src\Prn222Chatbot.Web
+dotnet user-secrets set "FineTune:EndpointUrl" "https://your-fine-tuned-endpoint.example/chat" --project .\src\PresentationLayer
+dotnet user-secrets set "FineTune:ApiKey" "YOUR_FINE_TUNE_API_KEY" --project .\src\PresentationLayer
 ```
 
 For deployment or CI, use standard ASP.NET Core environment variables:
@@ -154,13 +171,13 @@ dotnet build .\Prn222Chatbot.sln
 Create or update the database:
 
 ```powershell
-dotnet ef database update --project .\src\Prn222Chatbot.Web --startup-project .\src\Prn222Chatbot.Web
+dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\PresentationLayer
 ```
 
 Run the web app:
 
 ```powershell
-dotnet run --project .\src\Prn222Chatbot.Web --urls http://127.0.0.1:5100
+dotnet run --project .\src\PresentationLayer --urls http://127.0.0.1:5100
 ```
 
 Open:
@@ -253,18 +270,23 @@ Use this checklist after changing code:
 
 ```powershell
 dotnet build .\Prn222Chatbot.sln
-dotnet ef database update --project .\src\Prn222Chatbot.Web --startup-project .\src\Prn222Chatbot.Web
-rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\\." src/Prn222Chatbot.Web/Controllers src/Prn222Chatbot.Web/Hubs src/Prn222Chatbot.Web/Services
-rg "@inject\\s+.*(DbContext|AppDbContext)" src/Prn222Chatbot.Web/Views
-rg "AddSingleton<.*DbContext|AddSingleton\\(.*DbContext" src/Prn222Chatbot.Web/Program.cs
+dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\PresentationLayer
+dotnet sln .\Prn222Chatbot.sln list
+dotnet list .\src\BusinessLayer\BusinessLayer.csproj reference
+dotnet list .\src\DataAccessLayer\DataAccessLayer.csproj reference
+rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\\." src/PresentationLayer/Controllers src/PresentationLayer/Hubs src/BusinessLayer
+rg "@inject\\s+.*(DbContext|AppDbContext)" src/PresentationLayer/Views
+rg "AddSingleton<.*DbContext|AddSingleton\\(.*DbContext" src/PresentationLayer/Program.cs
 rg "EnvFileConfiguration|\\.env.example|ConnectionStrings__DefaultConnection" . -g "!src/**/bin/**" -g "!src/**/obj/**" -g "!README.md"
-rg "\"ApiKey\"|hf_" src/Prn222Chatbot.Web/appsettings.json src/Prn222Chatbot.Web/appsettings.Development.json
+rg "\"ApiKey\"|hf_" src/PresentationLayer/appsettings.json src/PresentationLayer/appsettings.Development.json
 ```
 
 Expected:
 
 - Build has `0 Warning(s)` and `0 Error(s)`.
-- Controllers, Hubs, and Services do not use EF Core or `AppDbContext` directly.
+- Controllers, Hubs, and BusinessLayer services do not use EF Core or `AppDbContext` directly.
+- Solution lists exactly `PresentationLayer`, `BusinessLayer`, and `DataAccessLayer`.
+- `DataAccessLayer` has no project references; `BusinessLayer` references only `DataAccessLayer`.
 - Razor Views do not inject `AppDbContext`.
 - `AppDbContext` is not registered as singleton.
 - There is no custom `.env` loader and no `.env.example` configuration template.
