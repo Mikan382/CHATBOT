@@ -21,7 +21,8 @@ ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets 
 - Store documents, chunks, chat history, and benchmark results in SQL Server.
 - Index uploaded documents through a background worker.
 - Chat in real time through SignalR.
-- Retrieve top document chunks with local normalized TF-IDF/cosine search.
+- Retrieve top document chunks with Hugging Face embeddings when configured.
+- Fall back to local normalized lexical search when embeddings are unavailable.
 - Generate RAG answers through Gemini with citations.
 - Disable fine-tuned mode unless a real endpoint is configured.
 - Run a small benchmark dashboard for RAG/fine-tuned comparison.
@@ -39,6 +40,7 @@ ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets 
 | PDF parser | UglyToad.PdfPig |
 | DOCX parser | DocumentFormat.OpenXml |
 | AI generation | Gemini REST API |
+| Embeddings | Hugging Face Inference API |
 | Fine-tuned model | Custom REST endpoint |
 
 ## Solution Layout
@@ -86,7 +88,11 @@ Important constraints:
     "DefaultConnection": "Server=(localdb)\\MSSQLLocalDB;Database=Prn222RagChatbot;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
   },
   "Gemini": {
-    "Model": "gemini-1.5-flash"
+    "Model": "gemini-2.5-flash"
+  },
+  "HuggingFace": {
+    "ModelName": "intfloat/multilingual-e5-base",
+    "ModelUrl": "https://api-inference.huggingface.co/models/intfloat/multilingual-e5-base"
   },
   "FineTune": {
     "EndpointUrl": ""
@@ -104,6 +110,12 @@ Set Gemini:
 dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\Prn222Chatbot.Web
 ```
 
+Set Hugging Face for embeddings:
+
+```powershell
+dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\Prn222Chatbot.Web
+```
+
 Set the custom fine-tuned endpoint:
 
 ```powershell
@@ -115,6 +127,7 @@ For deployment or CI, use standard ASP.NET Core environment variables:
 
 ```powershell
 $env:Gemini__ApiKey="YOUR_GEMINI_KEY"
+$env:HuggingFace__ApiKey="YOUR_HUGGINGFACE_KEY"
 $env:FineTune__EndpointUrl="https://your-fine-tuned-endpoint.example/chat"
 $env:FineTune__ApiKey="YOUR_FINE_TUNE_API_KEY"
 ```
@@ -123,6 +136,8 @@ Notes:
 
 - `ConnectionStrings:DefaultConnection` must exist in `appsettings.json`; the app fails fast if it is missing.
 - `Gemini:ApiKey` is required for live RAG answer generation.
+- `HuggingFace:ApiKey` is required for embedding-based indexing and retrieval.
+- If Hugging Face is not configured, uploaded documents are still chunked and searched with lexical fallback.
 - `FineTune:EndpointUrl` and `FineTune:ApiKey` are optional.
 - If `FineTune:EndpointUrl` is empty, fine-tuned chat and benchmark options are disabled instead of being mocked.
 - `.env` files are not used by this application.
@@ -238,11 +253,12 @@ Use this checklist after changing code:
 
 ```powershell
 dotnet build .\Prn222Chatbot.sln
+dotnet ef database update --project .\src\Prn222Chatbot.Web --startup-project .\src\Prn222Chatbot.Web
 rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\\." src/Prn222Chatbot.Web/Controllers src/Prn222Chatbot.Web/Hubs src/Prn222Chatbot.Web/Services
 rg "@inject\\s+.*(DbContext|AppDbContext)" src/Prn222Chatbot.Web/Views
 rg "AddSingleton<.*DbContext|AddSingleton\\(.*DbContext" src/Prn222Chatbot.Web/Program.cs
 rg "EnvFileConfiguration|\\.env.example|ConnectionStrings__DefaultConnection" . -g "!src/**/bin/**" -g "!src/**/obj/**" -g "!README.md"
-rg "\"ApiKey\"" src/Prn222Chatbot.Web/appsettings.json
+rg "\"ApiKey\"|hf_" src/Prn222Chatbot.Web/appsettings.json src/Prn222Chatbot.Web/appsettings.Development.json
 ```
 
 Expected:
@@ -253,6 +269,7 @@ Expected:
 - `AppDbContext` is not registered as singleton.
 - There is no custom `.env` loader and no `.env.example` configuration template.
 - Committed `appsettings.json` does not contain API key fields.
+- Database migrations are applied before testing upload/indexing.
 
 Suggested browser checks:
 
@@ -260,6 +277,7 @@ Suggested browser checks:
 - `/documents` renders.
 - Upload a `.txt`, `.pdf`, and `.docx` file.
 - Uploaded documents become indexed chunks.
+- With `HuggingFace:ApiKey` configured, newly indexed chunks also get stored embeddings.
 - RAG answers include citations when relevant context exists.
 - Out-of-scope questions are rejected or answered as insufficient context.
 - `/benchmark` loads and can run up to 5 questions.
@@ -267,7 +285,9 @@ Suggested browser checks:
 
 ## Academic Notes
 
-- Retrieval is a local TF-IDF/cosine demo, not a production vector database.
+- Embedding retrieval uses Hugging Face vectors stored in SQL Server as JSON for demo purposes.
+- This is not a production vector database; large-scale deployments should use a proper vector index.
+- Lexical retrieval remains as a no-key fallback for classroom demos.
 - The embedding model comparison table is an RBL comparison aid, not proof that all embedding models were executed.
 - The seeded PRN222 data provides course structure and benchmark questions.
 - Deeper answer quality depends on the uploaded course materials.

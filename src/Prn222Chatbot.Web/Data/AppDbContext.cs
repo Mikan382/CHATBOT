@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Chapter> Chapters => Set<Chapter>();
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
+    public DbSet<DocumentChunkEmbedding> DocumentChunkEmbeddings => Set<DocumentChunkEmbedding>();
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<EvaluationQuestion> EvaluationQuestions => Set<EvaluationQuestion>();
@@ -47,6 +48,16 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(x => new { x.DocumentId, x.ChunkIndex }).IsUnique();
             entity.Property(x => x.SourceName).HasMaxLength(260);
+        });
+
+        modelBuilder.Entity<DocumentChunkEmbedding>(entity =>
+        {
+            entity.HasIndex(x => new { x.DocumentChunkId, x.ModelName }).IsUnique();
+            entity.Property(x => x.ModelName).HasMaxLength(160);
+            entity.HasOne(x => x.DocumentChunk)
+                .WithMany(x => x.Embeddings)
+                .HasForeignKey(x => x.DocumentChunkId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ChatSession>(entity =>

@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Prn222Chatbot.Web.Domain;
 using Prn222Chatbot.Web.Domain.Enums;
 using Prn222Chatbot.Web.Repositories;
+using Prn222Chatbot.Web.Services.Ai;
 using Prn222Chatbot.Web.Services.Retrieval;
 
 namespace Prn222Chatbot.Web.Services.Indexing;
@@ -8,12 +10,21 @@ namespace Prn222Chatbot.Web.Services.Indexing;
 public class DocumentIndexingService
 {
     private readonly IDocumentRepository _documentRepository;
+    private readonly IDocumentEmbeddingRepository _embeddingRepository;
+    private readonly IEmbeddingClient _embeddingClient;
     private readonly TextChunker _chunker;
     private readonly ILogger<DocumentIndexingService> _logger;
 
-    public DocumentIndexingService(IDocumentRepository documentRepository, TextChunker chunker, ILogger<DocumentIndexingService> logger)
+    public DocumentIndexingService(
+        IDocumentRepository documentRepository,
+        IDocumentEmbeddingRepository embeddingRepository,
+        IEmbeddingClient embeddingClient,
+        TextChunker chunker,
+        ILogger<DocumentIndexingService> logger)
     {
         _documentRepository = documentRepository;
+        _embeddingRepository = embeddingRepository;
+        _embeddingClient = embeddingClient;
         _chunker = chunker;
         _logger = logger;
     }
@@ -47,6 +58,8 @@ public class DocumentIndexingService
                 .ToList();
 
             await _documentRepository.ReplaceChunksAsync(document.Id, chunks, cancellationToken);
+            await _documentRepository.SaveChangesAsync(cancellationToken);
+            await TryCreateEmbeddingsAsync(chunks, cancellationToken);
 
             document.IndexStatus = DocumentIndexStatus.Indexed;
             document.IndexError = null;
@@ -58,6 +71,38 @@ public class DocumentIndexingService
             document.IndexError = ex.Message;
             await _documentRepository.SaveChangesAsync(cancellationToken);
             _logger.LogError(ex, "Failed indexing document {DocumentId}", documentId);
+        }
+    }
+
+    private async Task TryCreateEmbeddingsAsync(IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken)
+    {
+        if (!_embeddingClient.IsConfigured || chunks.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var embeddings = new List<DocumentChunkEmbedding>();
+            foreach (var chunk in chunks)
+            {
+                var vector = await _embeddingClient.EmbedPassageAsync(chunk.Content, cancellationToken);
+                embeddings.Add(new DocumentChunkEmbedding
+                {
+                    Id = Guid.NewGuid(),
+                    DocumentChunkId = chunk.Id,
+                    ModelName = _embeddingClient.ModelName,
+                    Dimensions = vector.Length,
+                    VectorJson = JsonSerializer.Serialize(vector),
+                    CreatedAtUtc = DateTime.UtcNow
+                });
+            }
+
+            await _embeddingRepository.ReplaceEmbeddingsAsync(embeddings, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Document chunks were indexed, but embedding generation failed.");
         }
     }
 }
