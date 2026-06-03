@@ -15,7 +15,7 @@ ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets 
 ## Features
 
 - Manage the seeded `PRN222` course and 8 syllabus chapters.
-- Upload `.pdf`, `.docx`, `.txt`, and `.md` files.
+- Upload `.pdf`, `.docx`, `.pptx`, `.txt`, and `.md` files.
 - Server-side upload validation with DataAnnotations.
 - Extract text from PDF/DOCX/text documents.
 - Store documents, chunks, chat history, and benchmark results in SQL Server.
@@ -38,7 +38,7 @@ ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets 
 | ORM | EF Core |
 | Background jobs | HostedService / BackgroundService |
 | PDF parser | UglyToad.PdfPig |
-| DOCX parser | DocumentFormat.OpenXml |
+| DOCX/PPTX parser | DocumentFormat.OpenXml |
 | AI generation | Gemini REST API |
 | Embeddings | Hugging Face Inference API |
 | Fine-tuned model | Custom REST endpoint |
@@ -275,7 +275,7 @@ Suggested browser checks:
 
 - `/chat` renders.
 - `/documents` renders.
-- Upload a `.txt`, `.pdf`, and `.docx` file.
+- Upload a `.txt`, `.pdf`, `.docx`, and `.pptx` file.
 - Uploaded documents become indexed chunks.
 - With `HuggingFace:ApiKey` configured, newly indexed chunks also get stored embeddings.
 - RAG answers include citations when relevant context exists.

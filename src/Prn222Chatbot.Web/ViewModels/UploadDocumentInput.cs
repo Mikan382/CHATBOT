@@ -9,7 +9,7 @@ public class UploadDocumentInput
     public Guid? ChapterId { get; set; }
 
     [Required(ErrorMessage = "File is required.")]
-    [AllowedFileExtensions(".pdf", ".docx", ".txt", ".md")]
+    [AllowedFileExtensions(".pdf", ".docx", ".pptx", ".txt", ".md")]
     [MaxFileSize(20 * 1024 * 1024)]
     public IFormFile? File { get; set; }
 }
