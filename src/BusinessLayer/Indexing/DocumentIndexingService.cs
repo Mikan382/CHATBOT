@@ -59,10 +59,10 @@ public class DocumentIndexingService
             await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 50, "Saving chunks", null, cancellationToken);
             await _documentRepository.ReplaceChunksAsync(document.Id, chunks, cancellationToken);
             await _documentRepository.SaveChangesAsync(cancellationToken);
-            await TryCreateEmbeddingsAsync(document, chunks, cancellationToken);
+            var embeddingStage = await TryCreateEmbeddingsAsync(document, chunks, cancellationToken);
 
             await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 98, "Finalizing", null, cancellationToken);
-            await UpdateProgressAsync(document, DocumentIndexStatus.Indexed, 100, "Indexed", null, cancellationToken);
+            await UpdateProgressAsync(document, DocumentIndexStatus.Indexed, 100, embeddingStage, null, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -71,12 +71,18 @@ public class DocumentIndexingService
         }
     }
 
-    private async Task TryCreateEmbeddingsAsync(Document document, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken)
+    private async Task<string> TryCreateEmbeddingsAsync(Document document, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken)
     {
-        if (!_embeddingClient.IsConfigured || chunks.Count == 0)
+        if (chunks.Count == 0)
+        {
+            await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 95, "No chunks to embed", null, cancellationToken);
+            return "Indexed without embeddings";
+        }
+
+        if (!_embeddingClient.IsConfigured)
         {
             await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 95, "Embedding skipped", null, cancellationToken);
-            return;
+            return "Indexed without embeddings";
         }
 
         try
@@ -102,11 +108,13 @@ public class DocumentIndexingService
             }
 
             await _embeddingRepository.ReplaceEmbeddingsAsync(embeddings, cancellationToken);
+            return "Indexed with embeddings";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 95, "Chunks indexed; embedding failed", null, cancellationToken);
             _logger.LogWarning(ex, "Document chunks were indexed, but embedding generation failed.");
+            return "Indexed; embedding failed";
         }
     }
 

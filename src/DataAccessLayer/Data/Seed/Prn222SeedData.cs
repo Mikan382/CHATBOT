@@ -84,40 +84,6 @@ public static class Prn222SeedData
         await db.SaveChangesAsync();
     }
 
-    public static IReadOnlyList<Document> BuildSeedDocuments()
-    {
-        return Chapters.Select(chapter => new Document
-        {
-            Id = Guid.NewGuid(),
-            ChapterId = chapter.Id,
-            OriginalFileName = $"PRN222_Chapter_{chapter.Order:00}_Guide.txt",
-            FileType = ".txt",
-            FileSizeBytes = BuildChapterGuide(chapter.Order, chapter.Title, chapter.Clo, chapter.Summary).Length,
-            ContentText = BuildChapterGuide(chapter.Order, chapter.Title, chapter.Clo, chapter.Summary),
-            UploadedAtUtc = DateTime.UtcNow
-        }).ToList();
-    }
-
-    private static string BuildChapterGuide(int order, string title, string clo, string summary)
-    {
-        return $"""
-        {title}
-        CLO: {clo}
-
-        Overview:
-        {summary}
-
-        Learning goals:
-        Students should explain the core concepts, implement a small practice exercise, and connect this topic to a real ASP.NET Core web application.
-
-        Review notes:
-        - Understand the role of this chapter in PRN222.
-        - Use the correct English technical terms.
-        - Build a small .NET 8 example.
-        - Compare classroom demo usage with production usage.
-        """;
-    }
-
     private static IReadOnlyList<EvaluationQuestion> BuildQuestions()
     {
         var rows = new List<(int Order, int Chapter, string Question, string GroundTruth)>

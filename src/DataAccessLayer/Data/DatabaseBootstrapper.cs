@@ -17,32 +17,6 @@ public static class DatabaseBootstrapper
         await db.Database.MigrateAsync();
         await Prn222SeedData.SeedAsync(db);
 
-        var seedDocuments = Prn222SeedData.BuildSeedDocuments();
-        foreach (var seedDocument in seedDocuments)
-        {
-            var existing = await db.Documents
-                .Include(x => x.Chunks)
-                .FirstOrDefaultAsync(x => x.OriginalFileName == seedDocument.OriginalFileName);
-
-            if (existing is null)
-            {
-                db.Documents.Add(seedDocument);
-                continue;
-            }
-
-            if (existing.ContentText != seedDocument.ContentText)
-            {
-                existing.ChapterId = seedDocument.ChapterId;
-                existing.FileType = seedDocument.FileType;
-                existing.FileSizeBytes = seedDocument.FileSizeBytes;
-                existing.ContentText = seedDocument.ContentText;
-                existing.IndexStatus = DocumentIndexStatus.Pending;
-                existing.IndexError = null;
-                db.DocumentChunks.RemoveRange(existing.Chunks);
-            }
-        }
-
-        await db.SaveChangesAsync();
         await NormalizeDocumentProgressAsync(db);
         await SeedIdentityAsync(scope.ServiceProvider);
     }
