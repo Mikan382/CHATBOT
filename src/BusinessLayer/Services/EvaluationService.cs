@@ -59,7 +59,7 @@ public class EvaluationService
         var results = new List<EvaluationResult>();
         foreach (var question in questions)
         {
-            var chunks = await _retrievalService.RetrieveAsync(question.Question, 3, cancellationToken);
+            var chunks = await _retrievalService.RetrieveAsync(question.Question, null, 3, cancellationToken);
             var result = new EvaluationResult
             {
                 Id = Guid.NewGuid(),

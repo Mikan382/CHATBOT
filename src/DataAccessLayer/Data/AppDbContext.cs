@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using DataAccessLayer.Entities;
 
 namespace DataAccessLayer.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -21,6 +23,8 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Course>(entity =>
         {
             entity.HasIndex(x => x.Code).IsUnique();
@@ -41,7 +45,12 @@ public class AppDbContext : DbContext
             entity.Property(x => x.OriginalFileName).HasMaxLength(260);
             entity.Property(x => x.FileType).HasMaxLength(16);
             entity.Property(x => x.IndexStatus).HasConversion<string>().HasMaxLength(32);
+            entity.Property(x => x.IndexStage).HasMaxLength(160);
             entity.HasMany(x => x.Chunks).WithOne(x => x.Document).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.UploadedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<DocumentChunk>(entity =>
@@ -64,6 +73,14 @@ public class AppDbContext : DbContext
         {
             entity.Property(x => x.Title).HasMaxLength(160);
             entity.HasMany(x => x.Messages).WithOne(x => x.ChatSession).HasForeignKey(x => x.ChatSessionId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(x => x.Course)
+                .WithMany()
+                .HasForeignKey(x => x.CourseId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ChatMessage>(entity =>
@@ -84,6 +101,11 @@ public class AppDbContext : DbContext
             entity.Property(x => x.RetrievalRecall).HasPrecision(5, 4);
             entity.Property(x => x.CitationAccuracy).HasPrecision(5, 4);
             entity.Property(x => x.Status).HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(x => x.FullName).HasMaxLength(160);
         });
 
     }

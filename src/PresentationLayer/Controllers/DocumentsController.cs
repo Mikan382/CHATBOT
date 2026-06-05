@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using BusinessLayer.Services;
+using DataAccessLayer.Enums;
 using PresentationLayer.ViewModels;
 
 namespace PresentationLayer.Controllers;
 
+[Authorize(Roles = UserRoleNames.All)]
 public class DocumentsController : Controller
 {
     private readonly DocumentService _documentService;
@@ -16,36 +20,40 @@ public class DocumentsController : Controller
     [HttpGet("/documents")]
     public async Task<IActionResult> Index(
         string? searchTerm,
+        Guid? courseId,
         Guid? chapterId,
-        string? message,
-        string? error,
+        DocumentIndexStatus? status,
         CancellationToken cancellationToken)
     {
-        return await BuildIndexViewAsync(message, error, searchTerm, chapterId, cancellationToken);
+        return await BuildIndexViewAsync(searchTerm, courseId, chapterId, status, cancellationToken);
     }
 
     [HttpPost("/documents/upload")]
+    [Authorize(Roles = UserRoleNames.TeacherOrAdmin)]
     [RequestSizeLimit(21 * 1024 * 1024)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Upload(UploadDocumentInput input, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
-            return await BuildIndexViewAsync(null, ValidationSummary(), null, null, cancellationToken);
+            return await BuildIndexViewAsync(null, null, null, null, cancellationToken);
         }
 
         try
         {
-            await _documentService.UploadAsync(input.ChapterId!.Value, input.File!, cancellationToken);
-            return RedirectToAction(nameof(Index), new { message = "Document uploaded. The worker will index it in the background." });
+            await _documentService.UploadAsync(input.ChapterId!.Value, CurrentUserId(), input.File!, cancellationToken);
+            TempData["Success"] = "Document uploaded. The worker will prepare it in the background.";
+            return RedirectToAction(nameof(Index));
         }
         catch (Exception ex)
         {
-            return RedirectToAction(nameof(Index), new { error = ex.Message });
+            TempData["Error"] = ex.Message;
+            return RedirectToAction(nameof(Index));
         }
     }
 
     [HttpPost("/documents/{id:guid}/delete")]
+    [Authorize(Roles = UserRoleNames.TeacherOrAdmin)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(
         Guid id,
@@ -56,20 +64,20 @@ public class DocumentsController : Controller
         try
         {
             await _documentService.DeleteAsync(id, cancellationToken);
+            TempData["Success"] = "Document and related indexed sections were deleted.";
             return RedirectToAction(nameof(Index), new
             {
                 searchTerm,
-                chapterId,
-                message = "Document and related chunks were deleted."
+                chapterId
             });
         }
         catch (Exception ex)
         {
+            TempData["Error"] = ex.Message;
             return RedirectToAction(nameof(Index), new
             {
                 searchTerm,
-                chapterId,
-                error = ex.Message
+                chapterId
             });
         }
     }
@@ -81,6 +89,24 @@ public class DocumentsController : Controller
         return Json(new { success = true, documents });
     }
 
+    [HttpGet("/documents/{id:guid}")]
+    public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var document = await _documentService.GetDetailsAsync(id, cancellationToken);
+            return View(new DocumentDetailsViewModel
+            {
+                Document = document,
+                CanManageDocuments = User.IsInRole(UserRoleNames.Teacher) || User.IsInRole(UserRoleNames.Admin)
+            });
+        }
+        catch
+        {
+            return NotFound();
+        }
+    }
+
     [HttpGet("/api/documents/{id:guid}/chunks")]
     public async Task<IActionResult> ApiChunks(Guid id, CancellationToken cancellationToken)
     {
@@ -89,29 +115,31 @@ public class DocumentsController : Controller
     }
 
     private async Task<IActionResult> BuildIndexViewAsync(
-        string? message,
-        string? error,
         string? searchTerm,
+        Guid? courseId,
         Guid? chapterId,
+        DocumentIndexStatus? status,
         CancellationToken cancellationToken)
     {
-        var data = await _documentService.GetIndexDataAsync(searchTerm, chapterId, cancellationToken);
+        var data = await _documentService.GetIndexDataAsync(searchTerm, courseId, chapterId, status, cancellationToken);
         return View("Index", new DocumentIndexViewModel
         {
             Chapters = data.Chapters,
+            Courses = await _documentService.ListCoursesAsync(cancellationToken),
             Documents = data.Documents,
             SearchTerm = searchTerm,
+            SelectedCourseId = courseId,
             SelectedChapterId = chapterId,
-            Message = message,
-            Error = error
+            SelectedStatus = status,
+            CanManageDocuments = User.IsInRole(UserRoleNames.Teacher) || User.IsInRole(UserRoleNames.Admin)
         });
     }
 
-    private string ValidationSummary()
+    private Guid CurrentUserId()
     {
-        return string.Join(" ", ModelState.Values
-            .SelectMany(x => x.Errors)
-            .Select(x => x.ErrorMessage)
-            .Where(x => !string.IsNullOrWhiteSpace(x)));
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(value, out var userId)
+            ? userId
+            : throw new InvalidOperationException("Current user ID is invalid.");
     }
 }

@@ -10,13 +10,15 @@ namespace BusinessLayer.Services;
 public class ChatService
 {
     private readonly IChatRepository _chatRepository;
+    private readonly ICourseRepository _courseRepository;
     private readonly RetrievalService _retrievalService;
     private readonly IGeminiClient _geminiClient;
     private readonly IFineTuneClient _fineTuneClient;
 
-    public ChatService(IChatRepository chatRepository, RetrievalService retrievalService, IGeminiClient geminiClient, IFineTuneClient fineTuneClient)
+    public ChatService(IChatRepository chatRepository, ICourseRepository courseRepository, RetrievalService retrievalService, IGeminiClient geminiClient, IFineTuneClient fineTuneClient)
     {
         _chatRepository = chatRepository;
+        _courseRepository = courseRepository;
         _retrievalService = retrievalService;
         _geminiClient = geminiClient;
         _fineTuneClient = fineTuneClient;
@@ -26,21 +28,29 @@ public class ChatService
 
     public bool FineTuneConfigured => _fineTuneClient.IsConfigured;
 
-    public async Task<IReadOnlyList<ChatMessageDto>> GetHistoryAsync(Guid sessionId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ChatMessageDto>> GetHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
-        await _chatRepository.EnsureSessionAsync(sessionId, cancellationToken);
-        var messages = await _chatRepository.ListMessagesAsync(sessionId, cancellationToken);
+        var session = await _chatRepository.GetOwnedSessionAsync(sessionId, userId, cancellationToken);
+        if (session is null)
+        {
+            return [];
+        }
+
+        var messages = await _chatRepository.ListMessagesAsync(sessionId, userId, cancellationToken);
         return messages.Select(ToDto).ToList();
     }
 
-    public async Task<ChatResponseDto> SendAsync(Guid sessionId, ModelType modelType, string text, CancellationToken cancellationToken)
+    public async Task<ChatResponseDto> SendAsync(Guid sessionId, Guid userId, Guid courseId, ModelType modelType, string text, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
             throw new InvalidOperationException("Message is empty.");
         }
 
-        await _chatRepository.EnsureSessionAsync(sessionId, cancellationToken);
+        var course = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
+            ?? throw new InvalidOperationException("Course was not found.");
+
+        await _chatRepository.EnsureSessionAsync(sessionId, userId, courseId, cancellationToken);
         var userMessage = new ChatMessage
         {
             Id = Guid.NewGuid(),
@@ -53,7 +63,7 @@ public class ChatService
 
         await _chatRepository.AddMessageAsync(userMessage, cancellationToken);
 
-        var history = await BuildHistoryAsync(sessionId, cancellationToken);
+        var history = await BuildHistoryAsync(sessionId, userId, cancellationToken);
         var citations = new List<CitationDto>();
         string answer;
         string? error = null;
@@ -62,9 +72,9 @@ public class ChatService
         {
             answer = modelType switch
             {
-                ModelType.FineTunedOnly => await GenerateFineTunedAsync(sessionId, text, history, cancellationToken),
-                ModelType.RagHybrid => await GenerateHybridAsync(sessionId, text, history, citations, cancellationToken),
-                _ => await GenerateRagAsync(text, history, citations, cancellationToken)
+                ModelType.FineTunedOnly => await GenerateFineTunedAsync(sessionId, course.Code, text, history, cancellationToken),
+                ModelType.RagHybrid => await GenerateHybridAsync(sessionId, course.Id, course.Code, text, history, citations, cancellationToken),
+                _ => await GenerateRagAsync(course.Id, text, history, citations, cancellationToken)
             };
         }
         catch (Exception ex)
@@ -85,18 +95,18 @@ public class ChatService
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        await _chatRepository.AddAssistantMessageAndTouchSessionAsync(botMessage, sessionId, cancellationToken);
+        await _chatRepository.AddAssistantMessageAndTouchSessionAsync(botMessage, sessionId, userId, cancellationToken);
         return new ChatResponseDto(ToDto(userMessage), ToDto(botMessage));
     }
 
-    public async Task ClearAsync(Guid sessionId, CancellationToken cancellationToken)
+    public async Task ClearAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
-        await _chatRepository.ClearMessagesAsync(sessionId, cancellationToken);
+        await _chatRepository.ClearMessagesAsync(sessionId, userId, cancellationToken);
     }
 
-    private async Task<string> GenerateRagAsync(string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
+    private async Task<string> GenerateRagAsync(Guid courseId, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
     {
-        var chunks = await _retrievalService.RetrieveAsync(text, 3, cancellationToken);
+        var chunks = await _retrievalService.RetrieveAsync(text, courseId, 3, cancellationToken);
         citations.AddRange(chunks.Select(ToCitation));
         if (chunks.Count == 0)
         {
@@ -107,28 +117,28 @@ public class ChatService
         return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(), prompt, cancellationToken);
     }
 
-    private async Task<string> GenerateFineTunedAsync(Guid sessionId, string text, IReadOnlyList<FineTuneHistoryMessage> history, CancellationToken cancellationToken)
+    private async Task<string> GenerateFineTunedAsync(Guid sessionId, string courseCode, string text, IReadOnlyList<FineTuneHistoryMessage> history, CancellationToken cancellationToken)
     {
-        var response = await _fineTuneClient.GenerateAsync(new FineTuneRequest(sessionId.ToString(), "PRN222", text, history), cancellationToken);
+        var response = await _fineTuneClient.GenerateAsync(new FineTuneRequest(sessionId.ToString(), courseCode, text, history), cancellationToken);
         return response.Answer;
     }
 
-    private async Task<string> GenerateHybridAsync(Guid sessionId, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
+    private async Task<string> GenerateHybridAsync(Guid sessionId, Guid courseId, string courseCode, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
     {
-        var chunks = await _retrievalService.RetrieveAsync(text, 3, cancellationToken);
+        var chunks = await _retrievalService.RetrieveAsync(text, courseId, 3, cancellationToken);
         citations.AddRange(chunks.Select(ToCitation));
         if (chunks.Count == 0)
         {
-            return await GenerateFineTunedAsync(sessionId, text, history, cancellationToken);
+            return await GenerateFineTunedAsync(sessionId, courseCode, text, history, cancellationToken);
         }
 
         var prompt = RagPromptBuilder.BuildPrompt(text, chunks, history);
         return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(), prompt, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<FineTuneHistoryMessage>> BuildHistoryAsync(Guid sessionId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<FineTuneHistoryMessage>> BuildHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
-        var messages = await _chatRepository.ListRecentMessagesAsync(sessionId, 12, cancellationToken);
+        var messages = await _chatRepository.ListRecentMessagesAsync(sessionId, userId, 12, cancellationToken);
         return messages
             .Select(x => new FineTuneHistoryMessage(x.Role == ChatRole.User ? "user" : "assistant", x.Content))
             .ToList();

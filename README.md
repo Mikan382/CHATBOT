@@ -1,44 +1,71 @@
 # PRN222 RAG Chatbot
 
-ASP.NET Core MVC application for a PRN222 course document chatbot. The app lets students upload course materials, index document chunks in the background, chat with RAG citations, and compare RAG answers with a custom fine-tuned model endpoint.
+ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 assignment. The system manages courses, chapters, uploaded learning materials, background indexing, realtime chat with citations, and benchmark results for RAG versus a custom fine-tuned endpoint.
 
 ## Project Status
 
-- Runtime stack: ASP.NET Core MVC / Razor Views.
-- Target framework: `net8.0`.
-- SDK pin: `global.json` uses .NET SDK `9.0.304` with feature roll-forward.
-- Database: SQL Server LocalDB by default.
-- Architecture boundary: `PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server`.
-- Configuration source: `appsettings.json`, User Secrets, and environment variables; no `.env` support.
-- UI language: English.
+| Item | Value |
+|---|---|
+| Runtime | ASP.NET Core MVC / Razor Views |
+| Target framework | `net8.0` |
+| SDK | `global.json` pins .NET SDK `9.0.304` with roll-forward |
+| Database | SQL Server LocalDB by default |
+| ORM | EF Core |
+| Authentication | ASP.NET Identity |
+| Roles | `Student`, `Teacher`, `Admin` |
+| Architecture | `PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server` |
+| Secrets | User Secrets or environment variables |
+| `.env` | Not used |
+| UI language | English |
 
 ## Features
 
-- Manage the seeded `PRN222` course and 8 syllabus chapters.
-- Upload `.pdf`, `.docx`, `.pptx`, `.txt`, and `.md` files.
-- Server-side upload validation with DataAnnotations.
-- Extract text from PDF/DOCX/text documents.
-- Store documents, chunks, chat history, and benchmark results in SQL Server.
-- Index uploaded documents through a background worker.
-- Chat in real time through SignalR.
-- Retrieve top document chunks with Hugging Face embeddings when configured.
-- Fall back to local normalized lexical search when embeddings are unavailable.
-- Generate RAG answers through Gemini with citations.
-- Disable fine-tuned mode unless a real endpoint is configured.
-- Run a small benchmark dashboard for RAG/fine-tuned comparison.
-- Show MVC + 3-Layers workflows on the Architecture page.
+- Login/logout with ASP.NET Identity.
+- Role-based access control for Student, Teacher, and Admin.
+- Course and chapter management.
+- Upload `.pdf`, `.docx`, `.pptx`, `.txt`, and `.md` materials.
+- Server-side upload validation.
+- Text extraction for PDF, DOCX, PPTX, TXT, and MD.
+- Background document indexing with visible progress percentage and stage.
+- Document details page with extracted text, chunks, embedding status, and indexing errors.
+- RAG chat through SignalR with SQL Server chat history.
+- Course selector for multi-course RAG retrieval.
+- Hugging Face embedding retrieval when configured.
+- Lexical retrieval fallback when embeddings are unavailable.
+- Gemini-based RAG answer generation with citations.
+- Fine-tuned model mode through a real custom REST endpoint.
+- Benchmark dashboard for RAG/fine-tuned comparison.
+- Architecture page explaining MVC, 3-Layers, SignalR, Worker Service, and EF Core flow.
+
+## Roles and Permissions
+
+| Feature | Student | Teacher | Admin |
+|---|---:|---:|---:|
+| Login / Logout | Yes | Yes | Yes |
+| Chat by selected course | Yes | Yes | Yes |
+| View documents | Yes | Yes | Yes |
+| View document details/chunks | Yes | Yes | Yes |
+| Upload documents | No | Yes | Yes |
+| Delete documents | No | Yes | Yes |
+| CRUD courses | No | Yes | Yes |
+| CRUD chapters | No | Yes | Yes |
+| Benchmark dashboard | No | Yes | Yes |
+| Run benchmark | No | Yes | Yes |
+| Architecture page | No | Yes | Yes |
+| User management | No | No | Yes |
 
 ## Tech Stack
 
 | Area | Technology |
 |---|---|
-| Web UI | ASP.NET Core MVC, Razor Views |
-| Realtime | SignalR |
-| Database | SQL Server LocalDB / SQL Server 2012+ |
+| Web UI | ASP.NET Core MVC, Razor Views, Bootstrap |
+| Authentication | ASP.NET Identity |
+| Realtime chat | SignalR |
+| Database | SQL Server LocalDB / SQL Server |
 | ORM | EF Core |
 | Background jobs | HostedService / BackgroundService |
-| PDF parser | UglyToad.PdfPig |
-| DOCX/PPTX parser | DocumentFormat.OpenXml |
+| PDF parsing | UglyToad.PdfPig |
+| DOCX/PPTX parsing | DocumentFormat.OpenXml |
 | AI generation | Gemini REST API |
 | Embeddings | Hugging Face Inference API |
 | Fine-tuned model | Custom REST endpoint |
@@ -56,28 +83,28 @@ src/
     wwwroot/          CSS, JavaScript, client assets
 
   BusinessLayer/
-    Services/         Chat, document, course, and evaluation orchestration
+    Services/         Auth, chat, document, course, chapter, user, benchmark orchestration
     AI/               Gemini, Hugging Face embedding, and fine-tuned clients
-    Indexing/         Background worker and chunking logic
-    Parsing/          PDF, DOCX, PPTX, TXT, and MD text extraction
+    Indexing/         Background worker, indexing queue, chunking workflow
+    Parsing/          PDF, DOCX, PPTX, TXT, and MD extraction
     Retrieval/        Embedding retrieval and lexical fallback
     DTOs/             Data transfer records
 
   DataAccessLayer/
+    Entities/         EF Core entities and enums
     Repositories/     Data access boundary
     Data/             AppDbContext, migrations, seed/bootstrapper
-    Entities/         EF Core entities and enums
 ```
 
 ## Architecture Rules
 
-The code follows a 3-layer structure:
+The project follows a strict 3-layer structure:
 
 | Layer | Responsibility |
 |---|---|
-| PresentationLayer | Razor Views, Controllers, SignalR Hub, ViewModels, browser assets |
-| BusinessLayer | Services, AI clients, parsing, retrieval, scoring, indexing orchestration, DTOs |
-| DataAccessLayer | Repositories, AppDbContext, EF Core entities, migrations, SQL Server |
+| `PresentationLayer` | Razor Views, Controllers, SignalR Hub, ViewModels, browser assets |
+| `BusinessLayer` | Services, validation, orchestration, AI/RAG flow, parsing, indexing, scoring |
+| `DataAccessLayer` | Repositories, EF Core entities, `AppDbContext`, migrations, SQL Server access |
 
 Project references:
 
@@ -87,17 +114,18 @@ Project references:
 | `BusinessLayer` | `DataAccessLayer` |
 | `PresentationLayer` | `BusinessLayer`, `DataAccessLayer` |
 
-Important constraints:
+Rules:
 
 - Controllers and Hubs call Services only.
 - Services handle validation, orchestration, AI/RAG flow, and DTO mapping.
 - Repositories are the only layer that queries or updates `AppDbContext`.
-- `AppDbContext` is registered with scoped lifetime, not singleton.
 - Razor Views do not inject or query `AppDbContext`.
+- `AppDbContext` is registered as scoped, not singleton.
+- Secrets are not stored in committed configuration files.
 
 ## Configuration
 
-`src/PresentationLayer/appsettings.json` is committed and must contain only non-secret defaults. It stores the required database connection string and safe model settings:
+`src/PresentationLayer/appsettings.json` is committed and contains only safe defaults:
 
 ```json
 {
@@ -109,7 +137,7 @@ Important constraints:
   },
   "HuggingFace": {
     "ModelName": "intfloat/multilingual-e5-base",
-    "ModelUrl": "https://api-inference.huggingface.co/models/intfloat/multilingual-e5-base"
+    "ModelUrl": "https://router.huggingface.co/hf-inference/models/intfloat/multilingual-e5-base/pipeline/feature-extraction"
   },
   "FineTune": {
     "EndpointUrl": ""
@@ -117,47 +145,51 @@ Important constraints:
 }
 ```
 
-Do not put real model/API keys in committed `appsettings.json` or `appsettings.Development.json`.
+Do not commit real API keys or passwords.
 
-For local model keys, use User Secrets. The project already has `UserSecretsId` configured.
-
-Set Gemini:
+Set local secrets with User Secrets:
 
 ```powershell
 dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\PresentationLayer
-```
-
-Set Hugging Face for embeddings:
-
-```powershell
 dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\PresentationLayer
-```
-
-Set the custom fine-tuned endpoint:
-
-```powershell
-dotnet user-secrets set "FineTune:EndpointUrl" "https://your-fine-tuned-endpoint.example/chat" --project .\src\PresentationLayer
+dotnet user-secrets set "FineTune:EndpointUrl" "https://your-endpoint.example/chat" --project .\src\PresentationLayer
 dotnet user-secrets set "FineTune:ApiKey" "YOUR_FINE_TUNE_API_KEY" --project .\src\PresentationLayer
 ```
+
+Seed demo user passwords:
+
+```powershell
+dotnet user-secrets set "SeedUsers:Student:Password" "CHANGE_ME_STUDENT_PASSWORD" --project .\src\PresentationLayer
+dotnet user-secrets set "SeedUsers:Teacher:Password" "CHANGE_ME_TEACHER_PASSWORD" --project .\src\PresentationLayer
+dotnet user-secrets set "SeedUsers:Admin:Password" "CHANGE_ME_ADMIN_PASSWORD" --project .\src\PresentationLayer
+```
+
+Default seeded accounts:
+
+| Role | Email |
+|---|---|
+| Student | `student@prn222.local` |
+| Teacher | `teacher@prn222.local` |
+| Admin | `admin@prn222.local` |
 
 For deployment or CI, use standard ASP.NET Core environment variables:
 
 ```powershell
 $env:Gemini__ApiKey="YOUR_GEMINI_KEY"
 $env:HuggingFace__ApiKey="YOUR_HUGGINGFACE_KEY"
-$env:FineTune__EndpointUrl="https://your-fine-tuned-endpoint.example/chat"
+$env:FineTune__EndpointUrl="https://your-endpoint.example/chat"
 $env:FineTune__ApiKey="YOUR_FINE_TUNE_API_KEY"
+$env:SeedUsers__Admin__Password="CHANGE_ME_ADMIN_PASSWORD"
 ```
 
 Notes:
 
-- `ConnectionStrings:DefaultConnection` must exist in `appsettings.json`; the app fails fast if it is missing.
+- `ConnectionStrings:DefaultConnection` is required.
 - `Gemini:ApiKey` is required for live RAG answer generation.
-- `HuggingFace:ApiKey` is required for embedding-based indexing and retrieval.
-- If Hugging Face is not configured, uploaded documents are still chunked and searched with lexical fallback.
-- `FineTune:EndpointUrl` and `FineTune:ApiKey` are optional.
-- If `FineTune:EndpointUrl` is empty, fine-tuned chat and benchmark options are disabled instead of being mocked.
-- `.env` files are not used by this application.
+- `HuggingFace:ApiKey` is required for embedding-based indexing/retrieval.
+- If Hugging Face is missing, documents are still chunked and lexical retrieval is used.
+- If `FineTune:EndpointUrl` is empty, fine-tuned options are disabled.
+- `.env` files are not loaded.
 
 ## Run Locally
 
@@ -168,13 +200,13 @@ dotnet restore .\Prn222Chatbot.sln
 dotnet build .\Prn222Chatbot.sln
 ```
 
-Create or update the database:
+Apply migrations:
 
 ```powershell
 dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\PresentationLayer
 ```
 
-Run the web app:
+Run:
 
 ```powershell
 dotnet run --project .\src\PresentationLayer --urls http://127.0.0.1:5100
@@ -188,23 +220,34 @@ http://127.0.0.1:5100
 
 ## Main Pages
 
-| Route | Purpose |
-|---|---|
-| `/chat` | Realtime PRN222 chatbot |
-| `/documents` | Upload documents and inspect indexing status |
-| `/benchmark` | RAG/fine-tuned benchmark dashboard |
-| `/architecture` | MVC + 3-Layers architecture explanation |
+| Route | Access | Purpose |
+|---|---|---|
+| `/account/login` | Anonymous | Login page |
+| `/chat` | Student, Teacher, Admin | Realtime RAG chat |
+| `/documents` | Student, Teacher, Admin | List, filter, and inspect documents |
+| `/documents/{id}` | Student, Teacher, Admin | View extracted text, chunks, embeddings, progress |
+| `/courses` | Teacher, Admin | Course CRUD |
+| `/courses/create` | Teacher, Admin | Create course |
+| `/courses/{id}/edit` | Teacher, Admin | Edit course |
+| `/courses/{id}/chapters` | Teacher, Admin | Manage chapters for one course |
+| `/chapters/create` | Teacher, Admin | Create chapter |
+| `/chapters/{id}/edit` | Teacher, Admin | Edit chapter |
+| `/benchmark` | Teacher, Admin | Benchmark dashboard |
+| `/architecture` | Teacher, Admin | Architecture explanation |
+| `/admin/users` | Admin | User management |
 
 ## API Endpoints
 
-| Method | Route | Purpose |
-|---|---|---|
-| GET | `/api/courses/current` | Current course metadata |
-| GET | `/api/documents` | Document list |
-| GET | `/api/documents/{id}/chunks` | Chunks for one document |
-| GET | `/api/chat/{sessionId}` | Chat messages for one session |
-| POST | `/api/evaluations/run` | Run benchmark, max 5 questions |
-| GET | `/api/evaluations/results` | Evaluation results |
+| Method | Route | Access | Purpose |
+|---|---|---|---|
+| GET | `/api/courses` | Student, Teacher, Admin | List courses |
+| GET | `/api/courses/current` | Student, Teacher, Admin | Default/current course |
+| GET | `/api/courses/{id}/chapters` | Student, Teacher, Admin | Chapters for a course |
+| GET | `/api/documents` | Student, Teacher, Admin | Document list with status/progress |
+| GET | `/api/documents/{id}/chunks` | Student, Teacher, Admin | Chunks for one document |
+| GET | `/api/chat/{sessionId}` | Student, Teacher, Admin | Chat history for current user/session |
+| POST | `/api/evaluations/run` | Teacher, Admin | Run benchmark, max 5 questions |
+| GET | `/api/evaluations/results` | Teacher, Admin | Evaluation results |
 
 ## SignalR Hub
 
@@ -219,8 +262,8 @@ Client-to-server methods:
 | Method | Purpose |
 |---|---|
 | `JoinSession(sessionId)` | Join a chat session group |
-| `SendMessage(sessionId, modelType, text)` | Send a user message |
-| `ClearSession(sessionId)` | Clear persisted messages for a session |
+| `SendMessage(sessionId, courseId, modelType, text)` | Send a question for the selected course |
+| `ClearSession(sessionId)` | Clear the current user's session history |
 
 Server-to-client events:
 
@@ -237,6 +280,33 @@ rag_standard
 fine_tuned_only
 rag_hybrid
 ```
+
+## Document Indexing Progress
+
+Uploaded documents are indexed by `BackgroundIndexingService`.
+
+Progress fields are stored in SQL Server:
+
+| Field | Purpose |
+|---|---|
+| `IndexStatus` | `Pending`, `Processing`, `Indexed`, `Failed` |
+| `IndexProgressPercent` | `0` to `100` |
+| `IndexStage` | Human-readable current stage |
+| `IndexError` | Failure message when indexing fails |
+
+Default progress stages:
+
+| Stage | Percent |
+|---|---:|
+| Queued | 0 |
+| Preparing document | 10 |
+| Chunking text | 30 |
+| Saving chunks | 50 |
+| Creating embeddings | 60-95 |
+| Finalizing | 98 |
+| Indexed | 100 |
+
+The Documents page displays the status badge, progress percentage, stage text, and progress bar.
 
 ## Fine-tuned Endpoint Contract
 
@@ -266,7 +336,7 @@ Response body:
 
 ## Manual Verification Checklist
 
-Use this checklist after changing code:
+Run after code changes:
 
 ```powershell
 dotnet build .\Prn222Chatbot.sln
@@ -277,39 +347,36 @@ dotnet list .\src\DataAccessLayer\DataAccessLayer.csproj reference
 rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\\." src/PresentationLayer/Controllers src/PresentationLayer/Hubs src/BusinessLayer
 rg "@inject\\s+.*(DbContext|AppDbContext)" src/PresentationLayer/Views
 rg "AddSingleton<.*DbContext|AddSingleton\\(.*DbContext" src/PresentationLayer/Program.cs
-rg "EnvFileConfiguration|\\.env.example|ConnectionStrings__DefaultConnection" . -g "!src/**/bin/**" -g "!src/**/obj/**" -g "!README.md"
-rg "\"ApiKey\"|hf_" src/PresentationLayer/appsettings.json src/PresentationLayer/appsettings.Development.json
+rg "ApiKey|hf_" src/PresentationLayer/appsettings.json src/PresentationLayer/appsettings.Development.json
 ```
 
 Expected:
 
 - Build has `0 Warning(s)` and `0 Error(s)`.
-- Controllers, Hubs, and BusinessLayer services do not use EF Core or `AppDbContext` directly.
-- Solution lists exactly `PresentationLayer`, `BusinessLayer`, and `DataAccessLayer`.
-- `DataAccessLayer` has no project references; `BusinessLayer` references only `DataAccessLayer`.
+- `DataAccessLayer` has no project references.
+- `BusinessLayer` references only `DataAccessLayer`.
+- Controllers, Hubs, and BusinessLayer do not use EF Core or `AppDbContext` directly.
 - Razor Views do not inject `AppDbContext`.
 - `AppDbContext` is not registered as singleton.
-- There is no custom `.env` loader and no `.env.example` configuration template.
-- Committed `appsettings.json` does not contain API key fields.
-- Database migrations are applied before testing upload/indexing.
+- Committed appsettings files do not contain API keys.
 
 Suggested browser checks:
 
-- `/chat` renders.
-- `/documents` renders.
-- Upload a `.txt`, `.pdf`, `.docx`, and `.pptx` file.
-- Uploaded documents become indexed chunks.
-- With `HuggingFace:ApiKey` configured, newly indexed chunks also get stored embeddings.
-- RAG answers include citations when relevant context exists.
-- Out-of-scope questions are rejected or answered as insufficient context.
-- `/benchmark` loads and can run up to 5 questions.
-- `/architecture` explains MVC + 3-Layers clearly.
+- Anonymous user is redirected to `/account/login`.
+- Student can open `/chat`, `/documents`, and `/documents/{id}`.
+- Student cannot upload/delete documents or open `/courses`, `/benchmark`, `/architecture`.
+- Teacher can upload documents and manage courses/chapters.
+- Admin can open `/admin/users`.
+- Upload shows loading feedback.
+- Indexing shows progress percent and stage.
+- Document Details shows extracted text, chunks, embeddings, and errors.
+- Chat uses selected course for retrieval.
+- Benchmark runs up to 5 questions.
 
 ## Academic Notes
 
-- Embedding retrieval uses Hugging Face vectors stored in SQL Server as JSON for demo purposes.
-- This is not a production vector database; large-scale deployments should use a proper vector index.
+- SQL Server stores embeddings as JSON for assignment/demo purposes.
+- This is not a production vector database.
 - Lexical retrieval remains as a no-key fallback for classroom demos.
-- The embedding model comparison table is an RBL comparison aid, not proof that all embedding models were executed.
-- The seeded PRN222 data provides course structure and benchmark questions.
-- Deeper answer quality depends on the uploaded course materials.
+- The seeded PRN222 data provides a baseline course, chapters, documents, and benchmark questions.
+- Deeper RAG answer quality depends on uploaded course materials.

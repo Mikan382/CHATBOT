@@ -38,12 +38,11 @@ public class DocumentIndexingService
             return;
         }
 
-        document.IndexStatus = DocumentIndexStatus.Processing;
-        document.IndexError = null;
-        await _documentRepository.SaveChangesAsync(cancellationToken);
+        await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 10, "Preparing document", null, cancellationToken);
 
         try
         {
+            await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 30, "Chunking text", null, cancellationToken);
             var chunks = _chunker.Chunk(document.ContentText)
                 .Select((content, index) => new DocumentChunk
                 {
@@ -57,35 +56,36 @@ public class DocumentIndexingService
                 })
                 .ToList();
 
+            await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 50, "Saving chunks", null, cancellationToken);
             await _documentRepository.ReplaceChunksAsync(document.Id, chunks, cancellationToken);
             await _documentRepository.SaveChangesAsync(cancellationToken);
-            await TryCreateEmbeddingsAsync(chunks, cancellationToken);
+            await TryCreateEmbeddingsAsync(document, chunks, cancellationToken);
 
-            document.IndexStatus = DocumentIndexStatus.Indexed;
-            document.IndexError = null;
-            await _documentRepository.SaveChangesAsync(cancellationToken);
+            await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 98, "Finalizing", null, cancellationToken);
+            await UpdateProgressAsync(document, DocumentIndexStatus.Indexed, 100, "Indexed", null, cancellationToken);
         }
         catch (Exception ex)
         {
-            document.IndexStatus = DocumentIndexStatus.Failed;
-            document.IndexError = ex.Message;
-            await _documentRepository.SaveChangesAsync(cancellationToken);
+            await UpdateProgressAsync(document, DocumentIndexStatus.Failed, document.IndexProgressPercent, "Failed", ex.Message, cancellationToken);
             _logger.LogError(ex, "Failed indexing document {DocumentId}", documentId);
         }
     }
 
-    private async Task TryCreateEmbeddingsAsync(IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken)
+    private async Task TryCreateEmbeddingsAsync(Document document, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken)
     {
         if (!_embeddingClient.IsConfigured || chunks.Count == 0)
         {
+            await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 95, "Embedding skipped", null, cancellationToken);
             return;
         }
 
         try
         {
+            await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 60, "Creating embeddings", null, cancellationToken);
             var embeddings = new List<DocumentChunkEmbedding>();
-            foreach (var chunk in chunks)
+            for (var index = 0; index < chunks.Count; index++)
             {
+                var chunk = chunks[index];
                 var vector = await _embeddingClient.EmbedPassageAsync(chunk.Content, cancellationToken);
                 embeddings.Add(new DocumentChunkEmbedding
                 {
@@ -96,13 +96,32 @@ public class DocumentIndexingService
                     VectorJson = JsonSerializer.Serialize(vector),
                     CreatedAtUtc = DateTime.UtcNow
                 });
+
+                var progress = 60 + (int)Math.Floor(((index + 1) / (double)chunks.Count) * 35);
+                await UpdateProgressAsync(document, DocumentIndexStatus.Processing, progress, $"Creating embeddings ({index + 1}/{chunks.Count})", null, cancellationToken);
             }
 
             await _embeddingRepository.ReplaceEmbeddingsAsync(embeddings, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            await UpdateProgressAsync(document, DocumentIndexStatus.Processing, 95, "Chunks indexed; embedding failed", null, cancellationToken);
             _logger.LogWarning(ex, "Document chunks were indexed, but embedding generation failed.");
         }
+    }
+
+    private async Task UpdateProgressAsync(
+        Document document,
+        DocumentIndexStatus status,
+        int percent,
+        string stage,
+        string? error,
+        CancellationToken cancellationToken)
+    {
+        document.IndexStatus = status;
+        document.IndexProgressPercent = Math.Clamp(percent, 0, 100);
+        document.IndexStage = stage;
+        document.IndexError = error;
+        await _documentRepository.SaveChangesAsync(cancellationToken);
     }
 }

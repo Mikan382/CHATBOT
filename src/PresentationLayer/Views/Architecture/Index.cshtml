@@ -39,7 +39,7 @@
         <table class="table table-sm">
             <tr><th>PresentationLayer</th><td>Razor Views, MVC Controllers, SignalR Hub, ViewModels, Bootstrap UI, browser JavaScript clients.</td></tr>
             <tr><th>BusinessLayer</th><td>Services, DTOs, AI clients, parsers, retrieval, scoring, indexing orchestration.</td></tr>
-            <tr><th>DataAccessLayer</th><td>Repositories, AppDbContext, EF Core entities, SQL Server LocalDB, migrations.</td></tr>
+            <tr><th>DataAccessLayer</th><td>Repositories, EF Core entities, SQL Server LocalDB, migrations.</td></tr>
         </table>
     </div>
 </div>
@@ -47,6 +47,6 @@
 <div class="card app-card mt-4">
     <div class="card-body">
         <h5>Runtime Dependency Rule</h5>
-        <p class="mb-0"><code>PresentationLayer -> BusinessLayer -> DataAccessLayer -> AppDbContext/EF Core -> SQL Server</code></p>
+        <p class="mb-0"><code>PresentationLayer -> BusinessLayer -> DataAccessLayer -> EF Core -> SQL Server</code></p>
     </div>
 </div>

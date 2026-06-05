@@ -24,13 +24,13 @@ public class RetrievalService
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveAsync(string query, int topK, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveAsync(string query, Guid? courseId, int topK, CancellationToken cancellationToken)
     {
         if (_embeddingClient.IsConfigured)
         {
             try
             {
-                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, topK, cancellationToken);
+                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, cancellationToken);
                 if (embeddedResults.Count > 0)
                 {
                     return embeddedResults;
@@ -42,10 +42,10 @@ public class RetrievalService
             }
         }
 
-        return await RetrieveLexicalAsync(query, topK, cancellationToken);
+        return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(string query, int topK, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(string query, Guid? courseId, int topK, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
@@ -53,7 +53,7 @@ public class RetrievalService
         }
 
         var queryVector = await _embeddingClient.EmbedQueryAsync(query, cancellationToken);
-        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(_embeddingClient.ModelName, cancellationToken);
+        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(_embeddingClient.ModelName, courseId, cancellationToken);
         if (embeddings.Count == 0)
         {
             return [];
@@ -88,7 +88,7 @@ public class RetrievalService
             .ToList();
     }
 
-    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveLexicalAsync(string query, int topK, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveLexicalAsync(string query, Guid? courseId, int topK, CancellationToken cancellationToken)
     {
         var terms = TextNormalizer.Terms(query);
         if (terms.Count == 0)
@@ -96,7 +96,7 @@ public class RetrievalService
             return [];
         }
 
-        var chunks = await _documentRepository.ListIndexedChunksAsync(cancellationToken);
+        var chunks = await _documentRepository.ListIndexedChunksAsync(courseId, cancellationToken);
         var scored = chunks
             .Select(chunk => new
             {

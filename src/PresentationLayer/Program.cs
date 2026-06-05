@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using DataAccessLayer.Data;
+using DataAccessLayer.Entities;
 using PresentationLayer.Hubs;
 using DataAccessLayer.Repositories;
 using BusinessLayer.Services;
@@ -17,6 +19,33 @@ builder.Services.AddRazorPages();
 builder.Services.AddSignalR();
 builder.Services.AddSession();
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+{
+    options.Password.RequiredLength = 8;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = false;
+    options.User.RequireUniqueEmail = true;
+})
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/account/login";
+    options.AccessDeniedPath = "/account/login";
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (HttpMethods.IsPost(context.Request.Method) || context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        }
+
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+});
 builder.Services.AddSingleton<IIndexingQueue, IndexingQueue>();
 builder.Services.AddSingleton<TextChunker>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
@@ -26,10 +55,13 @@ builder.Services.AddScoped<IDocumentEmbeddingRepository, DocumentEmbeddingReposi
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IEvaluationRepository, EvaluationRepository>();
 builder.Services.AddScoped<CourseService>();
+builder.Services.AddScoped<ChapterService>();
 builder.Services.AddScoped<DocumentIndexingService>();
 builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<EvaluationService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<UserAdminService>();
 builder.Services.AddScoped<RetrievalService>();
 builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 builder.Services.AddHttpClient<IGeminiClient, GeminiClient>();
@@ -54,6 +86,7 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(

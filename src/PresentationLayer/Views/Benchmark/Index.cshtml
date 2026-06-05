@@ -7,16 +7,16 @@
 <div class="card app-card mb-4">
     <div class="card-body d-flex flex-column flex-lg-row justify-content-between gap-3">
         <div>
-            <h4>RBL Benchmark Dashboard</h4>
-            <p class="text-muted mb-0">50 PRN222 ground-truth questions, RAGAS-like scoring, and RAG vs fine-tuned endpoint comparison.</p>
+            <h4>Answer Evaluation</h4>
+            <p class="text-muted mb-0">Run a small set of prepared questions and review answer quality.</p>
         </div>
         <button id="runBenchmark" class="btn btn-primary">Run 5 Questions</button>
     </div>
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-3"><div class="metric-card"><span>Gemini</span><strong>@(Model.GeminiConfigured ? "Configured" : "Missing")</strong></div></div>
-    <div class="col-md-3"><div class="metric-card"><span>Fine-tuned</span><strong>@(Model.FineTuneConfigured ? "Configured" : "Disabled")</strong></div></div>
+    <div class="col-md-3"><div class="metric-card"><span>Main assistant</span><strong>@(Model.GeminiConfigured ? "Ready" : "Missing")</strong></div></div>
+    <div class="col-md-3"><div class="metric-card"><span>Backup assistant</span><strong>@(Model.FineTuneConfigured ? "Ready" : "Disabled")</strong></div></div>
     <div class="col-md-3"><div class="metric-card"><span>Questions</span><strong>@Model.Questions.Count</strong></div></div>
     <div class="col-md-3"><div class="metric-card"><span>Latest Faithfulness</span><strong>@(latest?.Faithfulness.ToString("0.00") ?? "-")</strong></div></div>
 </div>
@@ -55,7 +55,7 @@
                 <h5>Chunking Strategy Benchmark</h5>
                 <ul class="small mb-0">
                     <li>Paragraph-based: default strategy that balances context and citations.</li>
-                    <li>Fixed-size: fast, but may split meaning across chunks.</li>
+                    <li>Fixed-size: fast, but may split meaning across sections.</li>
                     <li>Semantic: more accurate, but requires model support and higher cost.</li>
                 </ul>
             </div>

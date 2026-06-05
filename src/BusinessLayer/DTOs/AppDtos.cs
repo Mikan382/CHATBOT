@@ -22,12 +22,18 @@ public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Su
 
 public record CourseDto(Guid Id, string Code, string Name, string Description, string Tools, IReadOnlyList<ChapterDto> Chapters);
 
+public record CourseListDto(Guid Id, string Code, string Name, string Description, string Tools, int ChaptersCount);
+
+public record UserListDto(Guid Id, string Email, string FullName, string Role, bool IsLockedOut);
+
 public record DocumentApiDto(
     Guid Id,
     string OriginalFileName,
     string FileType,
     long FileSizeBytes,
     string IndexStatus,
+    int IndexProgressPercent,
+    string IndexStage,
     string? IndexError,
     DateTime UploadedAtUtc,
     ChapterDto? Chapter,

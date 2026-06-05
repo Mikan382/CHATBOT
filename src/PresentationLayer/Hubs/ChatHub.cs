@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using BusinessLayer.Services;
+using DataAccessLayer.Enums;
 
 namespace PresentationLayer.Hubs;
 
+[Authorize(Roles = UserRoleNames.All)]
 public class ChatHub : Hub
 {
     private readonly ChatService _chatService;
@@ -23,11 +27,17 @@ public class ChatHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
     }
 
-    public async Task SendMessage(string sessionId, string modelType, string text)
+    public async Task SendMessage(string sessionId, string courseId, string modelType, string text)
     {
         if (!Guid.TryParse(sessionId, out var parsedSessionId))
         {
             await Clients.Caller.SendAsync("MessageFailed", "Invalid session ID.");
+            return;
+        }
+
+        if (!Guid.TryParse(courseId, out var parsedCourseId))
+        {
+            await Clients.Caller.SendAsync("MessageFailed", "Invalid course ID.");
             return;
         }
 
@@ -39,7 +49,7 @@ public class ChatHub : Hub
 
         try
         {
-            var response = await _chatService.SendAsync(parsedSessionId, parsedModelType, text, Context.ConnectionAborted);
+            var response = await _chatService.SendAsync(parsedSessionId, CurrentUserId(), parsedCourseId, parsedModelType, text, Context.ConnectionAborted);
             await Clients.Group(sessionId).SendAsync("MessageReceived", response.UserMessage);
             await Clients.Group(sessionId).SendAsync("MessageReceived", response.BotMessage);
         }
@@ -57,7 +67,15 @@ public class ChatHub : Hub
             return;
         }
 
-        await _chatService.ClearAsync(parsedSessionId, Context.ConnectionAborted);
+        await _chatService.ClearAsync(parsedSessionId, CurrentUserId(), Context.ConnectionAborted);
         await Clients.Group(sessionId).SendAsync("SessionCleared");
+    }
+
+    private Guid CurrentUserId()
+    {
+        var value = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(value, out var userId)
+            ? userId
+            : throw new InvalidOperationException("Current user ID is invalid.");
     }
 }

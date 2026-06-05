@@ -4,6 +4,7 @@
   const form = document.getElementById("chatForm");
   const input = document.getElementById("messageInput");
   const clearButton = document.getElementById("clearButton");
+  const courseSelect = document.getElementById("courseId");
 
   function modelType() {
     return document.querySelector("input[name='modelType']:checked").value;
@@ -70,7 +71,7 @@
     }
 
     input.value = "";
-    await connection.invoke("SendMessage", sessionId, modelType(), text);
+    await connection.invoke("SendMessage", sessionId, courseSelect.value, modelType(), text);
   });
 
   clearButton.addEventListener("click", async () => {

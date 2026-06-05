@@ -7,29 +7,38 @@
     <div class="col-lg-3 chat-sidebar">
         <div class="card app-card">
             <div class="card-body">
-                <h5 class="card-title">Model Settings</h5>
+                <h5 class="card-title">Chat Settings</h5>
                 <p class="text-muted small">Session: <span id="sessionId">@Model.SessionId</span></p>
+                <div class="mb-3">
+                    <label class="form-label small text-muted" for="courseId">Course</label>
+                    <select id="courseId" class="form-select form-select-sm">
+                        @foreach (var course in Model.Courses)
+                        {
+                            <option value="@course.Id" selected="@(course.Id == Model.SelectedCourseId)">@course.Code - @course.Name</option>
+                        }
+                    </select>
+                </div>
 
                 <div class="model-option">
                     <input class="form-check-input" type="radio" name="modelType" id="rag" value="rag_standard" checked>
-                    <label class="form-check-label" for="rag">RAG Standard</label>
-                    <p class="text-muted small mb-0">Retrieve PRN222 documents and answer with citations.</p>
+                    <label class="form-check-label" for="rag">Course Documents</label>
+                    <p class="text-muted small mb-0">Answer using the selected course documents.</p>
                 </div>
 
                 <div class="model-option">
                     <input class="form-check-input" type="radio" name="modelType" id="hybrid" value="rag_hybrid">
-                    <label class="form-check-label" for="hybrid">Hybrid FT + RAG</label>
-                    <p class="text-muted small mb-0">Use RAG when context exists; fallback to the fine-tuned endpoint.</p>
+                    <label class="form-check-label" for="hybrid">Document + Backup Answer</label>
+                    <p class="text-muted small mb-0">Use course documents first, then the backup answer service if needed.</p>
                 </div>
 
                 <div class="model-option @(Model.FineTuneConfigured ? "" : "disabled")">
                     <input class="form-check-input" type="radio" name="modelType" id="ft" value="fine_tuned_only" @(Model.FineTuneConfigured ? "" : "disabled")>
-                    <label class="form-check-label" for="ft">Fine-tuned Only</label>
-                    <p class="text-muted small mb-0">@(Model.FineTuneConfigured ? "Custom REST endpoint is configured." : "FineTune:EndpointUrl is not configured.")</p>
+                    <label class="form-check-label" for="ft">Backup Answer Only</label>
+                    <p class="text-muted small mb-0">@(Model.FineTuneConfigured ? "Backup answer service is available." : "Backup answer service is not available.")</p>
                 </div>
 
                 <div class="alert @(Model.GeminiConfigured ? "alert-success" : "alert-warning") small mt-3 mb-0">
-                    Gemini: @(Model.GeminiConfigured ? "configured" : "API key is missing")
+                    Assistant: @(Model.GeminiConfigured ? "ready" : "not available")
                 </div>
             </div>
         </div>
@@ -39,14 +48,14 @@
         <div class="card app-card chat-shell">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
-                    <strong>PRN222 Chat Room</strong>
-                    <div class="small text-muted">SignalR realtime + SQL Server history</div>
+                    <strong>Ask about your course</strong>
+                    <div class="small text-muted">Messages are saved for this session.</div>
                 </div>
                 <button id="clearButton" class="btn btn-sm btn-outline-danger">Clear</button>
             </div>
             <div id="messages" class="chat-log"></div>
             <form id="chatForm" class="chat-form">
-                <input id="messageInput" class="form-control" autocomplete="off" placeholder="Ask about MVC, Razor Pages, Blazor, SignalR, Worker Service..." />
+                <input id="messageInput" class="form-control" autocomplete="off" placeholder="Ask a question about the selected course..." />
                 <button class="btn btn-primary" type="submit">Send</button>
             </form>
         </div>

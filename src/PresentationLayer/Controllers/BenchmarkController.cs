@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using BusinessLayer.Services;
+using DataAccessLayer.Enums;
 using PresentationLayer.ViewModels;
 
 namespace PresentationLayer.Controllers;
 
+[Authorize(Roles = UserRoleNames.TeacherOrAdmin)]
 public class BenchmarkController : Controller
 {
     private readonly EvaluationService _evaluationService;

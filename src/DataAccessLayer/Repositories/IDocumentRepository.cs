@@ -8,14 +8,15 @@ namespace DataAccessLayer.Repositories;
 public interface IDocumentRepository
 {
     Task AddAsync(Document document, CancellationToken cancellationToken);
-    Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? chapterId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, DocumentIndexStatus? status, CancellationToken cancellationToken);
+    Task<Document?> GetDetailsAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<DocumentChunk>> ListChunksAsync(Guid documentId, CancellationToken cancellationToken);
     Task<Document?> GetForIndexingAsync(Guid documentId, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task ReplaceChunksAsync(Guid documentId, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<Guid>> ListPendingOrProcessingIdsAsync(CancellationToken cancellationToken);
-    Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(Guid? courseId, CancellationToken cancellationToken);
 }
 
 public class DocumentRepository : IDocumentRepository
@@ -33,11 +34,13 @@ public class DocumentRepository : IDocumentRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? chapterId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, DocumentIndexStatus? status, CancellationToken cancellationToken)
     {
         var query = _db.Documents
             .Include(x => x.Chapter)
+            .ThenInclude(x => x!.Course)
             .Include(x => x.Chunks)
+            .Include(x => x.UploadedByUser)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -51,10 +54,32 @@ public class DocumentRepository : IDocumentRepository
             query = query.Where(x => x.ChapterId == chapterId.Value);
         }
 
+        if (courseId.HasValue)
+        {
+            query = query.Where(x => x.Chapter!.CourseId == courseId.Value);
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(x => x.IndexStatus == status.Value);
+        }
+
         return await query
             .OrderByDescending(x => x.UploadedAtUtc)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Document?> GetDetailsAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return await _db.Documents
+            .Include(x => x.Chapter)
+            .ThenInclude(x => x!.Course)
+            .Include(x => x.UploadedByUser)
+            .Include(x => x.Chunks.OrderBy(c => c.ChunkIndex))
+            .ThenInclude(x => x.Embeddings)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
     public async Task<IReadOnlyList<DocumentChunk>> ListChunksAsync(Guid documentId, CancellationToken cancellationToken)
@@ -108,12 +133,20 @@ public class DocumentRepository : IDocumentRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(Guid? courseId, CancellationToken cancellationToken)
     {
-        return await _db.DocumentChunks
+        var query = _db.DocumentChunks
             .Include(x => x.Document)
             .ThenInclude(x => x!.Chapter)
-            .Where(x => x.Document!.IndexStatus == DocumentIndexStatus.Indexed)
+            .ThenInclude(x => x!.Course)
+            .Where(x => x.Document!.IndexStatus == DocumentIndexStatus.Indexed);
+
+        if (courseId.HasValue)
+        {
+            query = query.Where(x => x.Document!.Chapter!.CourseId == courseId.Value);
+        }
+
+        return await query
             .AsNoTracking()
             .ToListAsync(cancellationToken);
     }
