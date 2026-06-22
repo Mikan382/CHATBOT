@@ -34,7 +34,13 @@ ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 ass
 - Lexical retrieval fallback when embeddings are unavailable.
 - Gemini-based RAG answer generation with citations.
 - Fine-tuned model mode through a real custom REST endpoint.
-- Benchmark dashboard for RAG/fine-tuned comparison.
+- Benchmark dashboard for RAG/fine-tuned comparison with Chart.js charts.
+- Multi-chunking strategy benchmark (paragraph, fixed-size, sentence-based).
+- Multi-embedding model benchmark (multilingual-e5-base, text-embedding-3-small, PhoBERT-base, bge-m3).
+- LLM-based RAGAS scoring (Faithfulness, Answer Relevance, Context Recall, Citation Accuracy).
+- Full comparative benchmark across all strategy × model combinations.
+- Benchmark results export as JSON.
+- Vietnamese language support in RAG chat responses.
 - Architecture page explaining MVC, 3-Layers, SignalR, Worker Service, and EF Core flow.
 
 ## Roles and Permissions
@@ -246,8 +252,10 @@ http://127.0.0.1:5100
 | GET | `/api/documents` | Student, Teacher, Admin | Document list with status/progress |
 | GET | `/api/documents/{id}/chunks` | Student, Teacher, Admin | Chunks for one document |
 | GET | `/api/chat/{sessionId}` | Student, Teacher, Admin | Chat history for current user/session |
-| POST | `/api/evaluations/run` | Teacher, Admin | Run benchmark, max 5 questions |
-| GET | `/api/evaluations/results` | Teacher, Admin | Evaluation results |
+| POST | `/api/evaluations/run` | Teacher, Admin | Run benchmark with optional strategy/model, max 50 questions |
+| POST | `/api/evaluations/run-full` | Teacher, Admin | Full comparative benchmark (all strategies × all models) |
+| GET | `/api/evaluations/results` | Teacher, Admin | Evaluation results with research metadata |
+| GET | `/api/evaluations/export` | Teacher, Admin | Export results as JSON |
 
 ## SignalR Hub
 

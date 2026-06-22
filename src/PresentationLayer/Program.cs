@@ -70,6 +70,11 @@ builder.Services.AddHttpClient<IFineTuneClient, FineTuneClient>();
 builder.Services.AddHostedService<BackgroundIndexingService>();
 builder.Services.AddHostedService<PendingDocumentQueueHostedService>();
 
+// Research module services
+builder.Services.AddSingleton<EmbeddingClientFactory>();
+builder.Services.AddScoped<RagasScorer>();
+builder.Services.AddHttpClient();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

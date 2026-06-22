@@ -6,6 +6,11 @@
 # Local environment files. The app does not load .env; keep ignored for secret safety.
 .env
 
+# Dotnet CLI home redirect (used when C:\Users is not writable)
+.dotnet/
+.dotnet-home/
+.nuget-packages/
+
 # User-specific files
 *.rsuser
 *.suo

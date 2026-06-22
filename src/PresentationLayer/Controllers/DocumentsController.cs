@@ -10,6 +10,7 @@ namespace PresentationLayer.Controllers;
 [Authorize(Roles = UserRoleNames.All)]
 public class DocumentsController : Controller
 {
+    private const long UploadRequestLimitBytes = 100 * 1024 * 1024;
     private readonly DocumentService _documentService;
 
     public DocumentsController(DocumentService documentService)
@@ -30,7 +31,8 @@ public class DocumentsController : Controller
 
     [HttpPost("/documents/upload")]
     [Authorize(Roles = UserRoleNames.TeacherOrAdmin)]
-    [RequestSizeLimit(21 * 1024 * 1024)]
+    [RequestSizeLimit(UploadRequestLimitBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimitBytes)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Upload(UploadDocumentInput input, CancellationToken cancellationToken)
     {

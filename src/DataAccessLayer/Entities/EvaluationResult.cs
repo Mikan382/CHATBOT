@@ -15,4 +15,14 @@ public class EvaluationResult
     public string Status { get; set; } = "Completed";
     public string? ErrorMessage { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+    // Research metadata
+    public string ChunkingStrategy { get; set; } = "paragraph";
+    public string EmbeddingModelName { get; set; } = "";
+    public int RagLatencyMs { get; set; }
+    public int FineTunedLatencyMs { get; set; }
+
+    // Fine-tuned scoring (parallel to RAG scoring)
+    public decimal FtFaithfulness { get; set; }
+    public decimal FtAnswerRelevance { get; set; }
 }

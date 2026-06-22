@@ -50,7 +50,15 @@ public record EvaluationResultApiDto(
     decimal RetrievalRecall,
     decimal CitationAccuracy,
     string? ErrorMessage,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    string ChunkingStrategy,
+    string EmbeddingModelName,
+    int RagLatencyMs,
+    int FineTunedLatencyMs,
+    string RagAnswer,
+    string? FineTunedAnswer,
+    decimal FtFaithfulness,
+    decimal FtAnswerRelevance);
 
 public static class ModelTypeParser
 {

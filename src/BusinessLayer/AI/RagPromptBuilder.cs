@@ -9,6 +9,7 @@ public static class RagPromptBuilder
         Answer only from the provided document context.
         If the context does not contain enough information, clearly state that the current documents are insufficient for an accurate answer.
         Prefer precise .NET and ASP.NET Core terminology, keep the explanation concise, and cite source files when available.
+        You can respond in either Vietnamese or English depending on the language of the student's question.
         """;
     }
 
@@ -34,7 +35,7 @@ public static class RagPromptBuilder
         {context}
 
         Answer requirements:
-        - Answer in English.
+        - Respond in the same language as the student's question. If the question is in Vietnamese, answer in Vietnamese. If in English, answer in English.
         - Use only the information in the document context.
         - If an answer is possible, add a source line in this format: [Source: file_name, chunk #n].
         - If the context is insufficient, clearly state that the documents are insufficient.

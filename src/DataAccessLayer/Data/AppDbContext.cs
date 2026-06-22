@@ -100,7 +100,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
             entity.Property(x => x.AnswerRelevance).HasPrecision(5, 4);
             entity.Property(x => x.RetrievalRecall).HasPrecision(5, 4);
             entity.Property(x => x.CitationAccuracy).HasPrecision(5, 4);
+            entity.Property(x => x.FtFaithfulness).HasPrecision(5, 4);
+            entity.Property(x => x.FtAnswerRelevance).HasPrecision(5, 4);
             entity.Property(x => x.Status).HasMaxLength(32);
+            entity.Property(x => x.ChunkingStrategy).HasMaxLength(64).HasDefaultValue("paragraph");
+            entity.Property(x => x.EmbeddingModelName).HasMaxLength(160);
         });
 
         modelBuilder.Entity<ApplicationUser>(entity =>

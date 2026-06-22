@@ -26,7 +26,9 @@ public class BenchmarkController : Controller
             Questions = data.Questions,
             Results = data.Results,
             FineTuneConfigured = _evaluationService.FineTuneConfigured,
-            GeminiConfigured = _evaluationService.GeminiConfigured
+            GeminiConfigured = _evaluationService.GeminiConfigured,
+            ChunkingStrategies = _evaluationService.AvailableChunkingStrategies,
+            EmbeddingModels = _evaluationService.AvailableEmbeddingModels
         });
     }
 
@@ -49,7 +51,19 @@ public class BenchmarkController : Controller
             return BadRequest(new { success = false, errors });
         }
 
-        var results = await _evaluationService.RunAsync(request.Limit ?? 5, cancellationToken);
+        var results = await _evaluationService.RunAsync(
+            request.Limit ?? 5,
+            request.ChunkingStrategy,
+            request.EmbeddingModel,
+            cancellationToken);
+        return Json(new { success = true, count = results.Count, results });
+    }
+
+    [HttpPost("/api/evaluations/run-full")]
+    public async Task<IActionResult> RunFull([FromBody] RunFullBenchmarkRequest? request, CancellationToken cancellationToken)
+    {
+        var limit = request?.QuestionLimit ?? 5;
+        var results = await _evaluationService.RunFullBenchmarkAsync(limit, cancellationToken);
         return Json(new { success = true, count = results.Count, results });
     }
 
@@ -60,9 +74,24 @@ public class BenchmarkController : Controller
         return Json(new { success = true, results });
     }
 
+    [HttpGet("/api/evaluations/export")]
+    public async Task<IActionResult> Export(CancellationToken cancellationToken)
+    {
+        var results = await _evaluationService.ListResultsAsync(cancellationToken);
+        return Json(results);
+    }
+
     public class RunEvaluationRequest
     {
-        [Range(1, 5, ErrorMessage = "Limit must be between 1 and 5.")]
+        [Range(1, 50, ErrorMessage = "Limit must be between 1 and 50.")]
         public int? Limit { get; set; }
+        public string? ChunkingStrategy { get; set; }
+        public string? EmbeddingModel { get; set; }
+    }
+
+    public class RunFullBenchmarkRequest
+    {
+        [Range(1, 50, ErrorMessage = "Question limit must be between 1 and 50.")]
+        public int? QuestionLimit { get; set; }
     }
 }

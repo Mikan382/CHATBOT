@@ -3,8 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace BusinessLayer.Indexing;
 
-public class TextChunker
+public class TextChunker : ITextChunker
 {
+    public string StrategyName => "paragraph";
+
     private const int TargetMin = 800;
     private const int TargetMax = 1200;
     private const int Overlap = 150;

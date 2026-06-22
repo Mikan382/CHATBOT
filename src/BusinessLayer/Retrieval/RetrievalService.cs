@@ -10,17 +10,20 @@ public class RetrievalService
     private readonly IDocumentRepository _documentRepository;
     private readonly IDocumentEmbeddingRepository _embeddingRepository;
     private readonly IEmbeddingClient _embeddingClient;
+    private readonly EmbeddingClientFactory _embeddingClientFactory;
     private readonly ILogger<RetrievalService> _logger;
 
     public RetrievalService(
         IDocumentRepository documentRepository,
         IDocumentEmbeddingRepository embeddingRepository,
         IEmbeddingClient embeddingClient,
+        EmbeddingClientFactory embeddingClientFactory,
         ILogger<RetrievalService> logger)
     {
         _documentRepository = documentRepository;
         _embeddingRepository = embeddingRepository;
         _embeddingClient = embeddingClient;
+        _embeddingClientFactory = embeddingClientFactory;
         _logger = logger;
     }
 
@@ -30,7 +33,7 @@ public class RetrievalService
         {
             try
             {
-                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, cancellationToken);
+                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, _embeddingClient, cancellationToken);
                 if (embeddedResults.Count > 0)
                 {
                     return embeddedResults;
@@ -45,15 +48,58 @@ public class RetrievalService
         return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(string query, Guid? courseId, int topK, CancellationToken cancellationToken)
+    /// <summary>
+    /// Retrieve using a specific embedding model by name (for benchmarking).
+    /// Falls back to lexical retrieval if the model is unavailable.
+    /// </summary>
+    public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithModelAsync(string query, Guid? courseId, int topK, string modelName, CancellationToken cancellationToken)
+    {
+        var client = _embeddingClientFactory.GetByName(modelName);
+        if (client is not null && client.IsConfigured)
+        {
+            try
+            {
+                var results = await RetrieveWithEmbeddingsAsync(query, courseId, topK, client, cancellationToken);
+                if (results.Count > 0)
+                {
+                    return results;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Embedding retrieval with model {Model} failed. Falling back to lexical.", modelName);
+            }
+        }
+
+        // Fall back to default embedding client
+        if (_embeddingClient.IsConfigured)
+        {
+            try
+            {
+                var results = await RetrieveWithEmbeddingsAsync(query, courseId, topK, _embeddingClient, cancellationToken);
+                if (results.Count > 0)
+                {
+                    return results;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Default embedding retrieval also failed. Falling back to lexical.");
+            }
+        }
+
+        return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(string query, Guid? courseId, int topK, IEmbeddingClient client, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return [];
         }
 
-        var queryVector = await _embeddingClient.EmbedQueryAsync(query, cancellationToken);
-        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(_embeddingClient.ModelName, courseId, cancellationToken);
+        var queryVector = await client.EmbedQueryAsync(query, cancellationToken);
+        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(client.ModelName, courseId, cancellationToken);
         if (embeddings.Count == 0)
         {
             return [];

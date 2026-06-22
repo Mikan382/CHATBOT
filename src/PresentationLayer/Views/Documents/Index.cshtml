@@ -33,8 +33,9 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">File</label>
-                            <input class="form-control" type="file" name="file" accept=".pdf,.docx,.pptx,.txt,.md" required />
+                            <input id="uploadFileInput" class="form-control" type="file" name="file" accept=".pdf,.docx,.pptx,.txt,.md" required />
                             @Html.ValidationMessage("File", null, new { @class = "text-danger small" })
+                            <div id="uploadFileError" class="text-danger small d-none" aria-live="polite"></div>
                         </div>
                         <button id="uploadButton" class="btn btn-primary w-100" type="submit">
                             <span class="upload-button-text">Upload Document</span>
@@ -187,6 +188,22 @@
         if (uploadForm) {
             const uploadCourse = document.getElementById("uploadCourseId");
             const uploadChapter = document.getElementById("uploadChapterId");
+            const uploadFileInput = document.getElementById("uploadFileInput");
+            const uploadFileError = document.getElementById("uploadFileError");
+            const maxUploadBytes = 20 * 1024 * 1024;
+            const formatMb = (bytes) => `${Math.round(bytes / 1024 / 1024)}MB`;
+            const validateUploadFile = () => {
+                uploadFileError.classList.add("d-none");
+                uploadFileError.textContent = "";
+                const file = uploadFileInput.files && uploadFileInput.files[0];
+                if (!file || file.size <= maxUploadBytes) {
+                    return true;
+                }
+
+                uploadFileError.textContent = `File size must be 20MB or smaller. Selected file is ${formatMb(file.size)}.`;
+                uploadFileError.classList.remove("d-none");
+                return false;
+            };
             const syncUploadChapters = () => {
                 let firstVisible = null;
                 uploadChapter.querySelectorAll("option").forEach((option) => {
@@ -201,9 +218,15 @@
                 }
             };
             uploadCourse.addEventListener("change", syncUploadChapters);
+            uploadFileInput.addEventListener("change", validateUploadFile);
             syncUploadChapters();
 
-            uploadForm.addEventListener("submit", () => {
+            uploadForm.addEventListener("submit", (event) => {
+                if (!validateUploadFile()) {
+                    event.preventDefault();
+                    return;
+                }
+
                 const button = document.getElementById("uploadButton");
                 document.getElementById("uploadStatus").classList.remove("d-none");
                 button.disabled = true;

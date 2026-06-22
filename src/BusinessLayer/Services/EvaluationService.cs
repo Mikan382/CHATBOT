@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Repositories;
 using BusinessLayer.AI;
+using BusinessLayer.Indexing;
 using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.Services;
@@ -12,33 +14,52 @@ public class EvaluationService
     private readonly RetrievalService _retrievalService;
     private readonly IGeminiClient _geminiClient;
     private readonly IFineTuneClient _fineTuneClient;
+    private readonly RagasScorer _ragasScorer;
+    private readonly EmbeddingClientFactory _embeddingClientFactory;
+    private readonly IDocumentRepository _documentRepository;
+    private readonly IDocumentEmbeddingRepository _embeddingRepository;
+    private readonly ILogger<EvaluationService> _logger;
 
     public EvaluationService(
         IEvaluationRepository evaluationRepository,
         RetrievalService retrievalService,
         IGeminiClient geminiClient,
-        IFineTuneClient fineTuneClient)
+        IFineTuneClient fineTuneClient,
+        RagasScorer ragasScorer,
+        EmbeddingClientFactory embeddingClientFactory,
+        IDocumentRepository documentRepository,
+        IDocumentEmbeddingRepository embeddingRepository,
+        ILogger<EvaluationService> logger)
     {
         _evaluationRepository = evaluationRepository;
         _retrievalService = retrievalService;
         _geminiClient = geminiClient;
         _fineTuneClient = fineTuneClient;
+        _ragasScorer = ragasScorer;
+        _embeddingClientFactory = embeddingClientFactory;
+        _documentRepository = documentRepository;
+        _embeddingRepository = embeddingRepository;
+        _logger = logger;
     }
 
     public bool GeminiConfigured => _geminiClient.IsConfigured;
 
     public bool FineTuneConfigured => _fineTuneClient.IsConfigured;
 
+    public IReadOnlyList<string> AvailableChunkingStrategies => ["paragraph", "fixed_1000", "sentence"];
+
+    public IReadOnlyList<string> AvailableEmbeddingModels => _embeddingClientFactory.GetModelNames();
+
     public async Task<(IReadOnlyList<EvaluationQuestion> Questions, IReadOnlyList<EvaluationResult> Results)> GetDashboardDataAsync(CancellationToken cancellationToken)
     {
         var questions = await _evaluationRepository.ListQuestionsAsync(cancellationToken);
-        var results = await _evaluationRepository.ListRecentResultsAsync(20, cancellationToken);
+        var results = await _evaluationRepository.ListRecentResultsAsync(200, cancellationToken);
         return (questions, results);
     }
 
     public async Task<IReadOnlyList<EvaluationResultApiDto>> ListResultsAsync(CancellationToken cancellationToken)
     {
-        var results = await _evaluationRepository.ListRecentResultsAsync(50, cancellationToken);
+        var results = await _evaluationRepository.ListRecentResultsAsync(200, cancellationToken);
         return results.Select(x => new EvaluationResultApiDto(
             x.Id,
             x.EvaluationQuestion?.Question ?? "",
@@ -48,58 +69,32 @@ public class EvaluationService
             x.RetrievalRecall,
             x.CitationAccuracy,
             x.ErrorMessage,
-            x.CreatedAtUtc)).ToList();
+            x.CreatedAtUtc,
+            x.ChunkingStrategy,
+            x.EmbeddingModelName,
+            x.RagLatencyMs,
+            x.FineTunedLatencyMs,
+            x.RagAnswer,
+            x.FineTunedAnswer,
+            x.FtFaithfulness,
+            x.FtAnswerRelevance)).ToList();
     }
 
-    public async Task<IReadOnlyList<EvaluationResult>> RunAsync(int limit, CancellationToken cancellationToken)
+    /// <summary>
+    /// Run a benchmark for a specific chunking strategy and embedding model combination.
+    /// If strategy or model is null, uses the default.
+    /// </summary>
+    public async Task<IReadOnlyList<EvaluationResult>> RunAsync(int limit, string? chunkingStrategy, string? embeddingModel, CancellationToken cancellationToken)
     {
-        limit = Math.Clamp(limit, 1, 5);
+        limit = Math.Clamp(limit, 1, 50);
         var questions = await _evaluationRepository.ListQuestionsForRunAsync(limit, cancellationToken);
+        var strategy = chunkingStrategy ?? "paragraph";
+        var modelName = embeddingModel ?? _embeddingClientFactory.GetModelNames().FirstOrDefault() ?? "default";
 
         var results = new List<EvaluationResult>();
         foreach (var question in questions)
         {
-            var chunks = await _retrievalService.RetrieveAsync(question.Question, null, 3, cancellationToken);
-            var result = new EvaluationResult
-            {
-                Id = Guid.NewGuid(),
-                EvaluationQuestionId = question.Id,
-                RetrievedChunksJson = JsonSerializer.Serialize(chunks),
-                CreatedAtUtc = DateTime.UtcNow
-            };
-
-            try
-            {
-                if (chunks.Count == 0)
-                {
-                    result.RagAnswer = "No relevant context was found in the indexed documents.";
-                }
-                else
-                {
-                    var prompt = RagPromptBuilder.BuildPrompt(question.Question, chunks, []);
-                    result.RagAnswer = await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(), prompt, cancellationToken);
-                }
-
-                if (_fineTuneClient.IsConfigured)
-                {
-                    var ft = await _fineTuneClient.GenerateAsync(new FineTuneRequest(Guid.NewGuid().ToString(), "PRN222", question.Question, []), cancellationToken);
-                    result.FineTunedAnswer = ft.Answer;
-                }
-
-                var score = Score(question.GroundTruth, result.RagAnswer, chunks);
-                result.Faithfulness = score.Faithfulness;
-                result.AnswerRelevance = score.AnswerRelevance;
-                result.RetrievalRecall = score.RetrievalRecall;
-                result.CitationAccuracy = score.CitationAccuracy;
-                result.Status = "Completed";
-            }
-            catch (Exception ex)
-            {
-                result.Status = "Failed";
-                result.ErrorMessage = ex.Message;
-                result.RagAnswer = result.RagAnswer.Length == 0 ? "Evaluation failed." : result.RagAnswer;
-            }
-
+            var result = await EvaluateQuestionAsync(question, strategy, modelName, cancellationToken);
             results.Add(result);
         }
 
@@ -107,20 +102,111 @@ public class EvaluationService
         return results;
     }
 
-    private static EvaluationScore Score(string groundTruth, string answer, IReadOnlyList<RetrievedChunkDto> chunks)
+    /// <summary>
+    /// Run a full comparative benchmark: test all combinations of chunking strategies × embedding models.
+    /// </summary>
+    public async Task<IReadOnlyList<EvaluationResult>> RunFullBenchmarkAsync(int questionLimit, CancellationToken cancellationToken)
     {
-        var truthTerms = TextNormalizer.Terms(groundTruth).Distinct().ToArray();
-        var answerTerms = TextNormalizer.Terms(answer).ToHashSet();
-        var contextTerms = TextNormalizer.Terms(string.Join(" ", chunks.Select(x => x.Content))).ToHashSet();
+        questionLimit = Math.Clamp(questionLimit, 1, 50);
+        var questions = await _evaluationRepository.ListQuestionsForRunAsync(questionLimit, cancellationToken);
+        var strategies = AvailableChunkingStrategies;
+        var models = AvailableEmbeddingModels;
 
-        decimal overlapWithAnswer = truthTerms.Length == 0 ? 0 : (decimal)truthTerms.Count(answerTerms.Contains) / truthTerms.Length;
-        decimal overlapWithContext = truthTerms.Length == 0 ? 0 : (decimal)truthTerms.Count(contextTerms.Contains) / truthTerms.Length;
-        decimal citation = answer.Contains("[Source", StringComparison.OrdinalIgnoreCase) || chunks.Count > 0 ? 1m : 0m;
+        var allResults = new List<EvaluationResult>();
+        foreach (var strategy in strategies)
+        {
+            foreach (var model in models)
+            {
+                foreach (var question in questions)
+                {
+                    var result = await EvaluateQuestionAsync(question, strategy, model, cancellationToken);
+                    allResults.Add(result);
+                }
+            }
+        }
 
-        return new EvaluationScore(
-            Math.Clamp(overlapWithContext, 0m, 1m),
-            Math.Clamp(overlapWithAnswer, 0m, 1m),
-            Math.Clamp(overlapWithContext, 0m, 1m),
-            citation);
+        await _evaluationRepository.SaveResultsAsync(allResults, cancellationToken);
+        return allResults;
+    }
+
+    private async Task<EvaluationResult> EvaluateQuestionAsync(
+        EvaluationQuestion question,
+        string chunkingStrategy,
+        string embeddingModelName,
+        CancellationToken cancellationToken)
+    {
+        var result = new EvaluationResult
+        {
+            Id = Guid.NewGuid(),
+            EvaluationQuestionId = question.Id,
+            ChunkingStrategy = chunkingStrategy,
+            EmbeddingModelName = embeddingModelName,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        try
+        {
+            // --- RAG evaluation ---
+            var ragStopwatch = Stopwatch.StartNew();
+            var chunks = await _retrievalService.RetrieveWithModelAsync(question.Question, null, 3, embeddingModelName, cancellationToken);
+            result.RetrievedChunksJson = JsonSerializer.Serialize(chunks);
+
+            if (chunks.Count == 0)
+            {
+                result.RagAnswer = "No relevant context was found in the indexed documents.";
+            }
+            else
+            {
+                var prompt = RagPromptBuilder.BuildPrompt(question.Question, chunks, []);
+                result.RagAnswer = await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(), prompt, cancellationToken);
+            }
+            ragStopwatch.Stop();
+            result.RagLatencyMs = (int)ragStopwatch.ElapsedMilliseconds;
+
+            // --- Fine-tuned evaluation ---
+            if (_fineTuneClient.IsConfigured)
+            {
+                var ftStopwatch = Stopwatch.StartNew();
+                var ft = await _fineTuneClient.GenerateAsync(
+                    new FineTuneRequest(Guid.NewGuid().ToString(), "PRN222", question.Question, []),
+                    cancellationToken);
+                result.FineTunedAnswer = ft.Answer;
+                ftStopwatch.Stop();
+                result.FineTunedLatencyMs = (int)ftStopwatch.ElapsedMilliseconds;
+            }
+
+            // --- RAGAS scoring for RAG ---
+            var ragScore = await _ragasScorer.ScoreAsync(
+                question.Question, question.GroundTruth, result.RagAnswer, chunks, cancellationToken);
+            result.Faithfulness = ragScore.Faithfulness;
+            result.AnswerRelevance = ragScore.AnswerRelevance;
+            result.RetrievalRecall = ragScore.RetrievalRecall;
+            result.CitationAccuracy = ragScore.CitationAccuracy;
+
+            // --- RAGAS scoring for Fine-tuned ---
+            if (!string.IsNullOrWhiteSpace(result.FineTunedAnswer))
+            {
+                var ftScore = await _ragasScorer.ScoreAsync(
+                    question.Question, question.GroundTruth, result.FineTunedAnswer, [], cancellationToken);
+                result.FtFaithfulness = ftScore.Faithfulness;
+                result.FtAnswerRelevance = ftScore.AnswerRelevance;
+            }
+
+            result.Status = "Completed";
+        }
+        catch (Exception ex)
+        {
+            result.Status = "Failed";
+            result.ErrorMessage = ex.Message;
+            if (string.IsNullOrWhiteSpace(result.RagAnswer))
+            {
+                result.RagAnswer = "Evaluation failed.";
+            }
+
+            _logger.LogWarning(ex, "Evaluation failed for question {QuestionId} with strategy={Strategy} model={Model}",
+                question.Id, chunkingStrategy, embeddingModelName);
+        }
+
+        return result;
     }
 }
