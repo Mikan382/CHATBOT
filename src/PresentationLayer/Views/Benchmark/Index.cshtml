@@ -75,9 +75,9 @@
                     <label class="form-label small text-muted">Embedding Model</label>
                     <select id="embeddingModel" class="form-select form-select-sm">
                         <option value="">Default</option>
-                        @foreach (var model in Model.EmbeddingModels)
+                        @foreach (var embModel in Model.EmbeddingModels)
                         {
-                            <option value="@model">@model</option>
+                            <option value="@embModel">@embModel</option>
                         }
                     </select>
                 </div>
