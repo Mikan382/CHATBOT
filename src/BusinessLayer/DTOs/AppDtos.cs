@@ -4,6 +4,8 @@ namespace BusinessLayer.Services;
 
 public record CitationDto(Guid ChunkId, string SourceName, string ChapterTitle, int ChunkIndex, string Text);
 
+public record SessionListDto(Guid Id, string Title, DateTime UpdatedAtUtc);
+
 public record RetrievedChunkDto(Guid ChunkId, Guid DocumentId, string SourceName, string ChapterTitle, int ChunkIndex, string Content, double Score);
 
 public record ChatMessageDto(Guid Id, string Role, string ModelType, string Content, IReadOnlyList<CitationDto> Citations, string? Error, DateTime CreatedAtUtc);

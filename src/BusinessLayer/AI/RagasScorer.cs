@@ -60,7 +60,9 @@ public class RagasScorer
             Respond with ONLY the JSON object, no explanation.
             """;
 
-            var systemInstruction = "You are a strict evaluation judge for RAG systems. Output only valid JSON.";
+            var systemInstruction = "You are an impartial, strict RAG evaluation judge. "
+                + "Do NOT assume the answer is correct. Penalize any claim not supported by the retrieved context or ground truth. "
+                + "Output ONLY valid JSON.";
             var responseText = await _geminiClient.GenerateAsync(systemInstruction, prompt, cancellationToken);
 
             return ParseScores(responseText);
@@ -122,7 +124,7 @@ public class RagasScorer
 
         decimal overlapWithAnswer = truthTerms.Length == 0 ? 0 : (decimal)truthTerms.Count(answerTerms.Contains) / truthTerms.Length;
         decimal overlapWithContext = truthTerms.Length == 0 ? 0 : (decimal)truthTerms.Count(contextTerms.Contains) / truthTerms.Length;
-        decimal citation = answer.Contains("[Source", StringComparison.OrdinalIgnoreCase) || chunks.Count > 0 ? 1m : 0m;
+        decimal citation = answer.Contains("[Source", StringComparison.OrdinalIgnoreCase) ? 1m : 0m;
 
         return new EvaluationScore(
             Math.Clamp(overlapWithContext, 0m, 1m),

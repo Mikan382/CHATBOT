@@ -74,13 +74,23 @@
                                     </form>
                                 </td>
                                 <td>@(user.IsLockedOut ? "Locked" : "Active")</td>
-                                <td>
+                                <td class="d-flex gap-1 flex-wrap">
                                     <form method="post" action="/admin/users/@user.Id/lock" class="row-action-form">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="locked" value="@(!user.IsLockedOut)" />
                                         <button class="btn btn-sm @(user.IsLockedOut ? "btn-outline-success" : "btn-outline-secondary")" type="submit">
                                             @(user.IsLockedOut ? "Unlock" : "Lock")
                                         </button>
+                                    </form>
+                                    <form method="post" action="/admin/users/@user.Id/reset-password" class="row-action-form d-inline-flex gap-1">
+                                        @Html.AntiForgeryToken()
+                                        <input type="text" name="newPassword" class="form-control form-control-sm" placeholder="New password" style="width:130px" required minlength="8" />
+                                        <button class="btn btn-sm btn-outline-warning" type="submit">Reset</button>
+                                    </form>
+                                    <form method="post" action="/admin/users/@user.Id/delete" class="row-action-form"
+                                          onsubmit="return confirm('Delete user @user.Email? This is irreversible.')">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
                                     </form>
                                 </td>
                             </tr>

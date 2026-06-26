@@ -46,6 +46,13 @@ public class EmbeddingClientFactory
     public IEmbeddingClient? GetByName(string name)
     {
         var configs = GetModelConfigs();
+        if (configs.Count == 0)
+        {
+            // Legacy path: single HF client — match if name is the legacy model name
+            var legacy = CreateHuggingFaceFromLegacyConfig();
+            return legacy.ModelName.Equals(name, StringComparison.OrdinalIgnoreCase) ? legacy : null;
+        }
+
         var config = configs.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         return config is null ? null : CreateClient(config);
     }
@@ -209,37 +216,52 @@ public class ConfigurableHuggingFaceClient : IEmbeddingClient
 
     private static float[] ReadVector(System.Text.Json.JsonElement element)
     {
-        if (element.ValueKind == System.Text.Json.JsonValueKind.Array)
+        if (element.ValueKind != System.Text.Json.JsonValueKind.Array)
         {
-            var first = true;
-            var allNumbers = true;
-            foreach (var item in element.EnumerateArray())
-            {
-                if (item.ValueKind != System.Text.Json.JsonValueKind.Number)
-                {
-                    allNumbers = false;
-                    break;
-                }
-                first = false;
-            }
+            return [];
+        }
 
-            if (!first && allNumbers)
-            {
-                return element.EnumerateArray().Select(x => x.GetSingle()).ToArray();
-            }
+        var children = element.EnumerateArray().ToList();
+        if (children.Count == 0)
+        {
+            return [];
+        }
 
-            // Nested array - take first sub-array
-            foreach (var child in element.EnumerateArray())
+        // Flat array of numbers → this is the final embedding vector
+        if (children[0].ValueKind == System.Text.Json.JsonValueKind.Number)
+        {
+            return children.Select(x => x.GetSingle()).ToArray();
+        }
+
+        // Array of arrays → mean-pool across first dimension (e.g. BERT token-level [seq_len][hidden])
+        var rows = children
+            .Where(c => c.ValueKind == System.Text.Json.JsonValueKind.Array)
+            .Select(c => c.EnumerateArray().Select(x => x.GetSingle()).ToArray())
+            .Where(r => r.Length > 0)
+            .ToList();
+
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var dims = rows[0].Length;
+        var mean = new float[dims];
+        foreach (var row in rows)
+        {
+            var len = Math.Min(dims, row.Length);
+            for (var i = 0; i < len; i++)
             {
-                var result = ReadVector(child);
-                if (result.Length > 0)
-                {
-                    return result;
-                }
+                mean[i] += row[i];
             }
         }
 
-        return [];
+        for (var i = 0; i < dims; i++)
+        {
+            mean[i] /= rows.Count;
+        }
+
+        return mean;
     }
 
     private static float[] Normalize(float[] vector)

@@ -13,6 +13,8 @@ public interface IChatRepository
     Task AddAssistantMessageAndTouchSessionAsync(ChatMessage message, Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ChatMessage>> ListRecentMessagesAsync(Guid sessionId, Guid userId, int take, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ChatSession>> ListSessionsAsync(Guid userId, int take, CancellationToken cancellationToken);
+    Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
 }
 
 public class ChatRepository : IChatRepository
@@ -105,5 +107,29 @@ public class ChatRepository : IChatRepository
             .OrderBy(x => x.CreatedAtUtc)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ChatSession>> ListSessionsAsync(Guid userId, int take, CancellationToken cancellationToken)
+    {
+        return await _db.ChatSessions
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .Take(take)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    {
+        var session = await _db.ChatSessions
+            .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+        if (session is null)
+        {
+            return false;
+        }
+
+        _db.ChatSessions.Remove(session);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }

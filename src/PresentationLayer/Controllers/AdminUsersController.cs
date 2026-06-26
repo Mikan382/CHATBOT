@@ -94,4 +94,38 @@ public class AdminUsersController : Controller
             return RedirectToAction(nameof(Index));
         }
     }
+
+    [HttpPost("/admin/users/{id:guid}/delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try
+        {
+            await _userAdminService.DeleteAsync(id);
+            TempData["Success"] = "User was deleted.";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("/admin/users/{id:guid}/reset-password")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPassword(Guid id, string newPassword)
+    {
+        try
+        {
+            await _userAdminService.ResetPasswordAsync(id, newPassword);
+            TempData["Success"] = "Password was reset.";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
 }

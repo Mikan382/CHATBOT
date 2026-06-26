@@ -28,6 +28,11 @@ public class ChatService
 
     public bool FineTuneConfigured => _fineTuneClient.IsConfigured;
 
+    public async Task<ChatSession?> GetSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    {
+        return await _chatRepository.GetOwnedSessionAsync(sessionId, userId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ChatMessageDto>> GetHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
         var session = await _chatRepository.GetOwnedSessionAsync(sessionId, userId, cancellationToken);
@@ -51,6 +56,10 @@ public class ChatService
             ?? throw new InvalidOperationException("Course was not found.");
 
         await _chatRepository.EnsureSessionAsync(sessionId, userId, courseId, cancellationToken);
+
+        // Load history BEFORE saving user message so it doesn't appear twice in the prompt (S4)
+        var history = await BuildHistoryAsync(sessionId, userId, cancellationToken);
+
         var userMessage = new ChatMessage
         {
             Id = Guid.NewGuid(),
@@ -62,8 +71,6 @@ public class ChatService
         };
 
         await _chatRepository.AddMessageAsync(userMessage, cancellationToken);
-
-        var history = await BuildHistoryAsync(sessionId, userId, cancellationToken);
         var citations = new List<CitationDto>();
         string answer;
         string? error = null;
@@ -102,6 +109,17 @@ public class ChatService
     public async Task ClearAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
         await _chatRepository.ClearMessagesAsync(sessionId, userId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SessionListDto>> ListSessionsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var sessions = await _chatRepository.ListSessionsAsync(userId, 20, cancellationToken);
+        return sessions.Select(s => new SessionListDto(s.Id, s.Title, s.UpdatedAtUtc)).ToList();
+    }
+
+    public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    {
+        return await _chatRepository.DeleteSessionAsync(sessionId, userId, cancellationToken);
     }
 
     private async Task<string> GenerateRagAsync(Guid courseId, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)

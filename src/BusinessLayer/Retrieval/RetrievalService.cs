@@ -143,7 +143,10 @@ public class RetrievalService
         }
 
         var chunks = await _documentRepository.ListIndexedChunksAsync(courseId, cancellationToken);
+        // Cap at 200 candidates before in-memory scoring to bound memory usage (S11)
+        const int CandidateLimit = 200;
         var scored = chunks
+            .Take(CandidateLimit)
             .Select(chunk => new
             {
                 Chunk = chunk,

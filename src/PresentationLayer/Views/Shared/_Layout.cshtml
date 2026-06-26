@@ -38,7 +38,8 @@
                             }
                             <li class="nav-item user-menu">
                                 <span class="user-email">@User.Identity.Name</span>
-                                <form method="post" action="/account/logout">
+                                <a class="btn btn-sm btn-outline-secondary me-1" href="/account/change-password">Change Password</a>
+                                <form method="post" action="/account/logout" style="display:inline">
                                     @Html.AntiForgeryToken()
                                     <button class="btn btn-sm btn-logout" type="submit">Sign out</button>
                                 </form>

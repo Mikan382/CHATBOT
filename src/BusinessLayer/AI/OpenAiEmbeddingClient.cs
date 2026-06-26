@@ -72,6 +72,22 @@ public class OpenAiEmbeddingClient : IEmbeddingClient
             vector[index++] = value.GetSingle();
         }
 
+        return Normalize(vector);
+    }
+
+    private static float[] Normalize(float[] vector)
+    {
+        var magnitude = Math.Sqrt(vector.Sum(x => (double)x * x));
+        if (magnitude <= 0)
+        {
+            return vector;
+        }
+
+        for (var i = 0; i < vector.Length; i++)
+        {
+            vector[i] = (float)(vector[i] / magnitude);
+        }
+
         return vector;
     }
 }
