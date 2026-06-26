@@ -7,22 +7,8 @@ public static class TextNormalizer
 {
     public static string Normalize(string input)
     {
-        var normalized = input.ToLowerInvariant().Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(normalized.Length);
-
-        foreach (var ch in normalized)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
-            if (category == UnicodeCategory.NonSpacingMark)
-            {
-                continue;
-            }
-
-            builder.Append(ch == '\u0111' ? 'd' : ch);
-        }
-
-        return new string(builder
-            .ToString()
+        return new string(input
+            .ToLowerInvariant()
             .Normalize(NormalizationForm.FormC)
             .Select(ch => char.IsLetterOrDigit(ch) ? ch : ' ')
             .ToArray());

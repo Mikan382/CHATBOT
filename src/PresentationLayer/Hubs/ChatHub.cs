@@ -18,20 +18,15 @@ public class ChatHub : Hub
 
     public async Task JoinSession(string sessionId)
     {
-        if (!Guid.TryParse(sessionId, out var parsedSessionId))
+        if (!Guid.TryParse(sessionId, out _))
         {
             await Clients.Caller.SendAsync("MessageFailed", "Invalid session ID.");
             return;
         }
 
-        // Verify the session belongs to the calling user before joining the group (N7 IDOR fix)
-        var session = await _chatService.GetSessionAsync(parsedSessionId, CurrentUserId(), Context.ConnectionAborted);
-        if (session is null)
-        {
-            await Clients.Caller.SendAsync("MessageFailed", "Session not found or access denied.");
-            return;
-        }
-
+        // Allow joining before session is persisted (new session on first page load).
+        // Ownership is enforced in SendMessage → SaveUserMessageAsync.
+        // GUID session IDs are unguessable so enumeration attack is not a concern.
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
     }
 

@@ -7,6 +7,7 @@
   const clearButton = document.getElementById("clearButton");
   const courseSelect = document.getElementById("courseId");
   const sessionList = document.getElementById("sessionList");
+  const sessionSearch = document.getElementById("sessionSearch");
   const chatEmptyHint = document.getElementById("chatEmptyHint");
 
   function updateEmptyHint() {
@@ -18,12 +19,21 @@
     return document.querySelector("input[name='modelType']:checked").value;
   }
 
+  function parseUtc(dateStr) {
+    if (!dateStr) return new Date(0);
+    // Treat as UTC when server omits timezone suffix
+    if (!dateStr.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(dateStr)) {
+      return new Date(dateStr + "Z");
+    }
+    return new Date(dateStr);
+  }
+
   function formatTime(dateStr) {
-    return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return parseUtc(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
   function formatRelativeTime(dateStr) {
-    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffMs = Date.now() - parseUtc(dateStr).getTime();
     const mins = Math.floor(diffMs / 60000);
     if (mins < 1) return "Just now";
     if (mins < 60) return `${mins}m ago`;
@@ -226,6 +236,17 @@
     } catch { /* ignore */ }
   }
 
+  // --- Session search ---
+  if (sessionSearch) {
+    sessionSearch.addEventListener("input", () => {
+      const q = sessionSearch.value.trim().toLowerCase();
+      sessionList.querySelectorAll(".session-item").forEach((li) => {
+        const title = li.querySelector(".session-title")?.textContent.toLowerCase() ?? "";
+        li.hidden = q !== "" && !title.includes(q);
+      });
+    });
+  }
+
   // --- SignalR ---
   const connection = new signalR.HubConnectionBuilder()
     .withUrl("/chatHub")
@@ -235,8 +256,9 @@
   connection.on("MessageReceived", (message) => {
     if (message.role === "user") {
       clearOptimistic();
+      hideTyping();          // remove indicator before appending user msg
       renderMessage(message);
-      showTyping();
+      showTyping();          // re-add indicator below user msg
       loadSessions();
       return;
     }

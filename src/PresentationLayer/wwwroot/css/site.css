@@ -396,6 +396,15 @@ h6 {
   font-size: 12px;
 }
 
+.session-search-wrap {
+  padding: 0.5rem 0.75rem 0.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.session-search-wrap input {
+  font-size: 0.8rem;
+}
+
 .session-list {
   max-height: 360px;
   overflow-y: auto;
