@@ -6,9 +6,19 @@
 <div class="chat-page row g-4">
     <div class="col-lg-3 chat-sidebar">
         <div class="card app-card">
+            <div class="card-header py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Recent Sessions</span>
+                    <a href="/chat" class="btn btn-sm btn-primary py-0 px-2" title="Start new session">+ New</a>
+                </div>
+            </div>
+            <ul id="sessionList" class="list-group list-group-flush session-list"></ul>
+        </div>
+
+        <div class="card app-card">
             <div class="card-body">
                 <h5 class="card-title">Chat Settings</h5>
-                <p class="text-muted small mb-2">Session: <span id="sessionId">@Model.SessionId</span></p>
+                <span id="sessionId" class="visually-hidden">@Model.SessionId</span>
                 <div class="mb-3">
                     <label class="form-label small text-muted" for="courseId">Course</label>
                     <select id="courseId" class="form-select form-select-sm">
@@ -42,16 +52,6 @@
                 </div>
             </div>
         </div>
-
-        <div class="card app-card">
-            <div class="card-header py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="small fw-semibold">Recent Sessions</span>
-                    <a href="/chat" class="btn btn-sm btn-primary py-0 px-2" title="Start new session">+ New</a>
-                </div>
-            </div>
-            <ul id="sessionList" class="list-group list-group-flush session-list"></ul>
-        </div>
     </div>
 
     <div class="col-lg-9 chat-main">
@@ -63,7 +63,9 @@
                 </div>
                 <button id="clearButton" class="btn btn-sm btn-outline-danger">Clear</button>
             </div>
-            <div id="messages" class="chat-log"></div>
+            <div id="messages" class="chat-log">
+                <div class="chat-empty-hint" id="chatEmptyHint">Ask a question to start the conversation.</div>
+            </div>
             <form id="chatForm" class="chat-form">
                 <input id="messageInput" class="form-control" autocomplete="off"
                        placeholder="Ask a question about the selected course..."
@@ -74,19 +76,6 @@
         </div>
     </div>
 </div>
-
-<style>
-.session-list { max-height: 320px; overflow-y: auto; }
-.session-list .list-group-item { padding: 0.35rem 0.75rem; font-size: 0.82rem; display: flex; justify-content: space-between; align-items: center; gap: 0.25rem; }
-.session-list .session-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-.session-list .session-del { border: none; background: none; color: #adb5bd; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; padding: 0 2px; line-height: 1; }
-.session-list .session-del:hover { color: #dc3545; }
-.typing-dots { display: inline-flex; gap: 3px; padding: 0.5rem; }
-.typing-dots span { width: 7px; height: 7px; border-radius: 50%; background: #aaa; animation: blink 1.2s infinite; }
-.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-@@keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
-</style>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>

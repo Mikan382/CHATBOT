@@ -57,9 +57,11 @@ public class ChatHub : Hub
 
         try
         {
-            var response = await _chatService.SendAsync(parsedSessionId, CurrentUserId(), parsedCourseId, parsedModelType, text, Context.ConnectionAborted);
-            await Clients.Group(sessionId).SendAsync("MessageReceived", response.UserMessage);
-            await Clients.Group(sessionId).SendAsync("MessageReceived", response.BotMessage);
+            var userMessage = await _chatService.SaveUserMessageAsync(parsedSessionId, CurrentUserId(), parsedCourseId, parsedModelType, text, Context.ConnectionAborted);
+            await Clients.Group(sessionId).SendAsync("MessageReceived", userMessage);
+
+            var botMessage = await _chatService.GenerateAssistantReplyAsync(parsedSessionId, CurrentUserId(), parsedCourseId, parsedModelType, text, Context.ConnectionAborted);
+            await Clients.Group(sessionId).SendAsync("MessageReceived", botMessage);
         }
         catch (Exception ex)
         {

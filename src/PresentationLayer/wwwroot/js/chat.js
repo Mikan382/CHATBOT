@@ -7,9 +7,39 @@
   const clearButton = document.getElementById("clearButton");
   const courseSelect = document.getElementById("courseId");
   const sessionList = document.getElementById("sessionList");
+  const chatEmptyHint = document.getElementById("chatEmptyHint");
+
+  function updateEmptyHint() {
+    if (!chatEmptyHint) return;
+    chatEmptyHint.hidden = messages.querySelector(".message:not(.typing)") !== null;
+  }
 
   function modelType() {
     return document.querySelector("input[name='modelType']:checked").value;
+  }
+
+  function formatTime(dateStr) {
+    return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function formatRelativeTime(dateStr) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  function buildMeta(message) {
+    const time = formatTime(message.createdAtUtc);
+    if (message.role === "user") return `You · ${time}`;
+    let meta = `Assistant · ${time}`;
+    if (message.processingSeconds != null) {
+      meta += ` · ${message.processingSeconds.toFixed(1)}s`;
+    }
+    return meta;
   }
 
   // --- Markdown renderer (safe, no external lib) ---
@@ -29,6 +59,20 @@
 
   // --- Typing indicator ---
   let typingEl = null;
+  let longWaitTimer = null;
+  let longWaitEl = null;
+
+  function clearLongWait() {
+    if (longWaitTimer) {
+      clearTimeout(longWaitTimer);
+      longWaitTimer = null;
+    }
+    if (longWaitEl) {
+      longWaitEl.remove();
+      longWaitEl = null;
+    }
+  }
+
   function showTyping() {
     if (typingEl) return;
     typingEl = document.createElement("div");
@@ -36,20 +80,63 @@
     typingEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
     messages.appendChild(typingEl);
     messages.scrollTop = messages.scrollHeight;
-  }
-  function hideTyping() {
-    if (typingEl) { typingEl.remove(); typingEl = null; }
+
+    longWaitTimer = setTimeout(() => {
+      if (!typingEl || longWaitEl) return;
+      longWaitEl = document.createElement("div");
+      longWaitEl.className = "typing-status";
+      longWaitEl.textContent = "Searching documents and generating answer…";
+      typingEl.appendChild(longWaitEl);
+    }, 3000);
   }
 
-  // --- Render message ---
-  function renderMessage(message) {
-    hideTyping();
-    const wrapper = document.createElement("div");
-    wrapper.className = `message ${message.role === "user" ? "user" : "assistant"}`;
+  function hideTyping() {
+    clearLongWait();
+    if (typingEl) {
+      typingEl.remove();
+      typingEl = null;
+    }
+  }
+
+  // --- Optimistic user message ---
+  let optimisticEl = null;
+
+  function clearOptimistic() {
+    if (optimisticEl) {
+      optimisticEl.remove();
+      optimisticEl = null;
+    }
+  }
+
+  function renderOptimisticUserMessage(text) {
+    clearOptimistic();
+    optimisticEl = document.createElement("div");
+    optimisticEl.className = "message user optimistic";
+    optimisticEl.dataset.optimistic = "true";
 
     const meta = document.createElement("div");
     meta.className = "message-meta";
-    meta.textContent = `${message.role} / ${message.modelType} / ${new Date(message.createdAtUtc).toLocaleTimeString()}`;
+    meta.textContent = `You · ${formatTime(new Date().toISOString())}`;
+
+    const body = document.createElement("div");
+    body.textContent = text;
+
+    optimisticEl.appendChild(meta);
+    optimisticEl.appendChild(body);
+    messages.appendChild(optimisticEl);
+    messages.scrollTop = messages.scrollHeight;
+    updateEmptyHint();
+  }
+
+  // --- Render message ---
+  function renderMessage(message, options = {}) {
+    const wrapper = document.createElement("div");
+    wrapper.className = `message ${message.role === "user" ? "user" : "assistant"}`;
+    if (message.id) wrapper.dataset.messageId = message.id;
+
+    const meta = document.createElement("div");
+    meta.className = "message-meta";
+    meta.textContent = options.metaOverride ?? buildMeta(message);
     wrapper.appendChild(meta);
 
     const body = document.createElement("div");
@@ -74,15 +161,18 @@
 
     messages.appendChild(wrapper);
     messages.scrollTop = messages.scrollHeight;
+    updateEmptyHint();
+    return wrapper;
   }
 
   async function loadHistory() {
     const response = await fetch(`/api/chat/${sessionId}`);
     const data = await response.json();
-    messages.innerHTML = "";
+    messages.querySelectorAll(".message").forEach((el) => el.remove());
     for (const message of data.history) {
       renderMessage(message);
     }
+    updateEmptyHint();
   }
 
   // --- Session list ---
@@ -94,24 +184,42 @@
       sessionList.innerHTML = "";
       for (const s of data.sessions) {
         const li = document.createElement("li");
-        li.className = "list-group-item" + (s.id === sessionId ? " active" : "");
-        const titleEl = document.createElement("a");
-        titleEl.className = "session-title text-decoration-none" + (s.id === sessionId ? " text-white" : "");
-        titleEl.href = `/chat?sessionId=${s.id}`;
+        li.className = "list-group-item session-item" + (s.id === sessionId ? " active" : "");
+
+        const link = document.createElement("a");
+        link.className = "session-link text-decoration-none";
+        link.href = `/chat?sessionId=${s.id}`;
+        link.title = s.title;
+
+        const titleEl = document.createElement("span");
+        titleEl.className = "session-title";
         titleEl.textContent = s.title;
-        titleEl.title = s.title;
+
+        const timeEl = document.createElement("span");
+        timeEl.className = "session-time";
+        timeEl.textContent = formatRelativeTime(s.updatedAtUtc);
+
+        link.appendChild(titleEl);
+        link.appendChild(timeEl);
+
         const delBtn = document.createElement("button");
         delBtn.className = "session-del";
+        delBtn.type = "button";
         delBtn.textContent = "✕";
         delBtn.title = "Delete session";
         delBtn.addEventListener("click", async (e) => {
           e.preventDefault();
+          e.stopPropagation();
           if (!confirm("Delete this session?")) return;
           await fetch(`/api/chat/${s.id}`, { method: "DELETE" });
-          if (s.id === sessionId) { window.location.href = "/chat"; }
-          else { loadSessions(); }
+          if (s.id === sessionId) {
+            window.location.href = "/chat";
+          } else {
+            loadSessions();
+          }
         });
-        li.appendChild(titleEl);
+
+        li.appendChild(link);
         li.appendChild(delBtn);
         sessionList.appendChild(li);
       }
@@ -125,16 +233,25 @@
     .build();
 
   connection.on("MessageReceived", (message) => {
-    renderMessage(message);
-    if (message.role !== "user") {
-      input.disabled = false;
-      sendButton.disabled = false;
-      input.focus();
+    if (message.role === "user") {
+      clearOptimistic();
+      renderMessage(message);
+      showTyping();
       loadSessions();
+      return;
     }
-  });
-  connection.on("MessageFailed", message => {
+
     hideTyping();
+    renderMessage(message);
+    input.disabled = false;
+    sendButton.disabled = false;
+    input.focus();
+    loadSessions();
+  });
+
+  connection.on("MessageFailed", (message) => {
+    hideTyping();
+    clearOptimistic();
     input.disabled = false;
     sendButton.disabled = false;
     const err = document.createElement("div");
@@ -143,9 +260,14 @@
     messages.appendChild(err);
     messages.scrollTop = messages.scrollHeight;
   });
-  connection.on("SessionCleared", () => { messages.innerHTML = ""; });
 
-  form.addEventListener("submit", async event => {
+  connection.on("SessionCleared", () => {
+    messages.querySelectorAll(".message").forEach((el) => el.remove());
+    clearOptimistic();
+    updateEmptyHint();
+  });
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!window._geminiConfigured) return;
     const text = input.value.trim();
@@ -154,8 +276,17 @@
     input.value = "";
     input.disabled = true;
     sendButton.disabled = true;
+    renderOptimisticUserMessage(text);
     showTyping();
-    await connection.invoke("SendMessage", sessionId, courseSelect.value, modelType(), text);
+
+    try {
+      await connection.invoke("SendMessage", sessionId, courseSelect.value, modelType(), text);
+    } catch {
+      hideTyping();
+      clearOptimistic();
+      input.disabled = false;
+      sendButton.disabled = false;
+    }
   });
 
   clearButton.addEventListener("click", async () => {
@@ -168,7 +299,7 @@
     .then(() => connection.invoke("JoinSession", sessionId))
     .then(loadHistory)
     .then(loadSessions)
-    .catch(error => {
+    .catch((error) => {
       const errEl = document.createElement("div");
       errEl.className = "alert alert-danger m-3";
       errEl.textContent = "Connection error: " + error.toString();
