@@ -80,13 +80,20 @@
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-1 flex-nowrap">
-                                        <form method="post" action="/admin/users/@user.Id/lock">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="locked" value="@(!user.IsLockedOut)" />
-                                            <button class="btn btn-sm @(user.IsLockedOut ? "btn-outline-success" : "btn-outline-secondary")" type="submit" title="@(user.IsLockedOut ? "Unlock" : "Lock") user">
-                                                @(user.IsLockedOut ? "Unlock" : "Lock")
-                                            </button>
-                                        </form>
+                                        @if (user.IsLockedOut)
+                                        {
+                                            <form method="post" action="/admin/users/@user.Id/unlock">
+                                                @Html.AntiForgeryToken()
+                                                <button class="btn btn-sm btn-outline-success" type="submit">Unlock</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <form method="post" action="/admin/users/@user.Id/lock">
+                                                @Html.AntiForgeryToken()
+                                                <button class="btn btn-sm btn-outline-secondary" type="submit">Lock</button>
+                                            </form>
+                                        }
                                         <form method="post" action="/admin/users/@user.Id/reset-password" class="d-flex gap-1 align-items-center">
                                             @Html.AntiForgeryToken()
                                             <input type="password" name="newPassword" class="form-control form-control-sm" placeholder="New password" style="width:110px" required minlength="8" />

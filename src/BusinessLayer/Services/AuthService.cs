@@ -20,6 +20,10 @@ public class AuthService
         }
 
         var result = await _signInManager.PasswordSignInAsync(email.Trim(), password, rememberMe, lockoutOnFailure: true);
+        if (result.IsLockedOut)
+        {
+            throw new InvalidOperationException("This account has been locked. Please contact an administrator.");
+        }
         if (!result.Succeeded)
         {
             throw new InvalidOperationException("Invalid email or password.");
