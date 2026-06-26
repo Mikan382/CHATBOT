@@ -37,8 +37,7 @@
                                 <li class="nav-item"><a class="nav-link @Active("AdminUsers")" asp-area="" asp-controller="AdminUsers" asp-action="Index">Users</a></li>
                             }
                             <li class="nav-item user-menu">
-                                <span class="user-email">@User.Identity.Name</span>
-                                <a class="btn btn-sm btn-outline-secondary me-1" href="/account/change-password">Change Password</a>
+                                <a class="nav-link d-inline px-2" href="/account/change-password" style="font-size:0.85rem">@User.Identity.Name</a>
                                 <form method="post" action="/account/logout" style="display:inline">
                                     @Html.AntiForgeryToken()
                                     <button class="btn btn-sm btn-logout" type="submit">Sign out</button>

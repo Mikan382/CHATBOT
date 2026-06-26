@@ -73,25 +73,31 @@
                                         <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
                                     </form>
                                 </td>
-                                <td>@(user.IsLockedOut ? "Locked" : "Active")</td>
-                                <td class="d-flex gap-1 flex-wrap">
-                                    <form method="post" action="/admin/users/@user.Id/lock" class="row-action-form">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="locked" value="@(!user.IsLockedOut)" />
-                                        <button class="btn btn-sm @(user.IsLockedOut ? "btn-outline-success" : "btn-outline-secondary")" type="submit">
-                                            @(user.IsLockedOut ? "Unlock" : "Lock")
-                                        </button>
-                                    </form>
-                                    <form method="post" action="/admin/users/@user.Id/reset-password" class="row-action-form d-inline-flex gap-1">
-                                        @Html.AntiForgeryToken()
-                                        <input type="text" name="newPassword" class="form-control form-control-sm" placeholder="New password" style="width:130px" required minlength="8" />
-                                        <button class="btn btn-sm btn-outline-warning" type="submit">Reset</button>
-                                    </form>
-                                    <form method="post" action="/admin/users/@user.Id/delete" class="row-action-form"
-                                          onsubmit="return confirm('Delete user @user.Email? This is irreversible.')">
-                                        @Html.AntiForgeryToken()
-                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
-                                    </form>
+                                <td>
+                                    <span class="badge @(user.IsLockedOut ? "bg-danger" : "bg-success")">
+                                        @(user.IsLockedOut ? "Locked" : "Active")
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-1 flex-nowrap">
+                                        <form method="post" action="/admin/users/@user.Id/lock">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="locked" value="@(!user.IsLockedOut)" />
+                                            <button class="btn btn-sm @(user.IsLockedOut ? "btn-outline-success" : "btn-outline-secondary")" type="submit" title="@(user.IsLockedOut ? "Unlock" : "Lock") user">
+                                                @(user.IsLockedOut ? "Unlock" : "Lock")
+                                            </button>
+                                        </form>
+                                        <form method="post" action="/admin/users/@user.Id/reset-password" class="d-flex gap-1 align-items-center">
+                                            @Html.AntiForgeryToken()
+                                            <input type="password" name="newPassword" class="form-control form-control-sm" placeholder="New password" style="width:110px" required minlength="8" />
+                                            <button class="btn btn-sm btn-outline-warning" type="submit">Reset</button>
+                                        </form>
+                                        <form method="post" action="/admin/users/@user.Id/delete"
+                                              onsubmit="return confirm('Delete @user.Email? This cannot be undone.')">
+                                            @Html.AntiForgeryToken()
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         }

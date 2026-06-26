@@ -99,6 +99,7 @@
         titleEl.className = "session-title text-decoration-none" + (s.id === sessionId ? " text-white" : "");
         titleEl.href = `/chat?sessionId=${s.id}`;
         titleEl.textContent = s.title;
+        titleEl.title = s.title;
         const delBtn = document.createElement("button");
         delBtn.className = "session-del";
         delBtn.textContent = "✕";
