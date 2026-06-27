@@ -36,10 +36,10 @@ public class DocumentRepository : IDocumentRepository
 
     public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, DocumentIndexStatus? status, CancellationToken cancellationToken)
     {
+        // Use projection + chunk count subquery instead of Include(Chunks) to avoid loading chunk text (S12)
         var query = _db.Documents
             .Include(x => x.Chapter)
             .ThenInclude(x => x!.Course)
-            .Include(x => x.Chunks)
             .Include(x => x.UploadedByUser)
             .AsQueryable();
 
@@ -64,10 +64,28 @@ public class DocumentRepository : IDocumentRepository
             query = query.Where(x => x.IndexStatus == status.Value);
         }
 
-        return await query
+        var docs = await query
             .OrderByDescending(x => x.UploadedAtUtc)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
+
+        // Populate ChunksCount via a single batch query
+        var docIds = docs.Select(d => d.Id).ToList();
+        var chunkCounts = await _db.DocumentChunks
+            .Where(c => docIds.Contains(c.DocumentId))
+            .GroupBy(c => c.DocumentId)
+            .Select(g => new { DocumentId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.DocumentId, x => x.Count, cancellationToken);
+
+        foreach (var doc in docs)
+        {
+            if (chunkCounts.TryGetValue(doc.Id, out var count))
+            {
+                doc.ChunksCount = count;
+            }
+        }
+
+        return docs;
     }
 
     public async Task<Document?> GetDetailsAsync(Guid id, CancellationToken cancellationToken)

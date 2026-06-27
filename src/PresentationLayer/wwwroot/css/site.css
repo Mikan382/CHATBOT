@@ -314,17 +314,22 @@ h6 {
   width: 100%;
   height: calc(100vh - 158px);
   min-height: 520px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
-.chat-sidebar,
+.chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  align-items: stretch;
+  overflow-y: auto;
+}
+
 .chat-main {
   display: flex;
   min-height: 0;
-}
-
-.chat-sidebar .app-card {
-  position: sticky;
-  top: 18px;
 }
 
 .chat-shell {
@@ -389,6 +394,127 @@ h6 {
   background: #eff6ff;
   color: #1e3a8a;
   font-size: 12px;
+}
+
+.session-search-wrap {
+  padding: 0.5rem 0.75rem 0.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.session-search-wrap input {
+  font-size: 0.8rem;
+}
+
+.session-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.session-item {
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.35rem;
+  border-left: 3px solid transparent;
+}
+
+.session-item.active {
+  border-left-color: #0d6efd;
+  background: #eff6ff;
+}
+
+.session-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #1e293b;
+}
+
+.session-item.active .session-link {
+  color: #1e40af;
+}
+
+.session-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-time {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.session-item.active .session-time {
+  color: #3b82f6;
+}
+
+.session-del {
+  border: none;
+  background: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.session-del:hover {
+  color: #dc3545;
+}
+
+.message.optimistic {
+  opacity: 0.85;
+}
+
+.message.typing {
+  max-width: 220px;
+}
+
+.typing-dots {
+  display: inline-flex;
+  gap: 3px;
+  padding: 0.25rem 0;
+}
+
+.typing-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #94a3b8;
+  animation: chat-blink 1.2s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.typing-status {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+@keyframes chat-blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
+.chat-empty-hint {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 2rem 1rem;
 }
 
 .metric-card {
@@ -635,10 +761,6 @@ h6 {
 
   .auth-panel {
     min-height: auto;
-  }
-
-  .chat-sidebar .app-card {
-    position: static;
   }
 
   .chat-shell {

@@ -61,15 +61,51 @@ public class GeminiClient : IGeminiClient
 
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
-        var text = root.GetProperty("candidates")[0]
-            .GetProperty("content")
-            .GetProperty("parts")[0]
-            .GetProperty("text")
-            .GetString();
+
+        if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+        {
+            // Gemini may return promptFeedback with blockReason instead of candidates
+            var blockReason = "";
+            if (root.TryGetProperty("promptFeedback", out var feedback) &&
+                feedback.TryGetProperty("blockReason", out var reason))
+            {
+                blockReason = $" (blocked: {reason.GetString()})";
+            }
+
+            throw new InvalidOperationException($"Gemini did not return any candidates{blockReason}.");
+        }
+
+        var candidate = candidates[0];
+        if (!candidate.TryGetProperty("content", out var content) ||
+            !content.TryGetProperty("parts", out var parts) ||
+            parts.GetArrayLength() == 0)
+        {
+            var finishReason = "";
+            if (candidate.TryGetProperty("finishReason", out var fr))
+            {
+                finishReason = $" (finishReason: {fr.GetString()})";
+            }
+
+            throw new InvalidOperationException($"Gemini candidate has no content{finishReason}.");
+        }
+
+        // Find the first text part (skip thinking parts)
+        string? text = null;
+        foreach (var part in parts.EnumerateArray())
+        {
+            if (part.TryGetProperty("text", out var t))
+            {
+                text = t.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    break;
+                }
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(text))
         {
-            throw new InvalidOperationException("Gemini did not return any content.");
+            throw new InvalidOperationException("Gemini did not return any text content.");
         }
 
         return text.Trim();

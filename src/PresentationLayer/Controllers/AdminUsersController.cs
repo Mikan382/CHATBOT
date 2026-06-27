@@ -80,12 +80,12 @@ public class AdminUsersController : Controller
 
     [HttpPost("/admin/users/{id:guid}/lock")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetLockout(Guid id, bool locked)
+    public async Task<IActionResult> Lock(Guid id)
     {
         try
         {
-            await _userAdminService.SetLockoutAsync(id, locked);
-            TempData["Success"] = locked ? "User was locked." : "User was unlocked.";
+            await _userAdminService.SetLockoutAsync(id, true);
+            TempData["Success"] = "User was locked.";
             return RedirectToAction(nameof(Index));
         }
         catch (Exception ex)
@@ -93,5 +93,56 @@ public class AdminUsersController : Controller
             TempData["Error"] = ex.Message;
             return RedirectToAction(nameof(Index));
         }
+    }
+
+    [HttpPost("/admin/users/{id:guid}/unlock")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Unlock(Guid id)
+    {
+        try
+        {
+            await _userAdminService.SetLockoutAsync(id, false);
+            TempData["Success"] = "User was unlocked.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
+    [HttpPost("/admin/users/{id:guid}/delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try
+        {
+            await _userAdminService.DeleteAsync(id);
+            TempData["Success"] = "User was deleted.";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost("/admin/users/{id:guid}/reset-password")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPassword(Guid id, string newPassword)
+    {
+        try
+        {
+            await _userAdminService.ResetPasswordAsync(id, newPassword);
+            TempData["Success"] = "Password was reset.";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Index));
     }
 }

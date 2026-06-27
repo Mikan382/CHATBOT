@@ -3,7 +3,6 @@ using System.Text.Json;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Repositories;
 using BusinessLayer.AI;
-using BusinessLayer.Indexing;
 using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.Services;
@@ -11,34 +10,28 @@ namespace BusinessLayer.Services;
 public class EvaluationService
 {
     private readonly IEvaluationRepository _evaluationRepository;
-    private readonly RetrievalService _retrievalService;
+    private readonly BenchmarkRetrievalService _benchmarkRetrieval;
     private readonly IGeminiClient _geminiClient;
     private readonly IFineTuneClient _fineTuneClient;
     private readonly RagasScorer _ragasScorer;
     private readonly EmbeddingClientFactory _embeddingClientFactory;
-    private readonly IDocumentRepository _documentRepository;
-    private readonly IDocumentEmbeddingRepository _embeddingRepository;
     private readonly ILogger<EvaluationService> _logger;
 
     public EvaluationService(
         IEvaluationRepository evaluationRepository,
-        RetrievalService retrievalService,
+        BenchmarkRetrievalService benchmarkRetrieval,
         IGeminiClient geminiClient,
         IFineTuneClient fineTuneClient,
         RagasScorer ragasScorer,
         EmbeddingClientFactory embeddingClientFactory,
-        IDocumentRepository documentRepository,
-        IDocumentEmbeddingRepository embeddingRepository,
         ILogger<EvaluationService> logger)
     {
         _evaluationRepository = evaluationRepository;
-        _retrievalService = retrievalService;
+        _benchmarkRetrieval = benchmarkRetrieval;
         _geminiClient = geminiClient;
         _fineTuneClient = fineTuneClient;
         _ragasScorer = ragasScorer;
         _embeddingClientFactory = embeddingClientFactory;
-        _documentRepository = documentRepository;
-        _embeddingRepository = embeddingRepository;
         _logger = logger;
     }
 
@@ -82,7 +75,6 @@ public class EvaluationService
 
     /// <summary>
     /// Run a benchmark for a specific chunking strategy and embedding model combination.
-    /// If strategy or model is null, uses the default.
     /// </summary>
     public async Task<IReadOnlyList<EvaluationResult>> RunAsync(int limit, string? chunkingStrategy, string? embeddingModel, CancellationToken cancellationToken)
     {
@@ -91,11 +83,11 @@ public class EvaluationService
         var strategy = chunkingStrategy ?? "paragraph";
         var modelName = embeddingModel ?? _embeddingClientFactory.GetModelNames().FirstOrDefault() ?? "default";
 
+        var index = await _benchmarkRetrieval.BuildIndexAsync(null, strategy, modelName, cancellationToken);
         var results = new List<EvaluationResult>();
         foreach (var question in questions)
         {
-            var result = await EvaluateQuestionAsync(question, strategy, modelName, cancellationToken);
-            results.Add(result);
+            results.Add(await EvaluateQuestionAsync(question, strategy, modelName, index, cancellationToken));
         }
 
         await _evaluationRepository.SaveResultsAsync(results, cancellationToken);
@@ -103,7 +95,8 @@ public class EvaluationService
     }
 
     /// <summary>
-    /// Run a full comparative benchmark: test all combinations of chunking strategies × embedding models.
+    /// Run a full comparative benchmark: all combinations of chunking strategies × embedding models.
+    /// Builds the in-memory index once per (strategy, model) pair so each combination is truly distinct.
     /// </summary>
     public async Task<IReadOnlyList<EvaluationResult>> RunFullBenchmarkAsync(int questionLimit, CancellationToken cancellationToken)
     {
@@ -117,10 +110,10 @@ public class EvaluationService
         {
             foreach (var model in models)
             {
+                var index = await _benchmarkRetrieval.BuildIndexAsync(null, strategy, model, cancellationToken);
                 foreach (var question in questions)
                 {
-                    var result = await EvaluateQuestionAsync(question, strategy, model, cancellationToken);
-                    allResults.Add(result);
+                    allResults.Add(await EvaluateQuestionAsync(question, strategy, model, index, cancellationToken));
                 }
             }
         }
@@ -129,10 +122,38 @@ public class EvaluationService
         return allResults;
     }
 
+    /// <summary>
+    /// Same as RunFullBenchmarkAsync but calls onQuestionDone after each question for progress reporting.
+    /// </summary>
+    public async Task RunFullBenchmarkWithProgressAsync(int questionLimit, Action onQuestionDone, CancellationToken cancellationToken)
+    {
+        questionLimit = Math.Clamp(questionLimit, 1, 50);
+        var questions = await _evaluationRepository.ListQuestionsForRunAsync(questionLimit, cancellationToken);
+        var strategies = AvailableChunkingStrategies;
+        var models = AvailableEmbeddingModels;
+
+        var allResults = new List<EvaluationResult>();
+        foreach (var strategy in strategies)
+        {
+            foreach (var model in models)
+            {
+                var index = await _benchmarkRetrieval.BuildIndexAsync(null, strategy, model, cancellationToken);
+                foreach (var question in questions)
+                {
+                    allResults.Add(await EvaluateQuestionAsync(question, strategy, model, index, cancellationToken));
+                    onQuestionDone();
+                }
+            }
+        }
+
+        await _evaluationRepository.SaveResultsAsync(allResults, cancellationToken);
+    }
+
     private async Task<EvaluationResult> EvaluateQuestionAsync(
         EvaluationQuestion question,
         string chunkingStrategy,
         string embeddingModelName,
+        BenchmarkIndex index,
         CancellationToken cancellationToken)
     {
         var result = new EvaluationResult
@@ -144,11 +165,20 @@ public class EvaluationService
             CreatedAtUtc = DateTime.UtcNow
         };
 
+        // Honest signal: model not configured → Skipped, NOT silent fallback
+        if (!index.Available)
+        {
+            result.Status = "Skipped";
+            result.ErrorMessage = index.UnavailableReason;
+            result.RagAnswer = index.UnavailableReason ?? "Benchmark index unavailable.";
+            return result;
+        }
+
         try
         {
             // --- RAG evaluation ---
             var ragStopwatch = Stopwatch.StartNew();
-            var chunks = await _retrievalService.RetrieveWithModelAsync(question.Question, null, 3, embeddingModelName, cancellationToken);
+            var chunks = await index.RetrieveAsync(question.Question, 3, cancellationToken);
             result.RetrievedChunksJson = JsonSerializer.Serialize(chunks);
 
             if (chunks.Count == 0)
@@ -163,7 +193,7 @@ public class EvaluationService
             ragStopwatch.Stop();
             result.RagLatencyMs = (int)ragStopwatch.ElapsedMilliseconds;
 
-            // --- Fine-tuned evaluation ---
+            // --- Fine-tuned evaluation (optional endpoint) ---
             if (_fineTuneClient.IsConfigured)
             {
                 var ftStopwatch = Stopwatch.StartNew();
@@ -183,11 +213,11 @@ public class EvaluationService
             result.RetrievalRecall = ragScore.RetrievalRecall;
             result.CitationAccuracy = ragScore.CitationAccuracy;
 
-            // --- RAGAS scoring for Fine-tuned ---
+            // --- RAGAS scoring for Fine-tuned (N2 fix: use same chunks as RAG for fair comparison) ---
             if (!string.IsNullOrWhiteSpace(result.FineTunedAnswer))
             {
                 var ftScore = await _ragasScorer.ScoreAsync(
-                    question.Question, question.GroundTruth, result.FineTunedAnswer, [], cancellationToken);
+                    question.Question, question.GroundTruth, result.FineTunedAnswer, chunks, cancellationToken);
                 result.FtFaithfulness = ftScore.Faithfulness;
                 result.FtAnswerRelevance = ftScore.AnswerRelevance;
             }
@@ -203,7 +233,7 @@ public class EvaluationService
                 result.RagAnswer = "Evaluation failed.";
             }
 
-            _logger.LogWarning(ex, "Evaluation failed for question {QuestionId} with strategy={Strategy} model={Model}",
+            _logger.LogWarning(ex, "Evaluation failed for question {QuestionId} strategy={Strategy} model={Model}",
                 question.Id, chunkingStrategy, embeddingModelName);
         }
 

@@ -40,6 +40,20 @@ public class ChatController : Controller
         return Json(new { success = true, history = await _chatService.GetHistoryAsync(sessionId, CurrentUserId(), cancellationToken) });
     }
 
+    [HttpGet("/api/chat/sessions")]
+    public async Task<IActionResult> Sessions(CancellationToken cancellationToken)
+    {
+        var sessions = await _chatService.ListSessionsAsync(CurrentUserId(), cancellationToken);
+        return Json(new { success = true, sessions });
+    }
+
+    [HttpDelete("/api/chat/{sessionId:guid}")]
+    public async Task<IActionResult> DeleteSession(Guid sessionId, CancellationToken cancellationToken)
+    {
+        var deleted = await _chatService.DeleteSessionAsync(sessionId, CurrentUserId(), cancellationToken);
+        return Json(new { success = deleted });
+    }
+
     private Guid CurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);

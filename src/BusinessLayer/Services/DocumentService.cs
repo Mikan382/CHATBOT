@@ -70,7 +70,7 @@ public class DocumentService
             x.IndexError,
             x.UploadedAtUtc,
             x.Chapter is null ? null : new ChapterDto(x.Chapter.Id, x.Chapter.Order, x.Chapter.Clo, x.Chapter.Title, x.Chapter.Summary),
-            x.Chunks.Count)).ToList();
+            x.ChunksCount > 0 ? x.ChunksCount : x.Chunks.Count)).ToList();
     }
 
     public async Task<Document> GetDetailsAsync(Guid id, CancellationToken cancellationToken)

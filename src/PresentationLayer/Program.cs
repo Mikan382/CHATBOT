@@ -9,6 +9,7 @@ using BusinessLayer.AI;
 using BusinessLayer.Indexing;
 using BusinessLayer.Parsing;
 using BusinessLayer.Retrieval;
+using DataAccessLayer.Enums;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -48,6 +49,12 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 builder.Services.AddSingleton<IIndexingQueue, IndexingQueue>();
 builder.Services.AddSingleton<TextChunker>();
+// Chunkers enumerable for benchmark (resolved by StrategyName)
+builder.Services.AddSingleton<ITextChunker, TextChunker>();
+builder.Services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker(1000, 150));
+builder.Services.AddSingleton<ITextChunker, SentenceChunker>();
+builder.Services.AddScoped<BenchmarkRetrievalService>();
+builder.Services.AddSingleton<BenchmarkJobRunner>();
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IChapterRepository, ChapterRepository>();
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();

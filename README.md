@@ -28,17 +28,17 @@ ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 ass
 - Text extraction for PDF, DOCX, PPTX, TXT, and MD.
 - Background document indexing with visible progress percentage and stage.
 - Document details page with extracted text, chunks, embedding status, and indexing errors.
-- RAG chat through SignalR with SQL Server chat history.
+- RAG chat through SignalR with SQL Server chat history and session sidebar.
 - Course selector for multi-course RAG retrieval.
-- Hugging Face embedding retrieval when configured.
-- Lexical retrieval fallback when embeddings are unavailable.
-- Gemini-based RAG answer generation with citations.
-- Fine-tuned model mode through a real custom REST endpoint.
+- Hugging Face embedding retrieval when configured; lexical fallback otherwise.
+- Gemini-based RAG answer generation with citations and markdown rendering.
+- Change password for all users; admin can delete/reset user passwords.
+- Fine-tuned model endpoint (placeholder; configure FineTuned:BaseUrl when available).
 - Benchmark dashboard for RAG/fine-tuned comparison with Chart.js charts.
 - Multi-chunking strategy benchmark (paragraph, fixed-size, sentence-based).
-- Multi-embedding model benchmark (multilingual-e5-base, text-embedding-3-small, PhoBERT-base, bge-m3).
+- Multi-embedding model benchmark (multilingual-e5-base, PhoBERT-base, bge-m3).
 - LLM-based RAGAS scoring (Faithfulness, Answer Relevance, Context Recall, Citation Accuracy).
-- Full comparative benchmark across all strategy × model combinations.
+- Full comparative benchmark across all strategy × model combinations (runs in background with live progress polling).
 - Benchmark results export as JSON.
 - Vietnamese language support in RAG chat responses.
 - Architecture page explaining MVC, 3-Layers, SignalR, Worker Service, and EF Core flow.
