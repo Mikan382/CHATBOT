@@ -1,5 +1,6 @@
 using System.Text;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Drawing = DocumentFormat.OpenXml.Drawing;
 using Presentation = DocumentFormat.OpenXml.Presentation;
 using UglyToad.PdfPig;
@@ -51,7 +52,23 @@ public class DocumentTextExtractor : IDocumentTextExtractor
     private static string ExtractDocx(Stream stream)
     {
         using var document = WordprocessingDocument.Open(stream, false);
-        return document.MainDocumentPart?.Document?.Body?.InnerText ?? "";
+        var body = document.MainDocumentPart?.Document?.Body;
+        if (body is null)
+        {
+            return "";
+        }
+
+        var builder = new StringBuilder();
+        foreach (var paragraph in body.Descendants<Paragraph>())
+        {
+            var text = paragraph.InnerText.Trim();
+            if (text.Length > 0)
+            {
+                builder.AppendLine(text);
+            }
+        }
+
+        return builder.ToString();
     }
 
     private static string ExtractPptx(Stream stream)

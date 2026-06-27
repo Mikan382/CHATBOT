@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLayer.Services;
@@ -51,6 +52,35 @@ public class AccountController : Controller
             input.Error = ex.Message;
             return View(input);
         }
+    }
+
+    [Authorize]
+    [HttpGet("/account/change-password")]
+    public IActionResult ChangePassword()
+    {
+        return View(new ChangePasswordViewModel());
+    }
+
+    [Authorize]
+    [HttpPost("/account/change-password")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel input)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(input);
+        }
+
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var (success, error) = await _authService.ChangePasswordAsync(userId, input.CurrentPassword, input.NewPassword);
+        if (!success)
+        {
+            input.Error = error ?? "Password change failed.";
+            return View(input);
+        }
+
+        TempData["Success"] = "Password changed successfully.";
+        return RedirectToAction("ChangePassword");
     }
 
     [Authorize]

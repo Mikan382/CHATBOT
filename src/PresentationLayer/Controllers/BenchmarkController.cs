@@ -11,10 +11,12 @@ namespace PresentationLayer.Controllers;
 public class BenchmarkController : Controller
 {
     private readonly EvaluationService _evaluationService;
+    private readonly BenchmarkJobRunner _jobRunner;
 
-    public BenchmarkController(EvaluationService evaluationService)
+    public BenchmarkController(EvaluationService evaluationService, BenchmarkJobRunner jobRunner)
     {
         _evaluationService = evaluationService;
+        _jobRunner = jobRunner;
     }
 
     [HttpGet("/benchmark")]
@@ -60,11 +62,29 @@ public class BenchmarkController : Controller
     }
 
     [HttpPost("/api/evaluations/run-full")]
-    public async Task<IActionResult> RunFull([FromBody] RunFullBenchmarkRequest? request, CancellationToken cancellationToken)
+    public IActionResult RunFull([FromBody] RunFullBenchmarkRequest? request)
     {
         var limit = request?.QuestionLimit ?? 5;
-        var results = await _evaluationService.RunFullBenchmarkAsync(limit, cancellationToken);
-        return Json(new { success = true, count = results.Count, results });
+        if (!_jobRunner.TryStart(limit, out var error))
+        {
+            return Json(new { success = false, error });
+        }
+
+        return Json(new { success = true, message = "Benchmark started in background. Poll /api/evaluations/progress for status." });
+    }
+
+    [HttpGet("/api/evaluations/progress")]
+    public IActionResult Progress()
+    {
+        var progress = _jobRunner.GetProgress();
+        return Json(new
+        {
+            running = progress.Running,
+            total = progress.Total,
+            done = progress.Done,
+            percent = progress.Total > 0 ? (int)(progress.Done * 100.0 / progress.Total) : 0,
+            error = progress.Error
+        });
     }
 
     [HttpGet("/api/evaluations/results")]

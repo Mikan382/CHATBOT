@@ -6,9 +6,22 @@
 <div class="chat-page row g-4">
     <div class="col-lg-3 chat-sidebar">
         <div class="card app-card">
+            <div class="card-header py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold">Recent Sessions</span>
+                    <a href="/chat" class="btn btn-sm btn-primary py-0 px-2" title="Start new session">+ New</a>
+                </div>
+            </div>
+            <div class="session-search-wrap">
+                <input id="sessionSearch" type="search" class="form-control form-control-sm" placeholder="Search sessions…" autocomplete="off" />
+            </div>
+            <ul id="sessionList" class="list-group list-group-flush session-list"></ul>
+        </div>
+
+        <div class="card app-card">
             <div class="card-body">
                 <h5 class="card-title">Chat Settings</h5>
-                <p class="text-muted small">Session: <span id="sessionId">@Model.SessionId</span></p>
+                <span id="sessionId" class="visually-hidden">@Model.SessionId</span>
                 <div class="mb-3">
                     <label class="form-label small text-muted" for="courseId">Course</label>
                     <select id="courseId" class="form-select form-select-sm">
@@ -38,7 +51,7 @@
                 </div>
 
                 <div class="alert @(Model.GeminiConfigured ? "alert-success" : "alert-warning") small mt-3 mb-0">
-                    Assistant: @(Model.GeminiConfigured ? "ready" : "not available")
+                    Assistant: @(Model.GeminiConfigured ? "ready" : "not available — set Gemini:ApiKey")
                 </div>
             </div>
         </div>
@@ -53,10 +66,15 @@
                 </div>
                 <button id="clearButton" class="btn btn-sm btn-outline-danger">Clear</button>
             </div>
-            <div id="messages" class="chat-log"></div>
+            <div id="messages" class="chat-log">
+                <div class="chat-empty-hint" id="chatEmptyHint">Ask a question to start the conversation.</div>
+            </div>
             <form id="chatForm" class="chat-form">
-                <input id="messageInput" class="form-control" autocomplete="off" placeholder="Ask a question about the selected course..." />
-                <button class="btn btn-primary" type="submit">Send</button>
+                <input id="messageInput" class="form-control" autocomplete="off"
+                       placeholder="Ask a question about the selected course..."
+                       @(Model.GeminiConfigured ? "" : "disabled") />
+                <button class="btn btn-primary" type="submit" id="sendButton"
+                        @(Model.GeminiConfigured ? "" : "disabled")>Send</button>
             </form>
         </div>
     </div>
@@ -64,5 +82,6 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+    <script>window._geminiConfigured = @(Model.GeminiConfigured ? "true" : "false");</script>
     <script src="~/js/chat.js" asp-append-version="true"></script>
 }

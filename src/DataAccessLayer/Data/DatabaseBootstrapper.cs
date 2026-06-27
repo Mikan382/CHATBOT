@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using DataAccessLayer.Data.Seed;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace DataAccessLayer.Data;
 
@@ -80,7 +81,10 @@ public static class DatabaseBootstrapper
         var password = configuration[$"SeedUsers:{key}:Password"];
         if (string.IsNullOrWhiteSpace(password))
         {
-            return;
+            // Fresh-install fallback: app is usable without user-secrets.
+            // Override via SeedUsers:{key}:Password in production.
+            password = "Prn222@123";
+            Console.WriteLine($"[SEED] No password configured for '{key}'. Using default dev password for {defaultEmail}.");
         }
 
         var user = await userManager.FindByEmailAsync(email);

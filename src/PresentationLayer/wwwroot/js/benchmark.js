@@ -107,22 +107,39 @@
 
       fullBtn.disabled = true;
       runBtn.disabled = true;
-      showStatus("info", `Running full comparative benchmark: ${limit} questions × all strategies × all models... This may take several minutes.`);
+      showStatus("info", "Starting benchmark in background...");
 
       try {
-        const response = await fetch("/api/evaluations/run-full", {
+        const startResp = await fetch("/api/evaluations/run-full", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ questionLimit: limit })
         });
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error || "Benchmark failed");
+        const startData = await startResp.json();
+        if (!startData.success) throw new Error(startData.error || "Could not start benchmark.");
 
-        showStatus("success", `Full benchmark completed: ${data.count} evaluations. Reloading...`);
-        setTimeout(() => window.location.reload(), 1500);
+        // Poll progress every 3 seconds
+        const pollInterval = setInterval(async () => {
+          try {
+            const progResp = await fetch("/api/evaluations/progress");
+            const prog = await progResp.json();
+            const label = prog.total > 0 ? ` (${prog.done}/${prog.total} — ${prog.percent}%)` : "";
+            if (prog.error) {
+              clearInterval(pollInterval);
+              showStatus("danger", `Benchmark failed: ${prog.error}`);
+              fullBtn.disabled = false;
+              runBtn.disabled = false;
+            } else if (!prog.running) {
+              clearInterval(pollInterval);
+              showStatus("success", `Full benchmark completed${label}. Reloading...`);
+              setTimeout(() => window.location.reload(), 1500);
+            } else {
+              showStatus("info", `Benchmark running${label}... do not close this tab.`);
+            }
+          } catch { /* network blip, keep polling */ }
+        }, 3000);
       } catch (error) {
         showStatus("danger", error.toString());
-      } finally {
         fullBtn.disabled = false;
         runBtn.disabled = false;
       }
