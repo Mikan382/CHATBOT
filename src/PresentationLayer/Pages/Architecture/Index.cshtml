@@ -1,0 +1,54 @@
+@page "/architecture"
+@model PresentationLayer.Pages.Architecture.IndexModel
+@{
+    ViewData["Title"] = "Architecture";
+}
+
+<div class="card app-card mb-4">
+    <div class="card-body">
+        <h4>Architecture: Razor Pages + 3 Projects + SignalR + Worker Service</h4>
+        <p class="text-muted mb-0">The solution is split into PresentationLayer, BusinessLayer, and DataAccessLayer.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card app-card h-100"><div class="card-body">
+            <h5>Workflow 1: Document Ingestion</h5>
+            <p>PDF/DOCX/PPTX/TXT/MD files are uploaded through a Razor Page. BusinessLayer validates, parses, and queues indexing. DataAccessLayer persists documents and chunks.</p>
+            <code>PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server</code>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card app-card h-100"><div class="card-body">
+            <h5>Workflow 2: Contextual Q&A</h5>
+            <p>SignalR receives the question. ChatService coordinates the RAG flow, RetrievalService fetches chunks through repositories, and Gemini answers with context and citations.</p>
+            <code>ChatHub -> ChatService -> RetrievalService -> Repository -> GeminiClient</code>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card app-card h-100"><div class="card-body">
+            <h5>Workflow 3: RBL Benchmark</h5>
+            <p>EvaluationService runs PRN222 ground-truth questions, measures faithfulness, relevance, recall, and citation accuracy, then saves results through DataAccessLayer.</p>
+            <code>BenchmarkPage -> EvaluationService -> EvaluationRepository -> SQL Server</code>
+        </div></div>
+    </div>
+</div>
+
+<div class="card app-card mt-4">
+    <div class="card-body">
+        <h5>3-Layers Mapping</h5>
+        <table class="table table-sm">
+            <tr><th>PresentationLayer</th><td>Razor Pages, SignalR Hub, ViewModels, Bootstrap UI, browser JavaScript clients.</td></tr>
+            <tr><th>BusinessLayer</th><td>Services, DTOs, AI clients, parsers, retrieval, scoring, indexing orchestration.</td></tr>
+            <tr><th>DataAccessLayer</th><td>Repositories, EF Core entities, SQL Server LocalDB, migrations.</td></tr>
+        </table>
+    </div>
+</div>
+
+<div class="card app-card mt-4">
+    <div class="card-body">
+        <h5>Runtime Dependency Rule</h5>
+        <p class="mb-0"><code>PresentationLayer -> BusinessLayer -> DataAccessLayer -> EF Core -> SQL Server</code></p>
+    </div>
+</div>
