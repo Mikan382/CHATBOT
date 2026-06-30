@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.AI;
@@ -42,7 +44,7 @@ public static class ConversationalMessageDetector
             return false;
         }
 
-        var normalized = Collapse(TextNormalizer.Normalize(trimmed));
+        var normalized = Collapse(NormalizeForDetection(trimmed));
         if (string.IsNullOrWhiteSpace(normalized))
         {
             return true;
@@ -79,6 +81,18 @@ public static class ConversationalMessageDetector
         }
 
         return token.Length <= 2;
+    }
+
+    // Strip diacritics so "chào" → "chao", "bạn" → "ban", etc., matching the token set.
+    // Kept separate from TextNormalizer.Normalize to avoid degrading Vietnamese lexical search.
+    private static string NormalizeForDetection(string text)
+    {
+        return new string(text
+            .ToLowerInvariant()
+            .Normalize(NormalizationForm.FormD)
+            .Where(ch => char.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+            .Select(ch => char.IsLetterOrDigit(ch) ? ch : ' ')
+            .ToArray());
     }
 
     private static string Collapse(string normalized)

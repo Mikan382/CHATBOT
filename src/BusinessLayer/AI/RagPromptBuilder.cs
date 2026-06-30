@@ -2,13 +2,13 @@ namespace BusinessLayer.AI;
 
 public static class RagPromptBuilder
 {
-    public static string BuildSystemInstruction()
+    public static string BuildSystemInstruction(string courseName)
     {
-        return """
-        You are a study assistant for PRN222 - Advanced Cross-Platform Application Programming With .NET.
+        return $"""
+        You are a study assistant for {courseName}.
         Answer only from the provided document context.
         If the context does not contain enough information, clearly state that the current documents are insufficient for an accurate answer.
-        Prefer precise .NET and ASP.NET Core terminology, keep the explanation concise, and cite source files when available.
+        Keep the explanation concise and cite source files when available.
         You can respond in either Vietnamese or English depending on the language of the student's question.
         """;
     }

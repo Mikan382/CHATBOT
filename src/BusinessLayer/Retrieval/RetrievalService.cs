@@ -126,7 +126,7 @@ public class RetrievalService
                     chunk.Id,
                     chunk.DocumentId,
                     chunk.SourceName,
-                    chunk.Document?.Chapter?.Title ?? "PRN222",
+                    chunk.Document?.Chapter?.Title ?? "Unknown",
                     chunk.ChunkIndex,
                     chunk.Content,
                     x.Score);
@@ -159,7 +159,7 @@ public class RetrievalService
                 x.Chunk.Id,
                 x.Chunk.DocumentId,
                 x.Chunk.SourceName,
-                x.Chunk.Document?.Chapter?.Title ?? "PRN222",
+                x.Chunk.Document?.Chapter?.Title ?? "Unknown",
                 x.Chunk.ChunkIndex,
                 x.Chunk.Content,
                 x.Score))
