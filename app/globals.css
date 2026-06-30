@@ -1,0 +1,541 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist-mono);
+  --font-numeric: var(--font-space-grotesk);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root {
+  --background: #f2f2f7;
+  --foreground: #1c1c1e;
+  --card: #ffffff;
+  --card-foreground: #1c1c1e;
+  --muted: #e5e5ea;
+  --muted-foreground: #8e8e93;
+  --border: rgba(0, 0, 0, 0.08);
+  --primary: #1c1c1e;
+  --primary-foreground: #ffffff;
+  --radius: 0.875rem;
+
+  /* chart palette */
+  --chart-grid: rgba(0, 0, 0, 0.05);
+  --chart-tick: #8e8e93;
+  --chart-tick-strong: #3c3c43;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  --background: #0a0a0c;
+  --foreground: #f2f2f7;
+  --card: #1c1c1e;
+  --card-foreground: #f2f2f7;
+  --muted: #2c2c2e;
+  --muted-foreground: #98989d;
+  --border: rgba(255, 255, 255, 0.08);
+  --primary: #ffffff;
+  --primary-foreground: #1c1c1e;
+
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-tick: #98989d;
+  --chart-tick-strong: #d1d1d6;
+  --chart-tooltip-bg: #1c1c1e;
+  --chart-tooltip-border: rgba(255, 255, 255, 0.08);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility font-numeric {
+  font-family: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+@utility custom-scrollbar {
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+}
+
+@keyframes sweep {
+  0%   { transform: translateX(-6rem); }
+  100% { transform: translateX(150vw); }
+}
+
+@utility animate-sweep {
+  animation: sweep 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes bar-energy-rise {
+  0%   { clip-path: inset(0 100% 0 0); opacity: 0.95; } /* Start from left */
+  45%  { clip-path: inset(0 0 0 0);    opacity: 0.6; }  /* Fully filled */
+  100% { clip-path: inset(0 0 0 100%); opacity: 0; }    /* Disappear to right */
+}
+
+/* ── Race Mode cyber HUD: occasional RGB-split glitch on model name ── */
+@keyframes race-glitch {
+  0%, 92%, 100% { transform: translate(0, 0); text-shadow: none; clip-path: none; }
+  93%  { transform: translate(-1px, 0);  text-shadow: 1.2px 0 #ff2d6e, -1.2px 0 #2dd4ff; }
+  95%  { transform: translate(1px, 0);   text-shadow: -1.2px 0 #ff2d6e, 1.2px 0 #2dd4ff; }
+  97%  { transform: translate(-1px, 0);  text-shadow: 1.2px 0 #2dd4ff, -1.2px 0 #ff2d6e; }
+  99%  { transform: translate(0, 0);     text-shadow: none; }
+}
+.race-glitch {
+  animation: race-glitch 4.5s steps(1, end) infinite;
+}
+
+@keyframes race-trend-pulse {
+  0%, 100% { transform: translateY(0) scale(1);   opacity: 0.95; }
+  50%      { transform: translateY(-1px) scale(1.35); opacity: 1; }
+}
+.race-trend-active {
+  animation: race-trend-pulse 0.5s ease-in-out infinite;
+}
+@keyframes race-scan {
+  0%   { background-position: 0 -100%; }
+  100% { background-position: 0 200%; }
+}
+
+/* Token-gain ↑ indicator: blinking green arrow that bobs upward */
+@keyframes race-gain-blink {
+  0%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+  25%      { opacity: 0.35; }
+  50%      { opacity: 1; transform: translateY(-3px) scale(1.18); }
+  75%      { opacity: 0.5; }
+}
+.race-gain {
+  animation: race-gain-blink 0.6s ease-in-out infinite;
+  transition: opacity 0.25s ease;
+}
+
+/* ════ Race Mode — badge surge FX (synced to the afterburner plasma) ════ */
+/* The aura strength is driven per-frame by --surge (the rocket's plasma boost,
+   0–1), set on the HUD label and inherited here, so the green glow rises and
+   fades in exact lockstep with the flame. */
+.race-mp-aura {
+  position: absolute;
+  inset: -1px;
+  border-radius: 7px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--surge, 0);
+  border: 1px solid rgba(74, 222, 128, 0.95);
+  background: radial-gradient(120% 120% at 50% 50%, rgba(74, 222, 128, 0.18), transparent 70%);
+  box-shadow:
+    0 0 10px 1px rgba(74, 222, 128, 0.75),
+    0 0 22px 3px rgba(34, 230, 140, 0.45),
+    inset 0 0 12px rgba(74, 222, 128, 0.5);
+  transition: opacity 90ms linear;
+}
+/* Clip the light sweep to the card's rounded box. */
+.race-mp-shineclip {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.race-mp-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  opacity: 0;
+  transform: translateX(-140%) skewX(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(180, 255, 214, 0.55) 45%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(180, 255, 214, 0.55) 55%,
+    transparent
+  );
+}
+/* The number picks up a green energy glow that scales with the surge. The glow
+   strength rides --surge through the alpha channel only (no calc() inside a
+   color — Lightning CSS / Tailwind v4 rejects that and drops the whole rule). */
+.race-mp-num {
+  text-shadow: 0 0 9px rgb(74 222 128 / var(--surge, 0));
+  transition: text-shadow 90ms linear;
+}
+/* The "$" cost on the badge picks up the same surge glow (green). */
+.race-mp-cost {
+  text-shadow: 0 0 9px rgb(74 222 128 / var(--surge, 0));
+  transition: text-shadow 90ms linear;
+}
+
+/* Floating gain popup: pops in, hangs, then drifts up and fades. Stacks the
+   token gain (green) over the cost gain (gold). */
+@keyframes race-mp-gain-float {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.6); }
+  16%  { opacity: 1; transform: translateY(0) scale(1.18); }
+  32%  { transform: translateY(-5px) scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-46px) scale(1); }
+}
+.race-mp-gain {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  font-family: var(--font-space-grotesk), ui-monospace, monospace;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  animation: race-mp-gain-float 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+.race-mp-gain-tok {
+  font-size: 15px;
+  color: #4ade80;
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.85), 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.race-mp-gain-cost {
+  font-size: 12px;
+  color: #fbbf24;
+  text-shadow: 0 0 9px rgba(251, 191, 36, 0.85), 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* ════ Race Mode INTRO SPLASH — cyberpunk glitch title ════ */
+.race-splash {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  background: radial-gradient(ellipse at center, #0a0d1c 0%, #03040a 70%);
+  overflow: hidden;
+  z-index: 90;
+}
+/* moving scanlines overlay */
+.race-splash::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 200, 0.04) 0px,
+    rgba(0, 255, 200, 0.04) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  animation: splash-scanmove 7s linear infinite;
+  pointer-events: none;
+}
+/* vignette flicker */
+.race-splash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.6) 100%);
+  animation: splash-flicker 3.5s steps(1, end) infinite;
+  pointer-events: none;
+}
+@keyframes splash-scanmove {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(8px); }
+}
+@keyframes splash-flicker {
+  0%, 100% { opacity: 1; }
+  48% { opacity: 1; }
+  49% { opacity: 0.82; }
+  50% { opacity: 1; }
+  72% { opacity: 0.9; }
+  73% { opacity: 1; }
+}
+
+/* The big glitch title */
+.glitch-title {
+  position: relative;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  font-size: clamp(1.6rem, 6vw, 4.2rem);
+  color: #eafffb;
+  text-shadow: 0 0 18px rgba(0, 240, 200, 0.45);
+  animation: title-flicker 2.4s steps(1, end) infinite;
+  user-select: none;
+}
+.glitch-title::before,
+.glitch-title::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, #0a0d1c 0%, #03040a 70%);
+  overflow: hidden;
+  clip-path: inset(0 0 0 0);
+}
+.glitch-title::before {
+  left: 2px;
+  color: #ff2d6e;
+  animation: glitch-slice-1 2.6s infinite linear alternate-reverse;
+}
+.glitch-title::after {
+  left: -2px;
+  color: #2dd4ff;
+  animation: glitch-slice-2 3.1s infinite linear alternate-reverse;
+}
+@keyframes title-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.4; }
+  94% { opacity: 1; }
+  97% { opacity: 0.7; }
+  98% { opacity: 1; }
+}
+@keyframes glitch-slice-1 {
+  0%   { clip-path: inset(0 0 92% 0); transform: translate(0,0); }
+  15%  { clip-path: inset(38% 0 40% 0); transform: translate(-3px,0); }
+  30%  { clip-path: inset(10% 0 78% 0); transform: translate(3px,0); }
+  45%  { clip-path: inset(70% 0 8% 0);  transform: translate(-2px,0); }
+  60%  { clip-path: inset(24% 0 60% 0); transform: translate(2px,0); }
+  75%  { clip-path: inset(86% 0 2% 0);  transform: translate(-3px,0); }
+  100% { clip-path: inset(54% 0 30% 0); transform: translate(2px,0); }
+}
+@keyframes glitch-slice-2 {
+  0%   { clip-path: inset(80% 0 4% 0);  transform: translate(0,0); }
+  15%  { clip-path: inset(12% 0 72% 0); transform: translate(3px,0); }
+  30%  { clip-path: inset(58% 0 28% 0); transform: translate(-3px,0); }
+  45%  { clip-path: inset(34% 0 50% 0); transform: translate(2px,0); }
+  60%  { clip-path: inset(4% 0 86% 0);  transform: translate(-2px,0); }
+  75%  { clip-path: inset(46% 0 40% 0); transform: translate(3px,0); }
+  100% { clip-path: inset(20% 0 66% 0); transform: translate(-2px,0); }
+}
+
+/* sub-line + progress shimmer */
+.race-splash-sub {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(190, 255, 245, 0.55);
+  animation: splash-flicker 2.8s steps(1, end) infinite;
+}
+.race-splash-bar {
+  position: relative;
+  width: clamp(160px, 26vw, 320px);
+  height: 2px;
+  background: rgba(120, 200, 220, 0.14);
+  overflow: hidden;
+  border-radius: 2px;
+}
+.race-splash-bar > span {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #2dd4ff, #4affe0, transparent);
+  animation: splash-bar 1.3s cubic-bezier(0.4,0,0.2,1) infinite;
+  box-shadow: 0 0 12px #2dd4ff;
+}
+@keyframes splash-bar {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+.race-splash-fade {
+  animation: splash-fade-out 0.5s ease forwards;
+}
+@keyframes splash-fade-out {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* Glassmorphism shine and lift effects for cards */
+.stat-card-premium {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.stat-card-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12) 30%,
+    rgba(255, 255, 255, 0.24) 50%,
+    rgba(255, 255, 255, 0.12) 70%,
+    transparent
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+.dark .stat-card-premium::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.03) 30%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 70%,
+    transparent
+  );
+}
+
+.stat-card-premium:hover::before {
+  left: 150%;
+  transition: all 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stat-card-premium:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02) !important;
+  border-color: rgba(99, 102, 241, 0.25) !important; /* Indigo glow */
+}
+
+.dark .stat-card-premium:hover {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 12px 24px -10px rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important; /* Indigo dark glow */
+}
+
+/* Premium dynamic lifts for chart boxes */
+.chart-container-premium {
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.chart-container-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 20px -8px rgba(0, 0, 0, 0.04), 0 4px 8px -4px rgba(0, 0, 0, 0.02) !important;
+  border-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+.dark .chart-container-premium:hover {
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3), 0 8px 16px -8px rgba(0, 0, 0, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ── /live spectator screen ────────────────────────────────────────────────── */
+
+/* Hide the OS cursor everywhere inside the spectator screen; the custom one
+   below replaces it. Re-enable a pointer over real buttons for affordance. */
+.live-screen, .live-screen * { cursor: none !important; }
+.live-screen button, .live-screen a { cursor: none !important; }
+
+/* Custom cursor: an outer glowing ring + inner dot, positioned from JS via
+   the --cx / --cy CSS variables. pointer-events:none so it never blocks clicks.
+   The ring trails the dot slightly (slower transition) for a fluid feel. */
+.live-cursor-dot,
+.live-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9999;
+  border-radius: 50%;
+  transform: translate(calc(var(--cx, -100px) - 50%), calc(var(--cy, -100px) - 50%));
+  will-change: transform;
+}
+.live-cursor-dot {
+  width: 7px;
+  height: 7px;
+  background: #4affe0;
+  box-shadow: 0 0 8px 2px rgba(74, 255, 224, 0.9), 0 0 18px 4px rgba(45, 212, 255, 0.5);
+  transition: transform 0.03s linear;
+}
+.live-cursor-ring {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid rgba(74, 255, 224, 0.55);
+  box-shadow: 0 0 14px rgba(0, 240, 200, 0.35), inset 0 0 10px rgba(0, 240, 200, 0.15);
+  transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1), width 0.2s ease, height 0.2s ease, border-color 0.2s ease;
+  animation: live-cursor-spin 6s linear infinite;
+}
+/* Grow + brighten the ring when hovering an interactive element. */
+.live-cursor-ring.is-active {
+  width: 50px;
+  height: 50px;
+  border-color: rgba(74, 255, 224, 0.95);
+  box-shadow: 0 0 22px rgba(0, 240, 200, 0.6), inset 0 0 14px rgba(0, 240, 200, 0.3);
+}
+@keyframes live-cursor-spin {
+  to { transform: translate(calc(var(--cx, -100px) - 50%), calc(var(--cy, -100px) - 50%)) rotate(360deg); }
+}
+/* When active the spin keyframe would override the larger size via transform;
+   keep the translate but let JS-driven size win by disabling spin on hover. */
+.live-cursor-ring.is-active { animation: none; }
+
+/* Big projector title overlay — sits along the top, glitch-styled, non-blocking. */
+.live-title-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: clamp(0.6rem, 2vh, 1.4rem);
+  pointer-events: none;
+  z-index: 70;
+}
+.live-title {
+  font-size: clamp(1rem, 2.3vw, 1.75rem);
+  letter-spacing: 0.14em;
+  text-align: center;
+  /* keep the last letter's tracking from pushing the glyph off-centre */
+  text-indent: 0.14em;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+/* The shared .glitch-title paints an opaque dark slab in its ::before/::after
+   layers (fine on the full-screen splash). Over the live race that slab looks
+   like an ugly band — make the glitch layers transparent so only the coloured
+   RGB-split text shows, and clip them to the text box. */
+.live-title::before,
+.live-title::after {
+  background: transparent;
+}
+.live-title-sub {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: clamp(0.5rem, 1.1vw, 0.7rem);
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  text-transform: uppercase;
+  color: rgba(190, 255, 245, 0.45);
+  text-align: center;
+}
+
+
