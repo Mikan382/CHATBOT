@@ -6,7 +6,7 @@
 
 <div class="chat-page row g-4">
     <div class="col-lg-3 chat-sidebar">
-        <div class="card app-card">
+        <div class="card app-card chat-sidebar-card">
             <div class="card-header py-2">
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="fw-semibold">Recent Sessions</span>
@@ -14,13 +14,14 @@
                 </div>
             </div>
             <div class="session-search-wrap">
-                <input id="sessionSearch" type="search" class="form-control form-control-sm" placeholder="Search sessions…" autocomplete="off" />
+                <input id="sessionSearch" type="search" class="form-control form-control-sm" placeholder="Search sessions..." autocomplete="off" />
             </div>
             <ul id="sessionList" class="list-group list-group-flush session-list"></ul>
         </div>
 
-        <div class="card app-card">
+        <div class="card app-card chat-settings-card">
             <div class="card-body">
+                <div class="chat-card-kicker">Workspace</div>
                 <h5 class="card-title">Chat Settings</h5>
                 <span id="sessionId" class="visually-hidden">@Model.SessionId</span>
                 <div class="mb-3">
@@ -51,8 +52,13 @@
                     <p class="text-muted small mb-0">@(Model.FineTuneConfigured ? "Backup answer service is available." : "Backup answer service is not available.")</p>
                 </div>
 
-                <div class="alert @(Model.GeminiConfigured ? "alert-success" : "alert-warning") small mt-3 mb-0">
-                    Assistant: @(Model.GeminiConfigured ? "ready" : "not available — set Gemini:ApiKey")
+                <div class="assistant-state @(Model.GeminiConfigured ? "ready" : "missing")">
+                    <span class="assistant-state-dot" aria-hidden="true"></span>
+                    <span>Assistant @(Model.GeminiConfigured ? "ready" : "not available")</span>
+                    @if (!Model.GeminiConfigured)
+                    {
+                        <small>Set <code>Gemini:ApiKey</code> to enable answers.</small>
+                    }
                 </div>
             </div>
         </div>
@@ -64,6 +70,7 @@
                 <div>
                     <strong>Ask about your course</strong>
                     <div class="small text-muted">Messages are saved for this session.</div>
+                    <div id="connectionStatus" class="chat-connection-status" aria-live="polite">Connecting...</div>
                 </div>
                 <button id="clearButton" class="btn btn-sm btn-outline-danger">Clear</button>
             </div>
@@ -77,6 +84,24 @@
                 <button class="btn btn-primary" type="submit" id="sendButton"
                         @(Model.GeminiConfigured ? "" : "disabled")>Send</button>
             </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="chatConfirmModal" tabindex="-1" aria-labelledby="chatConfirmTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content chat-confirm-modal">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chatConfirmTitle">Confirm action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="chatConfirmMessage" class="mb-0">Continue?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="chatConfirmAction" class="btn btn-outline-danger">Confirm</button>
+            </div>
         </div>
     </div>
 </div>

@@ -1244,6 +1244,111 @@ h6 {
   background: #f5faff;
 }
 
+.chat-sidebar-card,
+.chat-settings-card {
+  overflow: hidden;
+}
+
+.chat-card-kicker {
+  color: var(--color-cobalt-link);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.assistant-state {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+  align-items: center;
+  margin-top: var(--space-4);
+  padding: 12px 14px;
+  border: 1px solid var(--color-silver-mist);
+  border-radius: var(--radius-panel);
+  background: var(--surface-recessed);
+  color: var(--color-ink);
+  font-size: var(--text-body-sm);
+}
+
+.assistant-state small {
+  grid-column: 2;
+  color: var(--color-graphite);
+}
+
+.assistant-state-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-caution);
+}
+
+.assistant-state.ready .assistant-state-dot {
+  background: var(--color-success);
+}
+
+.assistant-state.missing {
+  background: #fff8e6;
+  border-color: rgba(182, 68, 0, 0.18);
+}
+
+.chat-connection-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-recessed);
+  color: var(--color-graphite);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.chat-connection-status.connected {
+  background: #eef8f0;
+  color: var(--color-success);
+}
+
+.chat-connection-status.reconnecting {
+  background: #fff8e6;
+  color: var(--color-caution);
+}
+
+.chat-connection-status.disconnected {
+  background: #fff1f1;
+  color: #b42318;
+}
+
+.session-del {
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-graphite);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.session-del:hover,
+.session-del:focus {
+  border-color: rgba(180, 35, 24, 0.2);
+  background: #fff1f1;
+  color: #b42318;
+}
+
+.chat-confirm-modal {
+  border: none;
+  border-radius: var(--radius-card);
+}
+
+.chat-confirm-modal .modal-header,
+.chat-confirm-modal .modal-footer {
+  border-color: var(--color-silver-mist);
+}
+
+.chat-confirm-modal .modal-title {
+  font-weight: 700;
+}
+
 .metric-card {
   min-height: 80px;
 }

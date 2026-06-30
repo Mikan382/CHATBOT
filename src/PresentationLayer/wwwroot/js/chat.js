@@ -9,6 +9,40 @@
   const sessionList = document.getElementById("sessionList");
   const sessionSearch = document.getElementById("sessionSearch");
   const chatEmptyHint = document.getElementById("chatEmptyHint");
+  const connectionStatus = document.getElementById("connectionStatus");
+  const confirmModalEl = document.getElementById("chatConfirmModal");
+  const confirmTitle = document.getElementById("chatConfirmTitle");
+  const confirmMessage = document.getElementById("chatConfirmMessage");
+  const confirmAction = document.getElementById("chatConfirmAction");
+  const confirmModal = confirmModalEl && window.bootstrap ? new bootstrap.Modal(confirmModalEl) : null;
+  let pendingConfirmAction = null;
+
+  function setConnectionStatus(state, text) {
+    if (!connectionStatus) return;
+    connectionStatus.className = `chat-connection-status ${state}`;
+    connectionStatus.textContent = text;
+  }
+
+  function requestConfirmation(title, message, action) {
+    if (!confirmModal || !confirmTitle || !confirmMessage || !confirmAction) {
+      if (confirm(message)) action();
+      return;
+    }
+
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    pendingConfirmAction = action;
+    confirmModal.show();
+  }
+
+  if (confirmAction) {
+    confirmAction.addEventListener("click", async () => {
+      const action = pendingConfirmAction;
+      pendingConfirmAction = null;
+      confirmModal?.hide();
+      if (action) await action();
+    });
+  }
 
   function updateEmptyHint() {
     if (!chatEmptyHint) return;
@@ -215,18 +249,19 @@
         const delBtn = document.createElement("button");
         delBtn.className = "session-del";
         delBtn.type = "button";
-        delBtn.textContent = "✕";
+        delBtn.textContent = "Delete";
         delBtn.title = "Delete session";
         delBtn.addEventListener("click", async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!confirm("Delete this session?")) return;
-          await fetch(`/api/chat/${s.id}`, { method: "DELETE" });
-          if (s.id === sessionId) {
-            window.location.href = "/chat";
-          } else {
-            loadSessions();
-          }
+          requestConfirmation("Delete session", "Delete this chat session and its saved messages?", async () => {
+            await fetch(`/api/chat/${s.id}`, { method: "DELETE" });
+            if (s.id === sessionId) {
+              window.location.href = "/chat";
+            } else {
+              loadSessions();
+            }
+          });
         });
 
         li.appendChild(link);
@@ -252,6 +287,19 @@
     .withUrl("/chatHub")
     .withAutomaticReconnect()
     .build();
+
+  connection.onreconnecting(() => {
+    setConnectionStatus("reconnecting", "Reconnecting...");
+  });
+
+  connection.onreconnected(() => {
+    setConnectionStatus("connected", "Connected");
+    connection.invoke("JoinSession", sessionId).catch(() => { /* close handler covers disconnected state */ });
+  });
+
+  connection.onclose(() => {
+    setConnectionStatus("disconnected", "Disconnected");
+  });
 
   connection.on("MessageReceived", (message) => {
     if (message.role === "user") {
@@ -312,16 +360,18 @@
   });
 
   clearButton.addEventListener("click", async () => {
-    if (confirm("Clear the current session history?")) {
+    requestConfirmation("Clear current session", "Clear all messages in this session? This keeps the session but removes its visible history.", async () => {
       await connection.invoke("ClearSession", sessionId);
-    }
+    });
   });
 
   connection.start()
+    .then(() => setConnectionStatus("connected", "Connected"))
     .then(() => connection.invoke("JoinSession", sessionId))
     .then(loadHistory)
     .then(loadSessions)
     .catch((error) => {
+      setConnectionStatus("disconnected", "Connection failed");
       const errEl = document.createElement("div");
       errEl.className = "alert alert-danger m-3";
       errEl.textContent = "Connection error: " + error.toString();
