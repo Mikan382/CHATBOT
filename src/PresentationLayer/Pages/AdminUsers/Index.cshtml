@@ -4,11 +4,13 @@
     ViewData["Title"] = "Users";
 }
 
-<div class="row g-4">
+<div class="row g-4 management-page">
     <div class="col-lg-4">
-        <div class="card app-card">
+        <div class="card app-card management-command-card">
             <div class="card-body">
-                <h5 class="card-title">Create User</h5>
+                <div class="section-kicker">Access control</div>
+                <h1 class="management-title">Create User</h1>
+                <p class="documents-subtitle">Provision student, teacher, and admin accounts for the course assistant.</p>
                 <form method="post" asp-page-handler="Create">
                     @Html.AntiForgeryToken()
                     <div class="mb-3">
@@ -42,11 +44,17 @@
         </div>
     </div>
     <div class="col-lg-8">
-        <div class="card app-card table-card">
+        <div class="card app-card table-card management-table-card">
             <div class="card-body">
-                <h5 class="card-title">Users</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle user-table">
+                <div class="management-header">
+                    <div>
+                        <div class="section-kicker">Directory</div>
+                        <h2 class="management-title">Users</h2>
+                    </div>
+                    <span class="document-course-chip">@Model.Users.Count accounts</span>
+                </div>
+                <div class="table-responsive documents-table-wrap">
+                    <table class="table table-sm align-middle user-table management-table">
                         <thead>
                         <tr>
                             <th>Email</th>
@@ -80,7 +88,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div class="d-flex align-items-center gap-1 flex-nowrap">
+                                    <div class="action-cell management-actions">
                                         @if (user.IsLockedOut)
                                         {
                                             <form method="post" asp-page-handler="Unlock" asp-route-userId="@user.Id">
@@ -95,13 +103,16 @@
                                                 <button class="btn btn-sm btn-outline-secondary" type="submit">Lock</button>
                                             </form>
                                         }
-                                        <form method="post" asp-page-handler="ResetPassword" asp-route-userId="@user.Id" class="d-flex gap-1 align-items-center">
+                                        <form method="post" asp-page-handler="ResetPassword" asp-route-userId="@user.Id" class="reset-password-form">
                                             @Html.AntiForgeryToken()
-                                            <input type="password" name="newPassword" class="form-control form-control-sm" placeholder="New password" style="width:110px" required minlength="8" />
+                                            <input type="password" name="newPassword" class="form-control form-control-sm" placeholder="New password" required minlength="8" />
                                             <button class="btn btn-sm btn-outline-warning" type="submit">Reset</button>
                                         </form>
                                         <form method="post" asp-page-handler="Delete" asp-route-userId="@user.Id"
-                                              onsubmit="return confirm('Delete @user.Email? This cannot be undone.')">
+                                              class="management-confirm-form"
+                                              data-confirm-title="Delete user"
+                                              data-confirm-message="Delete @user.Email? This cannot be undone."
+                                              data-confirm-action="Delete">
                                             @Html.AntiForgeryToken()
                                             <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
                                         </form>
@@ -117,6 +128,25 @@
     </div>
 </div>
 
+<div class="modal fade" id="managementConfirmModal" tabindex="-1" aria-labelledby="managementConfirmTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content chat-confirm-modal">
+            <div class="modal-header">
+                <h5 class="modal-title" id="managementConfirmTitle">Confirm action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="managementConfirmMessage" class="mb-0">Continue?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="managementConfirmAction" class="btn btn-outline-danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/management.js" asp-append-version="true"></script>
 }

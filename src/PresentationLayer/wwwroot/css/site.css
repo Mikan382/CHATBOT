@@ -1649,6 +1649,60 @@ h6 {
   width: 100% !important;
 }
 
+.management-command-card,
+.management-table-card {
+  border-color: rgba(210, 210, 215, 0.92);
+}
+
+.management-title {
+  color: var(--color-ink);
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.18;
+  margin-bottom: var(--space-2);
+}
+
+.management-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: start;
+  margin-bottom: var(--space-4);
+}
+
+.management-filter-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.management-table {
+  min-width: 860px;
+}
+
+.management-table thead th {
+  background: var(--surface-card);
+  border-bottom-color: var(--color-silver-mist);
+  color: var(--color-graphite);
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+
+.management-actions {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.reset-password-form {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) auto;
+  gap: var(--space-1);
+  align-items: center;
+}
+
 @media (max-width: 991.98px) {
   .app-navbar .container-fluid {
     padding: 10px 18px !important;
@@ -1725,6 +1779,15 @@ h6 {
 
   .benchmark-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .management-header,
+  .management-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .management-header {
+    flex-direction: column;
   }
 }
 
