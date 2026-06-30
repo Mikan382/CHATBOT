@@ -181,6 +181,7 @@ public class EvaluationService
             var chunks = await index.RetrieveAsync(question.Question, 3, cancellationToken);
             result.RetrievedChunksJson = JsonSerializer.Serialize(chunks);
 
+            var courseName = question.Chapter?.Course?.Name ?? question.Chapter?.Course?.Code ?? "this course";
             if (chunks.Count == 0)
             {
                 result.RagAnswer = "No relevant context was found in the indexed documents.";
@@ -188,7 +189,7 @@ public class EvaluationService
             else
             {
                 var prompt = RagPromptBuilder.BuildPrompt(question.Question, chunks, []);
-                result.RagAnswer = await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(), prompt, cancellationToken);
+                result.RagAnswer = await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(courseName), prompt, cancellationToken);
             }
             ragStopwatch.Stop();
             result.RagLatencyMs = (int)ragStopwatch.ElapsedMilliseconds;
@@ -197,8 +198,9 @@ public class EvaluationService
             if (_fineTuneClient.IsConfigured)
             {
                 var ftStopwatch = Stopwatch.StartNew();
+                var courseCode = question.Chapter?.Course?.Code ?? "PRN222";
                 var ft = await _fineTuneClient.GenerateAsync(
-                    new FineTuneRequest(Guid.NewGuid().ToString(), "PRN222", question.Question, []),
+                    new FineTuneRequest(Guid.NewGuid().ToString(), courseCode, question.Question, []),
                     cancellationToken);
                 result.FineTunedAnswer = ft.Answer;
                 ftStopwatch.Stop();

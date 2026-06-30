@@ -33,6 +33,8 @@ public class EvaluationRepository : IEvaluationRepository
     public async Task<IReadOnlyList<EvaluationQuestion>> ListQuestionsForRunAsync(int limit, CancellationToken cancellationToken)
     {
         return await _db.EvaluationQuestions
+            .Include(x => x.Chapter)
+            .ThenInclude(x => x!.Course)
             .OrderBy(x => x.Order)
             .Take(limit)
             .AsNoTracking()
