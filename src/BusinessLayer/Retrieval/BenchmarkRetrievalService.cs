@@ -66,7 +66,7 @@ public class BenchmarkRetrievalService
             }
 
             var chunks = chunker.Chunk(doc.ContentText);
-            var chapterTitle = doc.Chapter?.Title ?? "PRN222";
+            var chapterTitle = doc.Chapter?.Title ?? "Unknown";
             var chunkIndex = 0;
 
             foreach (var chunkText in chunks)

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -27,8 +28,22 @@ public class IndexModel : PageModel
     public async Task<IActionResult> OnGetAsync(Guid? sessionId, Guid? courseId, CancellationToken cancellationToken)
     {
         Courses = await _courseService.ListDtosAsync(cancellationToken);
-        SelectedCourseId = courseId ?? Courses.FirstOrDefault(x => x.Code == "PRN222")?.Id ?? Courses.FirstOrDefault()?.Id ?? Guid.Empty;
         SessionId = sessionId ?? Guid.NewGuid();
+
+        if (sessionId.HasValue)
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var session = await _chatService.GetSessionAsync(sessionId.Value, userId, cancellationToken);
+            SelectedCourseId = session?.CourseId
+                ?? courseId
+                ?? Courses.FirstOrDefault()?.Id
+                ?? Guid.Empty;
+        }
+        else
+        {
+            SelectedCourseId = courseId ?? Courses.FirstOrDefault()?.Id ?? Guid.Empty;
+        }
+
         FineTuneConfigured = _chatService.FineTuneConfigured;
         GeminiConfigured = _chatService.GeminiConfigured;
         return Page();

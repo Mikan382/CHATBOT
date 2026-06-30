@@ -30,6 +30,7 @@
                         <div class="mb-3">
                             <label class="form-label" for="uploadChapterId">Chapter</label>
                             <select id="uploadChapterId" class="form-select" name="Upload.ChapterId" required>
+                                <option value="" disabled hidden>Select a chapter</option>
                                 @foreach (var chapter in Model.ChapterList)
                                 {
                                     <option value="@chapter.Id" data-course-id="@chapter.CourseId">@chapter.Order. @chapter.Title</option>

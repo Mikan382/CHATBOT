@@ -88,15 +88,15 @@ public class ChatService
         {
             if (ConversationalMessageDetector.IsConversationalOnly(text))
             {
-                answer = await GenerateConversationalAsync(text, cancellationToken);
+                answer = await GenerateConversationalAsync(text, course.Name, cancellationToken);
             }
             else
             {
                 answer = modelType switch
                 {
                     ModelType.FineTunedOnly => await GenerateFineTunedAsync(sessionId, course.Code, text, history, cancellationToken),
-                    ModelType.RagHybrid => await GenerateHybridAsync(sessionId, course.Id, course.Code, text, history, citations, cancellationToken),
-                    _ => await GenerateRagAsync(course.Id, text, history, citations, cancellationToken)
+                    ModelType.RagHybrid => await GenerateHybridAsync(sessionId, course.Id, course.Code, course.Name, text, history, citations, cancellationToken),
+                    _ => await GenerateRagAsync(course.Id, course.Name, text, history, citations, cancellationToken)
                 };
             }
         }
@@ -157,15 +157,15 @@ public class ChatService
 
     private const double MinCitationScore = 0.36;
 
-    private async Task<string> GenerateConversationalAsync(string text, CancellationToken cancellationToken)
+    private async Task<string> GenerateConversationalAsync(string text, string courseName, CancellationToken cancellationToken)
     {
         return await _geminiClient.GenerateAsync(
-            ConversationalPromptBuilder.BuildSystemInstruction(),
+            ConversationalPromptBuilder.BuildSystemInstruction(courseName),
             text.Trim(),
             cancellationToken);
     }
 
-    private async Task<string> GenerateRagAsync(Guid courseId, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
+    private async Task<string> GenerateRagAsync(Guid courseId, string courseName, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
     {
         var chunks = FilterRelevantChunks(await _retrievalService.RetrieveAsync(text, courseId, 3, cancellationToken));
         citations.AddRange(chunks.Select(ToCitation));
@@ -175,7 +175,7 @@ public class ChatService
         }
 
         var prompt = RagPromptBuilder.BuildPrompt(text, chunks, history);
-        return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(), prompt, cancellationToken);
+        return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(courseName), prompt, cancellationToken);
     }
 
     private async Task<string> GenerateFineTunedAsync(Guid sessionId, string courseCode, string text, IReadOnlyList<FineTuneHistoryMessage> history, CancellationToken cancellationToken)
@@ -184,7 +184,7 @@ public class ChatService
         return response.Answer;
     }
 
-    private async Task<string> GenerateHybridAsync(Guid sessionId, Guid courseId, string courseCode, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
+    private async Task<string> GenerateHybridAsync(Guid sessionId, Guid courseId, string courseCode, string courseName, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
     {
         var chunks = FilterRelevantChunks(await _retrievalService.RetrieveAsync(text, courseId, 3, cancellationToken));
         citations.AddRange(chunks.Select(ToCitation));
@@ -194,7 +194,7 @@ public class ChatService
         }
 
         var prompt = RagPromptBuilder.BuildPrompt(text, chunks, history);
-        return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(), prompt, cancellationToken);
+        return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(courseName), prompt, cancellationToken);
     }
 
     private static IReadOnlyList<RetrievedChunkDto> FilterRelevantChunks(IReadOnlyList<RetrievedChunkDto> chunks)

@@ -55,15 +55,19 @@
 
     const syncUploadChapters = () => {
       let firstVisible = null;
-      uploadChapter.querySelectorAll("option").forEach((option) => {
+      uploadChapter.querySelectorAll("option[data-course-id]").forEach((option) => {
         const visible = option.dataset.courseId === uploadCourse.value;
         option.hidden = !visible;
         if (visible && !firstVisible) {
           firstVisible = option;
         }
       });
-      if (firstVisible && uploadChapter.selectedOptions[0]?.hidden) {
-        uploadChapter.value = firstVisible.value;
+      if (firstVisible) {
+        if (uploadChapter.selectedOptions[0]?.hidden || !uploadChapter.value) {
+          uploadChapter.value = firstVisible.value;
+        }
+      } else {
+        uploadChapter.value = "";
       }
     };
 
