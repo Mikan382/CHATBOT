@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "PaymentStatus" ADD VALUE 'CHO_THANH_TOAN_BH';
+ALTER TYPE "PaymentStatus" ADD VALUE 'DA_THANH_TOAN_BH';

@@ -1,0 +1,3 @@
+ALTER TABLE "account"
+  ADD COLUMN IF NOT EXISTS "phone_verified" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "profile_completion_level" INTEGER NOT NULL DEFAULT 0;
