@@ -1,5 +1,5 @@
 (function () {
-  const sessionId = document.getElementById("sessionId").textContent.trim();
+  let sessionId = document.getElementById("sessionId").textContent.trim();
   const messages = document.getElementById("messages");
   const form = document.getElementById("chatForm");
   const input = document.getElementById("messageInput");
@@ -235,6 +235,17 @@
       }
     } catch { /* ignore */ }
   }
+
+  // --- Course change → new session ---
+  courseSelect.addEventListener("change", () => {
+    sessionId = crypto.randomUUID();
+    messages.querySelectorAll(".message").forEach((el) => el.remove());
+    clearOptimistic();
+    hideTyping();
+    updateEmptyHint();
+    history.replaceState(null, "", "/chat");
+    connection.invoke("JoinSession", sessionId).catch(() => {});
+  });
 
   // --- Session search ---
   if (sessionSearch) {
