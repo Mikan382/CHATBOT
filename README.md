@@ -1,12 +1,12 @@
 # PRN222 RAG Chatbot
 
-ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 assignment. The system manages courses, chapters, uploaded learning materials, background indexing, realtime chat with citations, and benchmark results for RAG versus a custom fine-tuned endpoint.
+ASP.NET Core Razor Pages application for a role-based RAG chatbot used in the PRN222 assignment. The system manages courses, chapters, uploaded learning materials, background indexing, realtime chat with citations, and benchmark results for RAG versus a custom fine-tuned endpoint.
 
 ## Project Status
 
 | Item | Value |
 |---|---|
-| Runtime | ASP.NET Core MVC / Razor Views |
+| Runtime | ASP.NET Core Razor Pages |
 | Target framework | `net8.0` |
 | SDK | `global.json` pins .NET SDK `9.0.304` with roll-forward |
 | Database | SQL Server LocalDB by default |
@@ -41,7 +41,7 @@ ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 ass
 - Full comparative benchmark across all strategy × model combinations (runs in background with live progress polling).
 - Benchmark results export as JSON.
 - Vietnamese language support in RAG chat responses.
-- Architecture page explaining MVC, 3-Layers, SignalR, Worker Service, and EF Core flow.
+- Architecture page explaining Razor Pages, 3-Layers, SignalR, Worker Service, and EF Core flow.
 
 ## Roles and Permissions
 
@@ -64,7 +64,8 @@ ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 ass
 
 | Area | Technology |
 |---|---|
-| Web UI | ASP.NET Core MVC, Razor Views, Bootstrap |
+| Web UI | ASP.NET Core Razor Pages, Bootstrap |
+| API | ASP.NET Core API Controllers (attribute routing) |
 | Authentication | ASP.NET Identity |
 | Realtime chat | SignalR |
 | Database | SQL Server LocalDB / SQL Server |
@@ -82,24 +83,33 @@ ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 ass
 Prn222Chatbot.sln
 src/
   PresentationLayer/
-    Controllers/      MVC controllers and API endpoints
-    Hubs/             SignalR hub
-    ViewModels/       View and input models
-    Views/            Razor views
-    wwwroot/          CSS, JavaScript, client assets
+    Pages/              Razor Pages (.cshtml + .cshtml.cs PageModels)
+      Account/          Login, ChangePassword, Logout
+      AdminUsers/       User management (Admin only)
+      Architecture/     Architecture explanation
+      Benchmark/        Benchmark dashboard
+      Chapters/         Create, Edit chapters
+      Chat/             Realtime RAG chat
+      Courses/          CRUD courses, view chapters
+      Documents/        Upload, list, details
+      Shared/           _Layout, partials, Error page
+    ApiControllers/     JSON API endpoints (attribute-routed)
+    Hubs/               SignalR hub
+    ViewModels/         View and input models
+    wwwroot/            CSS, JavaScript, client assets
 
   BusinessLayer/
-    Services/         Auth, chat, document, course, chapter, user, benchmark orchestration
-    AI/               Gemini, Hugging Face embedding, and fine-tuned clients
-    Indexing/         Background worker, indexing queue, chunking workflow
-    Parsing/          PDF, DOCX, PPTX, TXT, and MD extraction
-    Retrieval/        Embedding retrieval and lexical fallback
-    DTOs/             Data transfer records
+    Services/           Auth, chat, document, course, chapter, user, benchmark orchestration
+    AI/                 Gemini, Hugging Face embedding, and fine-tuned clients
+    Indexing/           Background worker, indexing queue, chunking workflow
+    Parsing/            PDF, DOCX, PPTX, TXT, and MD extraction
+    Retrieval/          Embedding retrieval and lexical fallback
+    DTOs/               Data transfer records
 
   DataAccessLayer/
-    Entities/         EF Core entities and enums
-    Repositories/     Data access boundary
-    Data/             AppDbContext, migrations, seed/bootstrapper
+    Entities/           EF Core entities and enums
+    Repositories/       Data access boundary
+    Data/               AppDbContext, migrations, seed/bootstrapper
 ```
 
 ## Architecture Rules
@@ -108,7 +118,7 @@ The project follows a strict 3-layer structure:
 
 | Layer | Responsibility |
 |---|---|
-| `PresentationLayer` | Razor Views, Controllers, SignalR Hub, ViewModels, browser assets |
+| `PresentationLayer` | Razor Pages (PageModels), API Controllers, SignalR Hub, ViewModels, browser assets |
 | `BusinessLayer` | Services, validation, orchestration, AI/RAG flow, parsing, indexing, scoring |
 | `DataAccessLayer` | Repositories, EF Core entities, `AppDbContext`, migrations, SQL Server access |
 
@@ -122,12 +132,23 @@ Project references:
 
 Rules:
 
-- Controllers and Hubs call Services only.
+- PageModels and API Controllers call Services only.
 - Services handle validation, orchestration, AI/RAG flow, and DTO mapping.
 - Repositories are the only layer that queries or updates `AppDbContext`.
-- Razor Views do not inject or query `AppDbContext`.
+- Razor Pages do not inject or query `AppDbContext`.
 - `AppDbContext` is registered as scoped, not singleton.
 - Secrets are not stored in committed configuration files.
+
+### Razor Pages Conventions
+
+Each page is a pair of `.cshtml` (view) and `.cshtml.cs` (PageModel):
+
+- GET requests → `OnGet()` or `OnGetAsync()`
+- POST requests → `OnPost()` or `OnPostAsync()`
+- Named handlers for multiple POST actions → `OnPost{Handler}Async()` (e.g., `OnPostDeleteAsync`, `OnPostUploadAsync`)
+- Form inputs use `[BindProperty]` on PageModel properties
+- Custom routes via `@page "/route"` directive to preserve URL scheme
+- JSON API endpoints remain as `[ApiController]` classes in `ApiControllers/`
 
 ## Configuration
 
@@ -244,6 +265,8 @@ http://127.0.0.1:5100
 
 ## API Endpoints
 
+All API endpoints are served by `[ApiController]` classes in `ApiControllers/`:
+
 | Method | Route | Access | Purpose |
 |---|---|---|---|
 | GET | `/api/courses` | Student, Teacher, Admin | List courses |
@@ -252,8 +275,11 @@ http://127.0.0.1:5100
 | GET | `/api/documents` | Student, Teacher, Admin | Document list with status/progress |
 | GET | `/api/documents/{id}/chunks` | Student, Teacher, Admin | Chunks for one document |
 | GET | `/api/chat/{sessionId}` | Student, Teacher, Admin | Chat history for current user/session |
+| GET | `/api/chat/sessions` | Student, Teacher, Admin | List chat sessions for current user |
+| DELETE | `/api/chat/{sessionId}` | Student, Teacher, Admin | Delete a chat session |
 | POST | `/api/evaluations/run` | Teacher, Admin | Run benchmark with optional strategy/model, max 50 questions |
 | POST | `/api/evaluations/run-full` | Teacher, Admin | Full comparative benchmark (all strategies × all models) |
+| GET | `/api/evaluations/progress` | Teacher, Admin | Poll background benchmark progress |
 | GET | `/api/evaluations/results` | Teacher, Admin | Evaluation results with research metadata |
 | GET | `/api/evaluations/export` | Teacher, Admin | Export results as JSON |
 
@@ -352,9 +378,8 @@ dotnet ef database update --project .\src\DataAccessLayer --startup-project .\sr
 dotnet sln .\Prn222Chatbot.sln list
 dotnet list .\src\BusinessLayer\BusinessLayer.csproj reference
 dotnet list .\src\DataAccessLayer\DataAccessLayer.csproj reference
-rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\\." src/PresentationLayer/Controllers src/PresentationLayer/Hubs src/BusinessLayer
-rg "@inject\\s+.*(DbContext|AppDbContext)" src/PresentationLayer/Views
-rg "AddSingleton<.*DbContext|AddSingleton\\(.*DbContext" src/PresentationLayer/Program.cs
+rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\." src/PresentationLayer/Pages src/PresentationLayer/ApiControllers src/PresentationLayer/Hubs src/BusinessLayer
+rg "AddSingleton<.*DbContext|AddSingleton\(.*DbContext" src/PresentationLayer/Program.cs
 rg "ApiKey|hf_" src/PresentationLayer/appsettings.json src/PresentationLayer/appsettings.Development.json
 ```
 
@@ -363,8 +388,8 @@ Expected:
 - Build has `0 Warning(s)` and `0 Error(s)`.
 - `DataAccessLayer` has no project references.
 - `BusinessLayer` references only `DataAccessLayer`.
-- Controllers, Hubs, and BusinessLayer do not use EF Core or `AppDbContext` directly.
-- Razor Views do not inject `AppDbContext`.
+- PageModels, API Controllers, Hubs, and BusinessLayer do not use EF Core or `AppDbContext` directly.
+- Razor Pages do not inject `AppDbContext`.
 - `AppDbContext` is not registered as singleton.
 - Committed appsettings files do not contain API keys.
 
