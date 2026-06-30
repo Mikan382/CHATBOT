@@ -1,0 +1,54 @@
+@page "/chapters/{id:guid}/edit"
+@model PresentationLayer.Pages.Chapters.EditModel
+@{
+    ViewData["Title"] = "Edit Chapter";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+        <div class="card app-card">
+            <div class="card-body">
+                <h4 class="card-title">@ViewData["Title"]</h4>
+                <partial name="_ValidationSummary" model="Model.Input.Error" />
+                <form method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label" asp-for="Input.CourseId">Course</label>
+                            <select class="form-select" asp-for="Input.CourseId">
+                                @foreach (var course in Model.Courses)
+                                {
+                                    <option value="@course.Id">@course.Code - @course.Name</option>
+                                }
+                            </select>
+                            <span class="text-danger small" asp-validation-for="Input.CourseId"></span>
+                    </div>
+                        <div class="col-md-3">
+                            <label class="form-label" asp-for="Input.Order"></label>
+                            <input class="form-control" asp-for="Input.Order" />
+                            <span class="text-danger small" asp-validation-for="Input.Order"></span>
+                    </div>
+                        <div class="col-md-3">
+                            <label class="form-label" asp-for="Input.Clo"></label>
+                            <input class="form-control" asp-for="Input.Clo" />
+                            <span class="text-danger small" asp-validation-for="Input.Clo"></span>
+                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label" asp-for="Input.Title"></label>
+                            <input class="form-control" asp-for="Input.Title" />
+                            <span class="text-danger small" asp-validation-for="Input.Title"></span>
+                    </div>
+                        <div class="col-12">
+                            <label class="form-label" asp-for="Input.Summary"></label>
+                            <textarea class="form-control" asp-for="Input.Summary" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button class="btn btn-primary" type="submit">Save</button>
+                        <a class="btn btn-outline-secondary" asp-page="/Courses/Chapters" asp-route-id="@Model.Input.CourseId">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

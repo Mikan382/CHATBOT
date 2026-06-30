@@ -1,0 +1,53 @@
+@page "/account/login"
+@model PresentationLayer.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="auth-page">
+    <div class="auth-panel">
+        <div>
+            <div class="auth-kicker">PRN222 Course Support</div>
+            <h1>Course Materials Assistant</h1>
+            <p>Access course materials, review chapters, and ask questions with references from uploaded documents.</p>
+        </div>
+        <div class="auth-meta">
+            <span>Documents</span>
+            <span>Chapters</span>
+            <span>Questions</span>
+            <span>References</span>
+        </div>
+    </div>
+
+    <div class="auth-card card app-card">
+        <div class="card-body">
+            <h4 class="card-title">Sign in</h4>
+            <p class="text-muted small">Use your Student, Teacher, or Admin account.</p>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Input.Error))
+            {
+                <div class="alert alert-danger small">@Model.Input.Error</div>
+            }
+
+            <form method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Input.ReturnUrl" />
+                <div class="mb-3">
+                    <label class="form-label" asp-for="Input.Email"></label>
+                    <input class="form-control" asp-for="Input.Email" autocomplete="username" />
+                    <span class="text-danger small" asp-validation-for="Input.Email"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" asp-for="Input.Password"></label>
+                    <input class="form-control" asp-for="Input.Password" autocomplete="current-password" />
+                    <span class="text-danger small" asp-validation-for="Input.Password"></span>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" asp-for="Input.RememberMe" />
+                    <label class="form-check-label" asp-for="Input.RememberMe">Remember me</label>
+                </div>
+                <button class="btn btn-primary w-100" type="submit">Sign in</button>
+            </form>
+        </div>
+    </div>
+</div>
