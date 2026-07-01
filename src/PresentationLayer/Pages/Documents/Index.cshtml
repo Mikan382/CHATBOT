@@ -208,19 +208,15 @@
             };
             const syncUploadChapters = () => {
                 let firstVisible = null;
-                uploadChapter.querySelectorAll("option[data-course-id]").forEach((option) => {
+                uploadChapter.querySelectorAll("option").forEach((option) => {
                     const visible = option.dataset.courseId === uploadCourse.value;
                     option.hidden = !visible;
                     if (visible && !firstVisible) {
                         firstVisible = option;
                     }
                 });
-                if (firstVisible) {
-                    if (uploadChapter.selectedOptions[0]?.hidden) {
-                        uploadChapter.value = firstVisible.value;
-                    }
-                } else {
-                    uploadChapter.value = "";
+                if (firstVisible && uploadChapter.selectedOptions[0]?.hidden) {
+                    uploadChapter.value = firstVisible.value;
                 }
             };
             uploadCourse.addEventListener("change", syncUploadChapters);
