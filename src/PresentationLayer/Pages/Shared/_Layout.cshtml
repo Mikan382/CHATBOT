@@ -1,0 +1,76 @@
+@{
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    string Active(params string[] segments) => segments.Any(s => currentPage.Contains(s, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
+    var pageKey = currentPage.Trim('/').Replace("/", "-", StringComparison.OrdinalIgnoreCase).ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(pageKey))
+    {
+        pageKey = "home";
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - PRN222 Course Assistant</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="app-shell page-@pageKey">
+    <header>
+        <nav class="navbar navbar-expand-lg app-navbar">
+            <div class="container-fluid px-4">
+                <a class="navbar-brand app-brand" asp-page="/Chat/Index">
+                    <span class="app-brand-mark" aria-hidden="true">P</span>
+                    <span>PRN222 Course Assistant</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-lg-inline-flex justify-content-between">
+                    <ul class="navbar-nav ms-auto gap-2 align-items-lg-center">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item"><a class="nav-link @Active("Chat")" asp-page="/Chat/Index">Chat</a></li>
+                            <li class="nav-item"><a class="nav-link @Active("Documents")" asp-page="/Documents/Index">Documents</a></li>
+                            @if (User.IsInRole(UserRoleNames.Teacher) || User.IsInRole(UserRoleNames.Admin))
+                            {
+                                <li class="nav-item"><a class="nav-link @Active("Courses", "Chapters")" asp-page="/Courses/Index">Courses</a></li>
+                                <li class="nav-item"><a class="nav-link @Active("Benchmark")" asp-page="/Benchmark/Index">Benchmark</a></li>
+                            }
+                            @if (User.IsInRole(UserRoleNames.Admin))
+                            {
+                                <li class="nav-item"><a class="nav-link @Active("AdminUsers")" asp-page="/AdminUsers/Index">Users</a></li>
+                            }
+                            <li class="nav-item user-menu">
+                                <a class="nav-link user-identity" asp-page="/Account/ChangePassword">@User.Identity.Name</a>
+                                <form method="post" asp-page="/Account/Logout" class="logout-form">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-logout" type="submit">Sign out</button>
+                                </form>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="app-main">
+        <main role="main" class="app-content">
+            <partial name="_FlashMessages" />
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top app-footer text-muted">
+        <div class="container-fluid px-4">
+            &copy; 2026 - PRN222 Learning Assistant
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
