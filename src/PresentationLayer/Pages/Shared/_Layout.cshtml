@@ -1,11 +1,6 @@
 @{
     var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
     string Active(params string[] segments) => segments.Any(s => currentPage.Contains(s, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
-    var pageKey = currentPage.Trim('/').Replace("/", "-", StringComparison.OrdinalIgnoreCase).ToLowerInvariant();
-    if (string.IsNullOrWhiteSpace(pageKey))
-    {
-        pageKey = "home";
-    }
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -15,15 +10,13 @@
     <title>@ViewData["Title"] - PRN222 Course Assistant</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/PresentationLayer.styles.css" asp-append-version="true" />
 </head>
-<body class="app-shell page-@pageKey">
+<body>
     <header>
-        <nav class="navbar navbar-expand-lg app-navbar">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom box-shadow">
             <div class="container-fluid px-4">
-                <a class="navbar-brand app-brand" asp-page="/Chat/Index">
-                    <span class="app-brand-mark" aria-hidden="true">P</span>
-                    <span>PRN222 Course Assistant</span>
-                </a>
+                <a class="navbar-brand fw-bold" asp-page="/Chat/Index">PRN222 Course Assistant</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -44,8 +37,8 @@
                                 <li class="nav-item"><a class="nav-link @Active("AdminUsers")" asp-page="/AdminUsers/Index">Users</a></li>
                             }
                             <li class="nav-item user-menu">
-                                <a class="nav-link user-identity" asp-page="/Account/ChangePassword">@User.Identity.Name</a>
-                                <form method="post" asp-page="/Account/Logout" class="logout-form">
+                                <a class="nav-link d-inline px-2" asp-page="/Account/ChangePassword" style="font-size:0.85rem">@User.Identity.Name</a>
+                                <form method="post" asp-page="/Account/Logout" style="display:inline">
                                     @Html.AntiForgeryToken()
                                     <button class="btn btn-sm btn-logout" type="submit">Sign out</button>
                                 </form>

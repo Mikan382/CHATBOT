@@ -4,19 +4,18 @@
     ViewData["Title"] = "Chapters";
 }
 
-<div class="card app-card table-card management-table-card">
+<div class="card app-card table-card">
     <div class="card-body">
         <div class="page-toolbar">
             <div>
-                <div class="section-kicker">Course chapters</div>
-                <h1 class="management-title">@Model.Course.Code Chapters</h1>
-                <div class="documents-subtitle">@Model.Course.Name</div>
+                <h4 class="card-title mb-1">@Model.Course.Code Chapters</h4>
+                <div class="text-muted small">@Model.Course.Name</div>
             </div>
             <a class="btn btn-primary" asp-page="/Chapters/Create" asp-route-courseId="@Model.Course.Id">Create Chapter</a>
         </div>
 
-        <div class="table-responsive documents-table-wrap">
-        <table class="table table-sm align-middle management-table">
+        <div class="table-responsive">
+        <table class="table table-sm align-middle">
             <thead>
             <tr>
                 <th>Order</th>
@@ -37,11 +36,7 @@
                     <td>
                         <div class="action-cell">
                         <a class="btn btn-sm btn-outline-secondary" asp-page="/Chapters/Edit" asp-route-id="@chapter.Id">Edit</a>
-                        <form method="post" asp-page-handler="Delete" asp-route-chapterId="@chapter.Id"
-                              class="management-confirm-form"
-                              data-confirm-title="Delete chapter"
-                              data-confirm-message="Delete this chapter? It must have no documents or evaluation questions."
-                              data-confirm-action="Delete">
+                        <form method="post" asp-page-handler="Delete" asp-route-chapterId="@chapter.Id" onsubmit="return confirm('Delete this chapter? It must have no documents or evaluation questions.');">
                             @Html.AntiForgeryToken()
                             <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
                         </form>
@@ -54,25 +49,3 @@
         </div>
     </div>
 </div>
-
-<div class="modal fade" id="managementConfirmModal" tabindex="-1" aria-labelledby="managementConfirmTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content chat-confirm-modal">
-            <div class="modal-header">
-                <h5 class="modal-title" id="managementConfirmTitle">Confirm action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p id="managementConfirmMessage" class="mb-0">Continue?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" id="managementConfirmAction" class="btn btn-outline-danger">Confirm</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script src="~/js/management.js" asp-append-version="true"></script>
-}

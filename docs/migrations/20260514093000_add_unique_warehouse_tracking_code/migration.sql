@@ -1,4 +1,0 @@
--- No-op: index/constraint uk_warehouse_tracking_code is already handled
--- by migration 20260514000000_warehouse_tracking_unique (CREATE UNIQUE INDEX IF NOT EXISTS).
--- ALTER TABLE ADD CONSTRAINT does not support IF NOT EXISTS in PostgreSQL,
--- so this migration is intentionally left empty to avoid duplicate-relation errors.

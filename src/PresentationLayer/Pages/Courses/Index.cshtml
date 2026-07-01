@@ -4,29 +4,28 @@
     ViewData["Title"] = "Courses";
 }
 
-<div class="card app-card table-card management-table-card">
+<div class="card app-card table-card">
     <div class="card-body">
         <div class="page-toolbar">
             <div>
-                <div class="section-kicker">Curriculum</div>
-                <h1 class="management-title">Courses</h1>
-                <div class="documents-subtitle">Manage courses and chapters shown to students.</div>
+                <h4 class="card-title mb-1">Courses</h4>
+                <div class="text-muted small">Manage courses and chapters shown to students.</div>
             </div>
             <a class="btn btn-primary" asp-page="/Courses/Create">Create Course</a>
         </div>
 
-        <form class="management-filter-form" method="get">
-            <div>
+        <form class="row g-2 mb-3" method="get">
+            <div class="col-md-10">
                 <input class="form-control" name="searchTerm" value="@Model.SearchTerm" placeholder="Search course code or name..." />
             </div>
-            <div class="documents-filter-actions">
+            <div class="col-md-2 d-flex gap-2">
                 <button class="btn btn-primary flex-fill" type="submit">Search</button>
                 <a class="btn btn-outline-secondary" asp-page="/Courses/Index">Clear</a>
             </div>
         </form>
 
-        <div class="table-responsive documents-table-wrap">
-            <table class="table table-sm align-middle management-table">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
                 <thead>
                 <tr>
                     <th>Code</th>
@@ -48,11 +47,7 @@
                             <div class="action-cell">
                             <a class="btn btn-sm btn-outline-primary" asp-page="/Courses/Chapters" asp-route-id="@course.Id">Chapters</a>
                             <a class="btn btn-sm btn-outline-secondary" asp-page="/Courses/Edit" asp-route-id="@course.Id">Edit</a>
-                            <form method="post" asp-page-handler="Delete" asp-route-id="@course.Id"
-                                  class="management-confirm-form"
-                                  data-confirm-title="Delete course"
-                                  data-confirm-message="Delete this course? It must have no chapters."
-                                  data-confirm-action="Delete">
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@course.Id" onsubmit="return confirm('Delete this course? It must have no chapters.');">
                                 @Html.AntiForgeryToken()
                                 <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
                             </form>
@@ -65,25 +60,3 @@
         </div>
     </div>
 </div>
-
-<div class="modal fade" id="managementConfirmModal" tabindex="-1" aria-labelledby="managementConfirmTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content chat-confirm-modal">
-            <div class="modal-header">
-                <h5 class="modal-title" id="managementConfirmTitle">Confirm action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p id="managementConfirmMessage" class="mb-0">Continue?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" id="managementConfirmAction" class="btn btn-outline-danger">Confirm</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script src="~/js/management.js" asp-append-version="true"></script>
-}

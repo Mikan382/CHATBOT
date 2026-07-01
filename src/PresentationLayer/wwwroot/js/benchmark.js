@@ -2,21 +2,17 @@
   const runBtn = document.getElementById("runBenchmark");
   const fullBtn = document.getElementById("runFullBenchmark");
   const confirmBtn = document.getElementById("confirmRun");
-  const confirmFullBtn = document.getElementById("confirmFullRun");
-  const fullQuestionLimit = document.getElementById("fullQuestionLimit");
-  const fullBenchmarkModalEl = document.getElementById("fullBenchmarkModal");
-  const fullBenchmarkModal = fullBenchmarkModalEl && window.bootstrap ? new bootstrap.Modal(fullBenchmarkModalEl) : null;
   const status = document.getElementById("benchmarkStatus");
   const runOptions = document.getElementById("runOptions");
 
   // Color palette
   const colors = {
-    faith: "rgba(0, 113, 227, 0.78)",
-    rel: "rgba(19, 115, 51, 0.78)",
-    recall: "rgba(182, 68, 0, 0.74)",
-    cite: "rgba(180, 35, 24, 0.74)",
-    rag: "rgba(0, 113, 227, 0.78)",
-    ft: "rgba(182, 68, 0, 0.74)"
+    faith: "rgba(99, 102, 241, 0.8)",
+    rel: "rgba(16, 185, 129, 0.8)",
+    recall: "rgba(245, 158, 11, 0.8)",
+    cite: "rgba(239, 68, 68, 0.8)",
+    rag: "rgba(99, 102, 241, 0.8)",
+    ft: "rgba(245, 158, 11, 0.8)"
   };
 
   function createBarChart(canvasId, labels, datasets) {
@@ -28,7 +24,6 @@
       data: { labels, datasets },
       options: {
         responsive: true,
-        maintainAspectRatio: false,
         scales: {
           y: { beginAtZero: true, max: 1.0, ticks: { stepSize: 0.2 } }
         },
@@ -104,23 +99,12 @@
     });
   }
 
-  // Full benchmark (all strategies and models)
+  // Full benchmark (all strategies × all models)
   if (fullBtn) {
-    fullBtn.addEventListener("click", () => {
-      fullBenchmarkModal?.show();
-    });
-  }
+    fullBtn.addEventListener("click", async () => {
+      const limit = parseInt(prompt("Number of questions per combination (1-50):", "5"));
+      if (!limit || limit < 1 || limit > 50) return;
 
-  if (confirmFullBtn) {
-    confirmFullBtn.addEventListener("click", async () => {
-      const limit = parseInt(fullQuestionLimit?.value, 10) || 5;
-      if (limit < 1 || limit > 50) {
-        showStatus("danger", "Choose between 1 and 50 questions per combination.");
-        return;
-      }
-
-      fullBenchmarkModal?.hide();
-      confirmFullBtn.disabled = true;
       fullBtn.disabled = true;
       runBtn.disabled = true;
       showStatus("info", "Starting benchmark in background...");
@@ -139,11 +123,10 @@
           try {
             const progResp = await fetch("/api/evaluations/progress");
             const prog = await progResp.json();
-            const label = prog.total > 0 ? ` (${prog.done}/${prog.total} - ${prog.percent}%)` : "";
+            const label = prog.total > 0 ? ` (${prog.done}/${prog.total} — ${prog.percent}%)` : "";
             if (prog.error) {
               clearInterval(pollInterval);
               showStatus("danger", `Benchmark failed: ${prog.error}`);
-              confirmFullBtn.disabled = false;
               fullBtn.disabled = false;
               runBtn.disabled = false;
             } else if (!prog.running) {
@@ -157,7 +140,6 @@
         }, 3000);
       } catch (error) {
         showStatus("danger", error.toString());
-        confirmFullBtn.disabled = false;
         fullBtn.disabled = false;
         runBtn.disabled = false;
       }
