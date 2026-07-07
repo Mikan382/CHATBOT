@@ -839,3 +839,50 @@ h6 {
     font-size: 28px;
   }
 }
+
+.subscription-current-name {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.subscription-price {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.subscription-plan-card {
+  min-height: 260px;
+}
+
+.stat-card .stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.subscription-plan-form,
+.subscription-plan-edit-form {
+  display: grid;
+  grid-template-columns: 100px minmax(140px, 1.1fr) 120px 90px 90px minmax(180px, 1.5fr) 88px 80px;
+  gap: 8px;
+  align-items: center;
+}
+
+.subscription-description-input {
+  min-width: 0;
+}
+
+@media (max-width: 1199.98px) {
+  .subscription-plan-form,
+  .subscription-plan-edit-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .subscription-plan-form,
+  .subscription-plan-edit-form {
+    grid-template-columns: 1fr;
+  }
+}

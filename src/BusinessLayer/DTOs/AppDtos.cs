@@ -88,3 +88,50 @@ public record ChapterFormDto(Guid Id, Guid CourseId, int Order, string Clo, stri
 public record ChatSessionDto(Guid Id, Guid? CourseId);
 
 public record ChunkingSettingsDto(string CurrentStrategy, IReadOnlyList<string> AvailableStrategies);
+
+public record SubscriptionPlanDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string Description,
+    decimal MonthlyPrice,
+    int DurationDays,
+    int SortOrder,
+    bool IsActive);
+
+public record StudentSubscriptionDto(
+    Guid Id,
+    Guid PlanId,
+    string PlanName,
+    string PlanCode,
+    string Status,
+    DateTime StartedAtUtc,
+    DateTime? ExpiresAtUtc);
+
+public record StudentSubscriptionPageDto(
+    StudentSubscriptionDto? CurrentSubscription,
+    IReadOnlyList<SubscriptionPlanDto> AvailablePlans);
+
+public record SubscriptionPlanStatsDto(
+    Guid PlanId,
+    string PlanName,
+    string PlanCode,
+    bool IsActive,
+    int ActiveSubscriptions);
+
+public record RecentSubscriptionDto(
+    Guid Id,
+    string StudentEmail,
+    string StudentDisplayName,
+    string PlanName,
+    string Status,
+    DateTime StartedAtUtc,
+    DateTime? ExpiresAtUtc);
+
+public record SubscriptionDashboardDto(
+    int TotalStudents,
+    int ActiveSubscriptions,
+    int NewSubscriptionsThisMonth,
+    IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
+    IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
+    IReadOnlyList<SubscriptionPlanDto> Plans);

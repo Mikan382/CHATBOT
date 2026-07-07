@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<StudentSubscription> StudentSubscriptions => Set<StudentSubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -113,6 +115,32 @@ public class AppDbContext : DbContext
             entity.HasKey(x => x.Key);
             entity.Property(x => x.Key).HasMaxLength(80);
             entity.Property(x => x.Value).HasMaxLength(256);
+        });
+
+        modelBuilder.Entity<SubscriptionPlan>(entity =>
+        {
+            entity.HasIndex(x => x.Code).IsUnique();
+            entity.Property(x => x.Code).HasMaxLength(32);
+            entity.Property(x => x.Name).HasMaxLength(160);
+            entity.Property(x => x.Description).HasMaxLength(600);
+            entity.Property(x => x.MonthlyPrice).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<StudentSubscription>(entity =>
+        {
+            entity.HasIndex(x => x.StudentUserId)
+                .HasFilter("[Status] = 'Active'")
+                .IsUnique();
+            entity.HasIndex(x => new { x.SubscriptionPlanId, x.Status });
+            entity.Property(x => x.Status).HasMaxLength(32);
+            entity.HasOne(x => x.Student)
+                .WithMany()
+                .HasForeignKey(x => x.StudentUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Plan)
+                .WithMany(x => x.Subscriptions)
+                .HasForeignKey(x => x.SubscriptionPlanId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

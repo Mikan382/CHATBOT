@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<IChatRepository, ChatRepository>();
         services.AddScoped<IUserAdminRepository, UserAdminRepository>();
         services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
+        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<IChapterService, ChapterService>();
@@ -62,6 +63,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IChunkingSettingsService, ChunkingSettingsService>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<RetrievalService>();
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 

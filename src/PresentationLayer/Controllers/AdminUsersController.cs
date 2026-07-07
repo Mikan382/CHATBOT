@@ -29,7 +29,7 @@ public class AdminUsersController : BaseController
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(CreateUserInput input)
+    public async Task<IActionResult> Create([Bind(Prefix = "CreateUser")] CreateUserInput input)
     {
         if (!ModelState.IsValid)
         {
