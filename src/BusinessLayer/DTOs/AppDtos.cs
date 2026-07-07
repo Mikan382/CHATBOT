@@ -1,6 +1,11 @@
-using DataAccessLayer.Enums;
-
 namespace BusinessLayer.Services;
+
+public enum ChatModelType
+{
+    RagStandard = 1,
+    FineTunedOnly = 2,
+    RagHybrid = 3
+}
 
 public record CitationDto(Guid ChunkId, string SourceName, string ChapterTitle, int ChunkIndex, string Text);
 
@@ -149,26 +154,26 @@ public record EvaluationResultApiDto(
 
 public static class ModelTypeParser
 {
-    public static bool TryParse(string? input, out ModelType modelType)
+    public static bool TryParse(string? input, out ChatModelType modelType)
     {
         modelType = input switch
         {
-            "rag_standard" => ModelType.RagStandard,
-            "fine_tuned_only" => ModelType.FineTunedOnly,
-            "rag_hybrid" => ModelType.RagHybrid,
+            "rag_standard" => ChatModelType.RagStandard,
+            "fine_tuned_only" => ChatModelType.FineTunedOnly,
+            "rag_hybrid" => ChatModelType.RagHybrid,
             _ => default
         };
 
         return modelType != default;
     }
 
-    public static string ToClientValue(this ModelType modelType)
+    public static string ToClientValue(this ChatModelType modelType)
     {
         return modelType switch
         {
-            ModelType.RagStandard => "rag_standard",
-            ModelType.FineTunedOnly => "fine_tuned_only",
-            ModelType.RagHybrid => "rag_hybrid",
+            ChatModelType.RagStandard => "rag_standard",
+            ChatModelType.FineTunedOnly => "fine_tuned_only",
+            ChatModelType.RagHybrid => "rag_hybrid",
             _ => "rag_standard"
         };
     }

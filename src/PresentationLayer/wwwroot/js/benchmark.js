@@ -82,7 +82,7 @@
       try {
         const response = await fetch("/api/evaluations/run", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: window.requestVerificationHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ limit, chunkingStrategy, embeddingModel })
         });
         const data = await response.json();
@@ -112,7 +112,7 @@
       try {
         const startResp = await fetch("/api/evaluations/run-full", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: window.requestVerificationHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ questionLimit: limit })
         });
         const startData = await startResp.json();

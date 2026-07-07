@@ -48,7 +48,7 @@ public class ChatService : IChatService
         return messages.Select(m => ToDto(m)).ToList();
     }
 
-    public async Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, ModelType modelType, string text, CancellationToken cancellationToken)
+    public async Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, ChatModelType modelType, string text, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -65,7 +65,7 @@ public class ChatService : IChatService
             Id = Guid.NewGuid(),
             ChatSessionId = sessionId,
             Role = ChatRole.User,
-            ModelType = modelType,
+            ModelType = ToEntityModelType(modelType),
             Content = text.Trim(),
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -75,7 +75,7 @@ public class ChatService : IChatService
         return ToDto(userMessage);
     }
 
-    public async Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, ModelType modelType, string text, CancellationToken cancellationToken)
+    public async Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, ChatModelType modelType, string text, CancellationToken cancellationToken)
     {
         var course = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
@@ -96,8 +96,8 @@ public class ChatService : IChatService
             {
                 answer = modelType switch
                 {
-                    ModelType.FineTunedOnly => await GenerateFineTunedAsync(sessionId, course.Code, text, history, cancellationToken),
-                    ModelType.RagHybrid => await GenerateHybridAsync(sessionId, course.Id, course.Code, course.Name, text, history, citations, cancellationToken),
+                    ChatModelType.FineTunedOnly => await GenerateFineTunedAsync(sessionId, course.Code, text, history, cancellationToken),
+                    ChatModelType.RagHybrid => await GenerateHybridAsync(sessionId, course.Id, course.Code, course.Name, text, history, citations, cancellationToken),
                     _ => await GenerateRagAsync(course.Id, course.Name, text, history, citations, cancellationToken)
                 };
             }
@@ -117,7 +117,7 @@ public class ChatService : IChatService
             Id = Guid.NewGuid(),
             ChatSessionId = sessionId,
             Role = ChatRole.Assistant,
-            ModelType = modelType,
+            ModelType = ToEntityModelType(modelType),
             Content = answer,
             CitationsJson = citations.Count > 0 ? JsonSerializer.Serialize(citations) : null,
             Error = error,
@@ -128,7 +128,7 @@ public class ChatService : IChatService
         return ToDto(botMessage, stopwatch.Elapsed.TotalSeconds);
     }
 
-    public async Task<ChatResponseDto> SendAsync(Guid sessionId, Guid userId, Guid courseId, ModelType modelType, string text, CancellationToken cancellationToken)
+    public async Task<ChatResponseDto> SendAsync(Guid sessionId, Guid userId, Guid courseId, ChatModelType modelType, string text, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -231,11 +231,31 @@ public class ChatService : IChatService
         return new ChatMessageDto(
             message.Id,
             message.Role == ChatRole.User ? "user" : "assistant",
-            message.ModelType.ToClientValue(),
+            ToChatModelType(message.ModelType).ToClientValue(),
             message.Content,
             citations,
             message.Error,
             message.CreatedAtUtc,
             processingSeconds);
+    }
+
+    private static ModelType ToEntityModelType(ChatModelType modelType)
+    {
+        return modelType switch
+        {
+            ChatModelType.FineTunedOnly => ModelType.FineTunedOnly,
+            ChatModelType.RagHybrid => ModelType.RagHybrid,
+            _ => ModelType.RagStandard
+        };
+    }
+
+    private static ChatModelType ToChatModelType(ModelType modelType)
+    {
+        return modelType switch
+        {
+            ModelType.FineTunedOnly => ChatModelType.FineTunedOnly,
+            ModelType.RagHybrid => ChatModelType.RagHybrid,
+            _ => ChatModelType.RagStandard
+        };
     }
 }

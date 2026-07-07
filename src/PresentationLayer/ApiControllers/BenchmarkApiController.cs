@@ -19,6 +19,7 @@ public class BenchmarkApiController : ControllerBase
     }
 
     [HttpPost("/api/evaluations/run")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Run([FromBody] RunEvaluationRequest? request, CancellationToken cancellationToken)
     {
         if (request is null)
@@ -46,6 +47,7 @@ public class BenchmarkApiController : ControllerBase
     }
 
     [HttpPost("/api/evaluations/run-full")]
+    [ValidateAntiForgeryToken]
     public IActionResult RunFull([FromBody] RunFullBenchmarkRequest? request)
     {
         var limit = request?.QuestionLimit ?? 5;

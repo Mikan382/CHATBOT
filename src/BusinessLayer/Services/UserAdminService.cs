@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
+using DataAccessLayer.Repositories;
 using BusinessLayer.Helpers;
 
 namespace BusinessLayer.Services;
@@ -11,43 +10,18 @@ public class UserAdminService : IUserAdminService
 {
     private static readonly string[] AllowedRoles = [UserRoleNames.Student, UserRoleNames.Teacher, UserRoleNames.Admin];
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly AppDbContext _db;
+    private readonly IUserAdminRepository _userAdminRepository;
 
-    public UserAdminService(UserManager<ApplicationUser> userManager, AppDbContext db)
+    public UserAdminService(UserManager<ApplicationUser> userManager, IUserAdminRepository userAdminRepository)
     {
         _userManager = userManager;
-        _db = db;
+        _userAdminRepository = userAdminRepository;
     }
 
     public async Task<IReadOnlyList<UserListDto>> ListAsync()
     {
-        // 2 queries instead of N+1: load users, then batch load role names
-        var users = await _userManager.Users
-            .OrderBy(x => x.Email)
-            .AsNoTracking()
-            .ToListAsync();
-
-        var userIds = users.Select(u => u.Id).ToList();
-
-        // Single join query for all user roles
-        var userRoles = await (
-            from ur in _db.UserRoles
-            join r in _db.Roles on ur.RoleId equals r.Id
-            where userIds.Contains(ur.UserId)
-            select new { ur.UserId, r.Name }
-        ).ToListAsync();
-
-        var roleLookup = userRoles
-            .GroupBy(x => x.UserId)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
-
-        return users.Select(u => new UserListDto(
-            u.Id,
-            u.Email ?? "",
-            u.FullName,
-            roleLookup.TryGetValue(u.Id, out var roles) ? roles.FirstOrDefault() ?? "" : "",
-            u.LockoutEnd.HasValue && u.LockoutEnd.Value > DateTimeOffset.UtcNow))
-        .ToList();
+        var users = await _userAdminRepository.ListUsersWithRolesAsync();
+        return users.Select(u => new UserListDto(u.Id, u.Email, u.FullName, u.Role, u.IsLockedOut)).ToList();
     }
 
     public async Task CreateAsync(string email, string fullName, string role, string password)

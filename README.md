@@ -1,12 +1,12 @@
 # PRN222 RAG Chatbot
 
-ASP.NET Core Razor Pages application for a role-based RAG chatbot used in the PRN222 assignment. The system manages courses, chapters, uploaded learning materials, background indexing, realtime chat with citations, and benchmark results for RAG versus a custom fine-tuned endpoint.
+ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 assignment. The system manages courses, chapters, uploaded learning materials, background indexing, realtime chat with citations, and benchmark results for RAG versus a custom fine-tuned endpoint.
 
 ## Project Status
 
 | Item | Value |
 |---|---|
-| Runtime | ASP.NET Core Razor Pages |
+| Runtime | ASP.NET Core MVC Controllers + Razor Views |
 | Target framework | `net8.0` |
 | SDK | `global.json` pins .NET SDK `9.0.304` with roll-forward |
 | Database | SQL Server LocalDB by default |
@@ -41,7 +41,7 @@ ASP.NET Core Razor Pages application for a role-based RAG chatbot used in the PR
 - Full comparative benchmark across all strategy × model combinations (runs in background with live progress polling).
 - Benchmark results export as JSON.
 - Vietnamese language support in RAG chat responses.
-- Architecture page explaining Razor Pages, 3-Layers, SignalR, Worker Service, and EF Core flow.
+- Architecture page explaining MVC, 3-Layers, SignalR, Worker Service, and EF Core flow.
 
 ## Roles and Permissions
 
@@ -64,7 +64,7 @@ ASP.NET Core Razor Pages application for a role-based RAG chatbot used in the PR
 
 | Area | Technology |
 |---|---|
-| Web UI | ASP.NET Core Razor Pages, Bootstrap |
+| Web UI | ASP.NET Core MVC Controllers, Razor Views, Bootstrap |
 | API | ASP.NET Core API Controllers (attribute routing) |
 | Authentication | ASP.NET Identity |
 | Realtime chat | SignalR |
@@ -83,16 +83,8 @@ ASP.NET Core Razor Pages application for a role-based RAG chatbot used in the PR
 Prn222Chatbot.sln
 src/
   PresentationLayer/
-    Pages/              Razor Pages (.cshtml + .cshtml.cs PageModels)
-      Account/          Login, ChangePassword, Logout
-      AdminUsers/       User management (Admin only)
-      Architecture/     Architecture explanation
-      Benchmark/        Benchmark dashboard
-      Chapters/         Create, Edit chapters
-      Chat/             Realtime RAG chat
-      Courses/          CRUD courses, view chapters
-      Documents/        Upload, list, details
-      Shared/           _Layout, partials, Error page
+    Controllers/        MVC controllers for rendered pages and form posts
+    Views/              Razor Views for Account, Chat, Documents, Courses, Chapters, Benchmark, AdminUsers
     ApiControllers/     JSON API endpoints (attribute-routed)
     Hubs/               SignalR hub
     ViewModels/         View and input models
@@ -118,7 +110,7 @@ The project follows a strict 3-layer structure:
 
 | Layer | Responsibility |
 |---|---|
-| `PresentationLayer` | Razor Pages (PageModels), API Controllers, SignalR Hub, ViewModels, browser assets |
+| `PresentationLayer` | MVC Controllers, Razor Views, API Controllers, SignalR Hub, ViewModels, browser assets |
 | `BusinessLayer` | Services, validation, orchestration, AI/RAG flow, parsing, indexing, scoring |
 | `DataAccessLayer` | Repositories, EF Core entities, `AppDbContext`, migrations, SQL Server access |
 
@@ -128,27 +120,27 @@ Project references:
 |---|---|
 | `DataAccessLayer` | none |
 | `BusinessLayer` | `DataAccessLayer` |
-| `PresentationLayer` | `BusinessLayer`, `DataAccessLayer` |
+| `PresentationLayer` | `BusinessLayer` |
 
 Rules:
 
-- PageModels and API Controllers call Services only.
+- MVC Controllers, API Controllers, and SignalR Hub call Services only.
 - Services handle validation, orchestration, AI/RAG flow, and DTO mapping.
 - Repositories are the only layer that queries or updates `AppDbContext`.
-- Razor Pages do not inject or query `AppDbContext`.
+- Razor Views and controllers do not inject or query `AppDbContext`.
 - `AppDbContext` is registered as scoped, not singleton.
 - Secrets are not stored in committed configuration files.
 
-### Razor Pages Conventions
+### MVC Conventions
 
-Each page is a pair of `.cshtml` (view) and `.cshtml.cs` (PageModel):
+Rendered pages are implemented with MVC controllers and Razor Views:
 
-- GET requests → `OnGet()` or `OnGetAsync()`
-- POST requests → `OnPost()` or `OnPostAsync()`
-- Named handlers for multiple POST actions → `OnPost{Handler}Async()` (e.g., `OnPostDeleteAsync`, `OnPostUploadAsync`)
-- Form inputs use `[BindProperty]` on PageModel properties
-- Custom routes via `@page "/route"` directive to preserve URL scheme
-- JSON API endpoints remain as `[ApiController]` classes in `ApiControllers/`
+- GET requests return `View(model)` from a controller action.
+- Form POST requests validate a ViewModel, call a Business service, then redirect or return the same view.
+- Mutating JSON API endpoints validate antiforgery tokens sent by browser JavaScript.
+- HTML form posts use `[ValidateAntiForgeryToken]`.
+- Form inputs use ViewModels passed to controller actions.
+- JSON API endpoints remain as `[ApiController]` classes in `ApiControllers/`.
 
 ## Configuration
 
@@ -376,9 +368,11 @@ Run after code changes:
 dotnet build .\Prn222Chatbot.sln
 dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\PresentationLayer
 dotnet sln .\Prn222Chatbot.sln list
+dotnet list .\src\PresentationLayer\PresentationLayer.csproj reference
 dotnet list .\src\BusinessLayer\BusinessLayer.csproj reference
 dotnet list .\src\DataAccessLayer\DataAccessLayer.csproj reference
-rg "AppDbContext|Microsoft.EntityFrameworkCore|_db\." src/PresentationLayer/Pages src/PresentationLayer/ApiControllers src/PresentationLayer/Hubs src/BusinessLayer
+rg "DataAccessLayer|AppDbContext|Microsoft.EntityFrameworkCore" src/PresentationLayer -g "*.cs" -g "*.csproj"
+rg "AppDbContext|_db\." src/BusinessLayer/Services -g "*.cs"
 rg "AddSingleton<.*DbContext|AddSingleton\(.*DbContext" src/PresentationLayer/Program.cs
 rg "ApiKey|hf_" src/PresentationLayer/appsettings.json src/PresentationLayer/appsettings.Development.json
 ```
@@ -388,8 +382,9 @@ Expected:
 - Build has `0 Warning(s)` and `0 Error(s)`.
 - `DataAccessLayer` has no project references.
 - `BusinessLayer` references only `DataAccessLayer`.
-- PageModels, API Controllers, Hubs, and BusinessLayer do not use EF Core or `AppDbContext` directly.
-- Razor Pages do not inject `AppDbContext`.
+- `PresentationLayer` references only `BusinessLayer`.
+- MVC Controllers, API Controllers, Hubs, and Razor Views do not use DAL types or `AppDbContext` directly.
+- Business services do not inject or query `AppDbContext` directly.
 - `AppDbContext` is not registered as singleton.
 - Committed appsettings files do not contain API keys.
 

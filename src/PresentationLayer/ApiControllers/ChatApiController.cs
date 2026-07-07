@@ -30,6 +30,7 @@ public class ChatApiController : ControllerBase
     }
 
     [HttpDelete("/api/chat/{sessionId:guid}")]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteSession(Guid sessionId, CancellationToken cancellationToken)
     {
         var deleted = await _chatService.DeleteSessionAsync(sessionId, CurrentUserId(), cancellationToken);

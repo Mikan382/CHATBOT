@@ -221,7 +221,10 @@
           e.preventDefault();
           e.stopPropagation();
           if (!confirm("Delete this session?")) return;
-          await fetch(`/api/chat/${s.id}`, { method: "DELETE" });
+          await fetch(`/api/chat/${s.id}`, {
+            method: "DELETE",
+            headers: window.requestVerificationHeaders({})
+          });
           if (s.id === sessionId) {
             window.location.href = "/chat";
           } else {
