@@ -1,17 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using BusinessLayer.Services;
-using DataAccessLayer.Enums;
 
 namespace PresentationLayer.ApiControllers;
 
 [ApiController]
-[Authorize(Roles = UserRoleNames.All)]
+[Authorize]
 public class DocumentsApiController : ControllerBase
 {
-    private readonly DocumentService _documentService;
+    private readonly IDocumentService _documentService;
 
-    public DocumentsApiController(DocumentService documentService)
+    public DocumentsApiController(IDocumentService documentService)
     {
         _documentService = documentService;
     }

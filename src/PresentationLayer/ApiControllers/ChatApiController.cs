@@ -2,17 +2,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using BusinessLayer.Services;
-using DataAccessLayer.Enums;
 
 namespace PresentationLayer.ApiControllers;
 
 [ApiController]
-[Authorize(Roles = UserRoleNames.All)]
+[Authorize]
 public class ChatApiController : ControllerBase
 {
-    private readonly ChatService _chatService;
+    private readonly IChatService _chatService;
 
-    public ChatApiController(ChatService chatService)
+    public ChatApiController(IChatService chatService)
     {
         _chatService = chatService;
     }

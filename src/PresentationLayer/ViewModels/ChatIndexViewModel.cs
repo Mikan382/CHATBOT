@@ -1,6 +1,6 @@
-namespace PresentationLayer.ViewModels;
-
 using BusinessLayer.Services;
+
+namespace PresentationLayer.ViewModels;
 
 public class ChatIndexViewModel
 {

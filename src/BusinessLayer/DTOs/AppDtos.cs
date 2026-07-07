@@ -43,6 +43,91 @@ public record DocumentApiDto(
 
 public record DocumentChunkApiDto(Guid Id, Guid DocumentId, int ChunkIndex, string SourceName, string Content, DateTime CreatedAtUtc);
 
+// --- DTOs for MVC views (replacing raw entity returns) ---
+
+/// <summary>Document list item for Documents/Index view.</summary>
+public record DocumentIndexDto(
+    Guid Id,
+    string OriginalFileName,
+    string FileType,
+    long FileSizeBytes,
+    string IndexStatus,
+    int IndexProgressPercent,
+    string IndexStage,
+    string? IndexError,
+    DateTime UploadedAtUtc,
+    string? CourseCode,
+    string? ChapterTitle,
+    int ChunksCount);
+
+/// <summary>Chunk view item for Documents/Details view.</summary>
+public record DocumentChunkViewDto(int ChunkIndex, string Content, IReadOnlyList<string> EmbeddingModels);
+
+/// <summary>Document details for Documents/Details view.</summary>
+public record DocumentDetailsDto(
+    Guid Id,
+    string OriginalFileName,
+    string FileType,
+    long FileSizeBytes,
+    string IndexStatus,
+    int IndexProgressPercent,
+    string IndexStage,
+    string? IndexError,
+    DateTime UploadedAtUtc,
+    string? CourseCode,
+    string? CourseName,
+    string? ChapterTitle,
+    string? UploadedByEmail,
+    string ContentText,
+    IReadOnlyList<DocumentChunkViewDto> Chunks);
+
+/// <summary>Chapter item for dropdowns (includes CourseId for filtering).</summary>
+public record ChapterSelectDto(Guid Id, Guid CourseId, int Order, string Title);
+
+/// <summary>Course form data for Edit view.</summary>
+public record CourseFormDto(Guid Id, string Code, string Name, string Description, string Tools);
+
+/// <summary>Chapter form data for Edit view.</summary>
+public record ChapterFormDto(Guid Id, Guid CourseId, int Order, string Clo, string Title, string Summary);
+
+/// <summary>Chat session info (only CourseId needed by PL).</summary>
+public record ChatSessionDto(Guid Id, Guid? CourseId);
+
+/// <summary>Evaluation question for Benchmark view.</summary>
+public record EvaluationQuestionDto(Guid Id, string Question, string GroundTruth);
+
+/// <summary>Evaluation result for Benchmark view.</summary>
+public record EvaluationResultViewDto(
+    Guid Id,
+    string? Question,
+    string? GroundTruth,
+    string Status,
+    decimal Faithfulness,
+    decimal AnswerRelevance,
+    decimal RetrievalRecall,
+    decimal CitationAccuracy,
+    string? ErrorMessage,
+    DateTime CreatedAtUtc,
+    string ChunkingStrategy,
+    string EmbeddingModelName,
+    int RagLatencyMs,
+    int FineTunedLatencyMs,
+    string RagAnswer,
+    string? FineTunedAnswer,
+    decimal FtFaithfulness,
+    decimal FtAnswerRelevance);
+
+/// <summary>Aggregated benchmark row (by model or by strategy).</summary>
+public record BenchmarkAggregateRow(string Label, decimal AvgFaithfulness, decimal AvgRelevance, decimal AvgRecall, decimal AvgCitation, int Count);
+
+/// <summary>Full dashboard data for Benchmark view (aggregation done in BL, not in view).</summary>
+public record BenchmarkDashboardDto(
+    IReadOnlyList<EvaluationQuestionDto> Questions,
+    IReadOnlyList<EvaluationResultViewDto> Results,
+    IReadOnlyList<BenchmarkAggregateRow> ByModel,
+    IReadOnlyList<BenchmarkAggregateRow> ByStrategy,
+    IReadOnlyList<EvaluationResultViewDto> RagVsFt);
+
 public record EvaluationResultApiDto(
     Guid Id,
     string Question,

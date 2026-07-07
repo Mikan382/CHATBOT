@@ -15,6 +15,7 @@ public interface ICourseRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> CodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
+    Task<bool> HasChaptersAsync(Guid courseId, CancellationToken cancellationToken);
 }
 
 public class CourseRepository : ICourseRepository
@@ -31,8 +32,7 @@ public class CourseRepository : ICourseRepository
         return await _db.Courses
             .Include(x => x.Chapters)
             .AsNoTracking()
-            .OrderBy(x => x.Code == "PRN222" ? 0 : 1)
-            .ThenBy(x => x.Code)
+            .OrderBy(x => x.Code)
             .FirstAsync(cancellationToken);
     }
 
@@ -92,17 +92,11 @@ public class CourseRepository : ICourseRepository
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         var course = await _db.Courses
-            .Include(x => x.Chapters)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (course is null)
         {
             return false;
-        }
-
-        if (course.Chapters.Count > 0)
-        {
-            throw new InvalidOperationException("Cannot delete a course that still has chapters.");
         }
 
         _db.Courses.Remove(course);
@@ -116,5 +110,10 @@ public class CourseRepository : ICourseRepository
         return await _db.Courses.AnyAsync(
             x => x.Code == normalized && (!excludeId.HasValue || x.Id != excludeId.Value),
             cancellationToken);
+    }
+
+    public async Task<bool> HasChaptersAsync(Guid courseId, CancellationToken cancellationToken)
+    {
+        return await _db.Chapters.AnyAsync(x => x.CourseId == courseId, cancellationToken);
     }
 }

@@ -135,7 +135,7 @@ public class BenchmarkIndex
         var queryVector = await _client.EmbedQueryAsync(query, cancellationToken);
 
         return _entries
-            .Select(e => new { Entry = e, Score = Cosine(queryVector, e.Vector) })
+            .Select(e => new { Entry = e, Score = CosineSimilarity.Cosine(queryVector.AsSpan(), e.Vector.AsSpan()) })
             .Where(x => x.Score > 0)
             .OrderByDescending(x => x.Score)
             .Take(topK)
@@ -148,27 +148,6 @@ public class BenchmarkIndex
                 x.Entry.Content,
                 x.Score))
             .ToList();
-    }
-
-    private static double Cosine(float[] left, float[] right)
-    {
-        var dims = Math.Min(left.Length, right.Length);
-        if (dims == 0)
-        {
-            return 0;
-        }
-
-        var dot = 0d;
-        var lMag = 0d;
-        var rMag = 0d;
-        for (var i = 0; i < dims; i++)
-        {
-            dot += left[i] * right[i];
-            lMag += left[i] * left[i];
-            rMag += right[i] * right[i];
-        }
-
-        return lMag <= 0 || rMag <= 0 ? 0 : dot / (Math.Sqrt(lMag) * Math.Sqrt(rMag));
     }
 }
 

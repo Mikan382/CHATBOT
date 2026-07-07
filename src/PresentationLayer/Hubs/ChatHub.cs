@@ -2,16 +2,15 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using BusinessLayer.Services;
-using DataAccessLayer.Enums;
 
 namespace PresentationLayer.Hubs;
 
-[Authorize(Roles = UserRoleNames.All)]
+[Authorize]
 public class ChatHub : Hub
 {
-    private readonly ChatService _chatService;
+    private readonly IChatService _chatService;
 
-    public ChatHub(ChatService chatService)
+    public ChatHub(IChatService chatService)
     {
         _chatService = chatService;
     }

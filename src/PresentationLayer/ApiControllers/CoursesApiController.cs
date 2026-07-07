@@ -1,17 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using BusinessLayer.Services;
-using DataAccessLayer.Enums;
 
 namespace PresentationLayer.ApiControllers;
 
 [ApiController]
-[Authorize(Roles = UserRoleNames.All)]
+[Authorize]
 public class CoursesApiController : ControllerBase
 {
-    private readonly CourseService _courseService;
+    private readonly ICourseService _courseService;
 
-    public CoursesApiController(CourseService courseService)
+    public CoursesApiController(ICourseService courseService)
     {
         _courseService = courseService;
     }

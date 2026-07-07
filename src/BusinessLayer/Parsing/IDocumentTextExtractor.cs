@@ -2,5 +2,5 @@ namespace BusinessLayer.Parsing;
 
 public interface IDocumentTextExtractor
 {
-    Task<string> ExtractAsync(IFormFile file, CancellationToken cancellationToken);
+    Task<string> ExtractAsync(Stream stream, string fileName, CancellationToken cancellationToken);
 }

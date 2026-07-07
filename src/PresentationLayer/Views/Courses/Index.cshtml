@@ -1,0 +1,62 @@
+@model IReadOnlyList<CourseListDto>
+@{
+    ViewData["Title"] = "Courses";
+    var searchTerm = ViewBag.SearchTerm as string;
+}
+
+<div class="card app-card table-card">
+    <div class="card-body">
+        <div class="page-toolbar">
+            <div>
+                <h4 class="card-title mb-1">Courses</h4>
+                <div class="text-muted small">Manage courses and chapters shown to students.</div>
+            </div>
+            <a class="btn btn-primary" asp-controller="Courses" asp-action="Create">Create Course</a>
+        </div>
+
+        <form class="row g-2 mb-3" method="get" asp-controller="Courses" asp-action="Index">
+            <div class="col-md-10">
+                <input class="form-control" name="searchTerm" value="@searchTerm" placeholder="Search course code or name..." />
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-primary flex-fill" type="submit">Search</button>
+                <a class="btn btn-outline-secondary" asp-controller="Courses" asp-action="Index">Clear</a>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Chapters</th>
+                    <th>Tools</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var course in Model)
+                {
+                    <tr>
+                        <td><strong>@course.Code</strong></td>
+                        <td>@course.Name<br><span class="text-muted small">@course.Description</span></td>
+                        <td>@course.ChaptersCount</td>
+                        <td class="small">@course.Tools</td>
+                        <td>
+                            <div class="action-cell">
+                            <a class="btn btn-sm btn-outline-primary" asp-controller="Courses" asp-action="Chapters" asp-route-id="@course.Id">Chapters</a>
+                            <a class="btn btn-sm btn-outline-secondary" asp-controller="Courses" asp-action="Edit" asp-route-id="@course.Id">Edit</a>
+                            <form method="post" asp-controller="Courses" asp-action="Delete" asp-route-id="@course.Id" onsubmit="return confirm('Delete this course? It must have no chapters.');">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                            </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

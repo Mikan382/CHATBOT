@@ -7,7 +7,7 @@ using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.Services;
 
-public class EvaluationService
+public class EvaluationService : IEvaluationService
 {
     private readonly IEvaluationRepository _evaluationRepository;
     private readonly BenchmarkRetrievalService _benchmarkRetrieval;
@@ -43,11 +43,43 @@ public class EvaluationService
 
     public IReadOnlyList<string> AvailableEmbeddingModels => _embeddingClientFactory.GetModelNames();
 
-    public async Task<(IReadOnlyList<EvaluationQuestion> Questions, IReadOnlyList<EvaluationResult> Results)> GetDashboardDataAsync(CancellationToken cancellationToken)
+    public async Task<BenchmarkDashboardDto> GetDashboardDataAsync(CancellationToken cancellationToken)
     {
         var questions = await _evaluationRepository.ListQuestionsAsync(cancellationToken);
         var results = await _evaluationRepository.ListRecentResultsAsync(200, cancellationToken);
-        return (questions, results);
+
+        var questionDtos = questions.Select(q => new EvaluationQuestionDto(q.Id, q.Question, q.GroundTruth)).ToList();
+        var resultDtos = results.Select(ToViewDto).ToList();
+        var completedResults = resultDtos.Where(r => r.Status == "Completed").ToList();
+
+        // Aggregation logic moved from Benchmark view (fix #4)
+        var byModel = completedResults
+            .GroupBy(r => string.IsNullOrWhiteSpace(r.EmbeddingModelName) ? "default" : r.EmbeddingModelName)
+            .Select(g => new BenchmarkAggregateRow(
+                g.Key,
+                g.Average(x => x.Faithfulness),
+                g.Average(x => x.AnswerRelevance),
+                g.Average(x => x.RetrievalRecall),
+                g.Average(x => x.CitationAccuracy),
+                g.Count()))
+            .ToList();
+
+        var byStrategy = completedResults
+            .GroupBy(r => string.IsNullOrWhiteSpace(r.ChunkingStrategy) ? "paragraph" : r.ChunkingStrategy)
+            .Select(g => new BenchmarkAggregateRow(
+                g.Key,
+                g.Average(x => x.Faithfulness),
+                g.Average(x => x.AnswerRelevance),
+                g.Average(x => x.RetrievalRecall),
+                g.Average(x => x.CitationAccuracy),
+                g.Count()))
+            .ToList();
+
+        var ragVsFt = completedResults
+            .Where(r => !string.IsNullOrWhiteSpace(r.FineTunedAnswer))
+            .ToList();
+
+        return new BenchmarkDashboardDto(questionDtos, resultDtos, byModel, byStrategy, ragVsFt);
     }
 
     public async Task<IReadOnlyList<EvaluationResultApiDto>> ListResultsAsync(CancellationToken cancellationToken)
@@ -76,7 +108,7 @@ public class EvaluationService
     /// <summary>
     /// Run a benchmark for a specific chunking strategy and embedding model combination.
     /// </summary>
-    public async Task<IReadOnlyList<EvaluationResult>> RunAsync(int limit, string? chunkingStrategy, string? embeddingModel, CancellationToken cancellationToken)
+    public async Task<int> RunAsync(int limit, string? chunkingStrategy, string? embeddingModel, CancellationToken cancellationToken)
     {
         limit = Math.Clamp(limit, 1, 50);
         var questions = await _evaluationRepository.ListQuestionsForRunAsync(limit, cancellationToken);
@@ -91,14 +123,14 @@ public class EvaluationService
         }
 
         await _evaluationRepository.SaveResultsAsync(results, cancellationToken);
-        return results;
+        return results.Count;
     }
 
     /// <summary>
     /// Run a full comparative benchmark: all combinations of chunking strategies × embedding models.
     /// Builds the in-memory index once per (strategy, model) pair so each combination is truly distinct.
     /// </summary>
-    public async Task<IReadOnlyList<EvaluationResult>> RunFullBenchmarkAsync(int questionLimit, CancellationToken cancellationToken)
+    public async Task<int> RunFullBenchmarkAsync(int questionLimit, CancellationToken cancellationToken)
     {
         questionLimit = Math.Clamp(questionLimit, 1, 50);
         var questions = await _evaluationRepository.ListQuestionsForRunAsync(questionLimit, cancellationToken);
@@ -119,7 +151,7 @@ public class EvaluationService
         }
 
         await _evaluationRepository.SaveResultsAsync(allResults, cancellationToken);
-        return allResults;
+        return allResults.Count;
     }
 
     /// <summary>
@@ -198,7 +230,7 @@ public class EvaluationService
             if (_fineTuneClient.IsConfigured)
             {
                 var ftStopwatch = Stopwatch.StartNew();
-                var courseCode = question.Chapter?.Course?.Code ?? "PRN222";
+                var courseCode = question.Chapter?.Course?.Code ?? "unknown";
                 var ft = await _fineTuneClient.GenerateAsync(
                     new FineTuneRequest(Guid.NewGuid().ToString(), courseCode, question.Question, []),
                     cancellationToken);
@@ -240,5 +272,28 @@ public class EvaluationService
         }
 
         return result;
+    }
+
+    private static EvaluationResultViewDto ToViewDto(EvaluationResult r)
+    {
+        return new EvaluationResultViewDto(
+            r.Id,
+            r.EvaluationQuestion?.Question,
+            r.EvaluationQuestion?.GroundTruth,
+            r.Status,
+            r.Faithfulness,
+            r.AnswerRelevance,
+            r.RetrievalRecall,
+            r.CitationAccuracy,
+            r.ErrorMessage,
+            r.CreatedAtUtc,
+            r.ChunkingStrategy,
+            r.EmbeddingModelName,
+            r.RagLatencyMs,
+            r.FineTunedLatencyMs,
+            r.RagAnswer,
+            r.FineTunedAnswer,
+            r.FtFaithfulness,
+            r.FtAnswerRelevance);
     }
 }

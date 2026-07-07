@@ -1,0 +1,87 @@
+@model DocumentDetailsDto
+@{
+    ViewData["Title"] = "Document Details";
+}
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card app-card">
+            <div class="card-body">
+                <h5 class="card-title">@Model.OriginalFileName</h5>
+                <dl class="small mb-0">
+                    <dt>Course</dt>
+                    <dd>@Model.CourseCode - @Model.CourseName</dd>
+                    <dt>Chapter</dt>
+                    <dd>@Model.ChapterTitle</dd>
+                    <dt>Status</dt>
+                    <dd>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span>@Model.IndexStatus</span>
+                            <span class="text-muted">@Model.IndexProgressPercent%</span>
+                        </div>
+                        <div class="progress index-progress">
+                            <div class="progress-bar" role="progressbar" style="width: @Model.IndexProgressPercent%;" aria-valuenow="@Model.IndexProgressPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="text-muted mt-1">@Model.IndexStage</div>
+                    </dd>
+                    <dt>File</dt>
+                    <dd>@Model.FileType / @(Model.FileSizeBytes / 1024) KB</dd>
+                    <dt>Uploaded By</dt>
+                    <dd>@(Model.UploadedByEmail ?? "Unknown")</dd>
+                    <dt>Uploaded At</dt>
+                    <dd>@Model.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm")</dd>
+                    <dt>Sections</dt>
+                    <dd>@Model.Chunks.Count</dd>
+                </dl>
+                @if (!string.IsNullOrWhiteSpace(Model.IndexError))
+                {
+                    <div class="alert alert-danger small mt-3">@Model.IndexError</div>
+                }
+                <a class="btn btn-outline-secondary mt-3" asp-controller="Documents" asp-action="Index">Back</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card app-card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Document Text</h5>
+                <pre class="document-text">@Model.ContentText</pre>
+            </div>
+        </div>
+        <div class="card app-card">
+            <div class="card-body">
+                <h5 class="card-title">Indexed Sections</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Content</th>
+                            <th>Search Data</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var chunk in Model.Chunks)
+                        {
+                            <tr>
+                                <td>@chunk.ChunkIndex</td>
+                                <td class="small">@chunk.Content</td>
+                                <td class="small">
+                                    @if (chunk.EmbeddingModels.Count == 0)
+                                    {
+                                        <span class="text-muted">Not available</span>
+                                    }
+                                    else
+                                    {
+                                        @string.Join(", ", chunk.EmbeddingModels)
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

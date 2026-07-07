@@ -1,11 +1,10 @@
-using DataAccessLayer.Entities;
+using BusinessLayer.Services;
 
 namespace PresentationLayer.ViewModels;
 
 public class BenchmarkIndexViewModel
 {
-    public IReadOnlyList<EvaluationQuestion> Questions { get; set; } = [];
-    public IReadOnlyList<EvaluationResult> Results { get; set; } = [];
+    public BenchmarkDashboardDto Dashboard { get; set; } = new([], [], [], [], []);
     public bool FineTuneConfigured { get; set; }
     public bool GeminiConfigured { get; set; }
     public IReadOnlyList<string> ChunkingStrategies { get; set; } = [];
