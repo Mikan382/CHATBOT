@@ -93,8 +93,6 @@ public class ChapterRepository : IChapterRepository
 
     public async Task<bool> HasDependenciesAsync(Guid chapterId, CancellationToken cancellationToken)
     {
-        var hasDocuments = await _db.Documents.AnyAsync(x => x.ChapterId == chapterId, cancellationToken);
-        if (hasDocuments) return true;
-        return await _db.EvaluationQuestions.AnyAsync(x => x.ChapterId == chapterId, cancellationToken);
+        return await _db.Documents.AnyAsync(x => x.ChapterId == chapterId, cancellationToken);
     }
 }

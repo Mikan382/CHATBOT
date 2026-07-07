@@ -32,7 +32,7 @@ public class CoursesApiController : ControllerBase
     [HttpGet("/api/courses/{id:guid}/chapters")]
     public async Task<IActionResult> Chapters(Guid id, CancellationToken cancellationToken)
     {
-        var chapters = await _courseService.ListChaptersAsync(id, cancellationToken);
+        var chapters = await _courseService.ListPublicChaptersAsync(id, cancellationToken);
         return Ok(new { success = true, chapters });
     }
 }

@@ -10,20 +10,17 @@ public class RetrievalService
     private readonly IDocumentRepository _documentRepository;
     private readonly IDocumentEmbeddingRepository _embeddingRepository;
     private readonly IEmbeddingClient _embeddingClient;
-    private readonly EmbeddingClientFactory _embeddingClientFactory;
     private readonly ILogger<RetrievalService> _logger;
 
     public RetrievalService(
         IDocumentRepository documentRepository,
         IDocumentEmbeddingRepository embeddingRepository,
         IEmbeddingClient embeddingClient,
-        EmbeddingClientFactory embeddingClientFactory,
         ILogger<RetrievalService> logger)
     {
         _documentRepository = documentRepository;
         _embeddingRepository = embeddingRepository;
         _embeddingClient = embeddingClient;
-        _embeddingClientFactory = embeddingClientFactory;
         _logger = logger;
     }
 
@@ -42,49 +39,6 @@ public class RetrievalService
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "Embedding retrieval failed. Falling back to lexical retrieval.");
-            }
-        }
-
-        return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
-    }
-
-    /// <summary>
-    /// Retrieve using a specific embedding model by name (for benchmarking).
-    /// Falls back to lexical retrieval if the model is unavailable.
-    /// </summary>
-    public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithModelAsync(string query, Guid? courseId, int topK, string modelName, CancellationToken cancellationToken)
-    {
-        var client = _embeddingClientFactory.GetByName(modelName);
-        if (client is not null && client.IsConfigured)
-        {
-            try
-            {
-                var results = await RetrieveWithEmbeddingsAsync(query, courseId, topK, client, cancellationToken);
-                if (results.Count > 0)
-                {
-                    return results;
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Embedding retrieval with model {Model} failed. Falling back to lexical.", modelName);
-            }
-        }
-
-        // Fall back to default embedding client
-        if (_embeddingClient.IsConfigured)
-        {
-            try
-            {
-                var results = await RetrieveWithEmbeddingsAsync(query, courseId, topK, _embeddingClient, cancellationToken);
-                if (results.Count > 0)
-                {
-                    return results;
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Default embedding retrieval also failed. Falling back to lexical.");
             }
         }
 

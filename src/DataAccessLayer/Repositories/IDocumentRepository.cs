@@ -1,21 +1,19 @@
 using Microsoft.EntityFrameworkCore;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
-using DataAccessLayer.Enums;
 
 namespace DataAccessLayer.Repositories;
 
 public interface IDocumentRepository
 {
     Task AddAsync(Document document, CancellationToken cancellationToken);
-    Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, DocumentIndexStatus? status, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, Guid? teacherId, CancellationToken cancellationToken);
     Task<Document?> GetDetailsAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<DocumentChunk>> ListChunksAsync(Guid documentId, CancellationToken cancellationToken);
-    Task<Document?> GetForIndexingAsync(Guid documentId, CancellationToken cancellationToken);
+    Task<bool> ContentHashExistsAsync(Guid chapterId, string contentHash, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task ReplaceChunksAsync(Guid documentId, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
-    Task<IReadOnlyList<Guid>> ListPendingOrProcessingIdsAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(Guid? courseId, CancellationToken cancellationToken);
 }
 
@@ -34,7 +32,7 @@ public class DocumentRepository : IDocumentRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, DocumentIndexStatus? status, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, Guid? teacherId, CancellationToken cancellationToken)
     {
         // Use projection + chunk count subquery instead of Include(Chunks) to avoid loading chunk text (S12)
         var query = _db.Documents
@@ -42,6 +40,11 @@ public class DocumentRepository : IDocumentRepository
             .ThenInclude(x => x!.Course)
             .Include(x => x.UploadedByUser)
             .AsQueryable();
+
+        if (teacherId.HasValue)
+        {
+            query = query.Where(x => x.Chapter!.Course!.TeacherAssignments.Any(t => t.TeacherUserId == teacherId.Value));
+        }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -57,11 +60,6 @@ public class DocumentRepository : IDocumentRepository
         if (courseId.HasValue)
         {
             query = query.Where(x => x.Chapter!.CourseId == courseId.Value);
-        }
-
-        if (status.HasValue)
-        {
-            query = query.Where(x => x.IndexStatus == status.Value);
         }
 
         var docs = await query
@@ -109,11 +107,11 @@ public class DocumentRepository : IDocumentRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<Document?> GetForIndexingAsync(Guid documentId, CancellationToken cancellationToken)
+    public async Task<bool> ContentHashExistsAsync(Guid chapterId, string contentHash, CancellationToken cancellationToken)
     {
-        return await _db.Documents
-            .Include(x => x.Chapter)
-            .FirstOrDefaultAsync(x => x.Id == documentId, cancellationToken);
+        return await _db.Documents.AnyAsync(
+            x => x.ChapterId == chapterId && x.ContentHash == contentHash,
+            cancellationToken);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -143,21 +141,13 @@ public class DocumentRepository : IDocumentRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Guid>> ListPendingOrProcessingIdsAsync(CancellationToken cancellationToken)
-    {
-        return await _db.Documents
-            .Where(x => x.IndexStatus == DocumentIndexStatus.Pending || x.IndexStatus == DocumentIndexStatus.Processing)
-            .Select(x => x.Id)
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(Guid? courseId, CancellationToken cancellationToken)
     {
         var query = _db.DocumentChunks
             .Include(x => x.Document)
             .ThenInclude(x => x!.Chapter)
             .ThenInclude(x => x!.Course)
-            .Where(x => x.Document!.IndexStatus == DocumentIndexStatus.Indexed);
+            .AsQueryable();
 
         if (courseId.HasValue)
         {

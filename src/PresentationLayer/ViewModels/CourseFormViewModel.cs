@@ -20,6 +20,10 @@ public class CourseFormViewModel
     [StringLength(512)]
     public string? Tools { get; set; }
 
+    public List<Guid> TeacherIds { get; set; } = [];
+
+    public IReadOnlyList<TeacherOptionDto> Teachers { get; set; } = [];
+
     public string? Error { get; set; }
 }
 

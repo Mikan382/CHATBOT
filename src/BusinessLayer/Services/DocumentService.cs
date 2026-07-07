@@ -1,8 +1,11 @@
+using System.Security.Cryptography;
+using System.Text;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
 using BusinessLayer.Indexing;
 using BusinessLayer.Parsing;
+using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.Services;
 
@@ -13,57 +16,54 @@ public class DocumentService : IDocumentService
     private readonly ICourseRepository _courseRepository;
     private readonly IDocumentRepository _documentRepository;
     private readonly IDocumentTextExtractor _extractor;
-    private readonly IIndexingQueue _queue;
+    private readonly DocumentIndexingService _indexingService;
 
     public DocumentService(
         IChapterRepository chapterRepository,
         ICourseRepository courseRepository,
         IDocumentRepository documentRepository,
         IDocumentTextExtractor extractor,
-        IIndexingQueue queue)
+        DocumentIndexingService indexingService)
     {
         _chapterRepository = chapterRepository;
         _courseRepository = courseRepository;
         _documentRepository = documentRepository;
         _extractor = extractor;
-        _queue = queue;
+        _indexingService = indexingService;
     }
 
     public async Task<(IReadOnlyList<ChapterSelectDto> Chapters, IReadOnlyList<DocumentIndexDto> Documents)> GetIndexDataAsync(
         string? searchTerm,
         Guid? courseId,
         Guid? chapterId,
-        string? status,
+        Guid userId,
+        bool isAdmin,
+        bool isTeacher,
         CancellationToken cancellationToken)
     {
-        DocumentIndexStatus? parsedStatus = null;
-        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<DocumentIndexStatus>(status, out var s))
-        {
-            parsedStatus = s;
-        }
+        var teacherId = TeacherFilter(userId, isAdmin, isTeacher);
+        var courses = await _courseRepository.ListWithChaptersAsync(teacherId, cancellationToken);
+        var courseIds = courses.Select(x => x.Id).ToHashSet();
+        var chapters = courses
+            .SelectMany(x => x.Chapters)
+            .OrderBy(x => x.Course?.Code)
+            .ThenBy(x => x.Order)
+            .ToList();
+        var documents = await _documentRepository.ListWithChapterAndChunksAsync(searchTerm, courseId, chapterId, teacherId, cancellationToken);
 
-        var chapters = await _chapterRepository.ListOrderedAsync(cancellationToken);
-        var documents = await _documentRepository.ListWithChapterAndChunksAsync(searchTerm, courseId, chapterId, parsedStatus, cancellationToken);
-
-        var chapterDtos = chapters.Select(c => new ChapterSelectDto(c.Id, c.CourseId, c.Order, c.Title)).ToList();
+        var chapterDtos = chapters
+            .Where(c => courseIds.Contains(c.CourseId))
+            .Select(c => new ChapterSelectDto(c.Id, c.CourseId, c.Order, c.Title))
+            .ToList();
         var documentDtos = documents.Select(ToIndexDto).ToList();
 
         return (chapterDtos, documentDtos);
     }
 
-    public async Task<IReadOnlyList<CourseDto>> ListCoursesAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CourseDto>> ListCoursesAsync(Guid userId, bool isAdmin, bool isTeacher, CancellationToken cancellationToken)
     {
-        var courses = await _courseRepository.ListWithChaptersAsync(cancellationToken);
-        return courses.Select(x => new CourseDto(
-            x.Id,
-            x.Code,
-            x.Name,
-            x.Description,
-            x.Tools,
-            x.Chapters
-                .OrderBy(c => c.Order)
-                .Select(c => new ChapterDto(c.Id, c.Order, c.Clo, c.Title, c.Summary))
-                .ToList())).ToList();
+        var courses = await _courseRepository.ListWithChaptersAsync(TeacherFilter(userId, isAdmin, isTeacher), cancellationToken);
+        return courses.Select(ToCourseDto).ToList();
     }
 
     public async Task<IReadOnlyList<DocumentApiDto>> ListDocumentsAsync(CancellationToken cancellationToken)
@@ -74,10 +74,6 @@ public class DocumentService : IDocumentService
             x.OriginalFileName,
             x.FileType,
             x.FileSizeBytes,
-            x.IndexStatus.ToString(),
-            x.IndexProgressPercent,
-            x.IndexStage,
-            x.IndexError,
             x.UploadedAtUtc,
             x.Chapter is null ? null : new ChapterDto(x.Chapter.Id, x.Chapter.Order, x.Chapter.Clo, x.Chapter.Title, x.Chapter.Summary),
             x.ChunksCount > 0 ? x.ChunksCount : x.Chunks.Count)).ToList();
@@ -93,16 +89,13 @@ public class DocumentService : IDocumentService
             doc.OriginalFileName,
             doc.FileType,
             doc.FileSizeBytes,
-            doc.IndexStatus.ToString(),
-            doc.IndexProgressPercent,
-            doc.IndexStage,
-            doc.IndexError,
             doc.UploadedAtUtc,
             doc.Chapter?.Course?.Code,
             doc.Chapter?.Course?.Name,
             doc.Chapter?.Title,
             doc.UploadedByUser?.Email,
             doc.ContentText,
+            doc.ContentHash,
             doc.Chunks.OrderBy(c => c.ChunkIndex).Select(c => new DocumentChunkViewDto(
                 c.ChunkIndex,
                 c.Content,
@@ -122,8 +115,16 @@ public class DocumentService : IDocumentService
             x.CreatedAtUtc)).ToList();
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
+        var details = await _documentRepository.GetDetailsAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException("Document was not found.");
+
+        if (!isAdmin && !await _courseRepository.TeacherCanManageCourseAsync(details.Chapter!.CourseId, userId, cancellationToken))
+        {
+            throw new InvalidOperationException("You are not assigned to this course.");
+        }
+
         var deleted = await _documentRepository.DeleteAsync(id, cancellationToken);
         if (!deleted)
         {
@@ -131,7 +132,7 @@ public class DocumentService : IDocumentService
         }
     }
 
-    public async Task<Guid> UploadAsync(Guid chapterId, Guid userId, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken)
+    public async Task<Guid> UploadAsync(Guid chapterId, Guid userId, bool isAdmin, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken)
     {
         if (fileSize == 0)
         {
@@ -143,16 +144,24 @@ public class DocumentService : IDocumentService
             throw new InvalidOperationException("File exceeds the 20MB limit.");
         }
 
-        var chapterExists = await _chapterRepository.ExistsAsync(chapterId, cancellationToken);
-        if (!chapterExists)
+        var chapter = await _chapterRepository.GetByIdAsync(chapterId, cancellationToken)
+            ?? throw new InvalidOperationException("Invalid chapter.");
+
+        if (!isAdmin && !await _courseRepository.TeacherCanManageCourseAsync(chapter.CourseId, userId, cancellationToken))
         {
-            throw new InvalidOperationException("Invalid chapter.");
+            throw new InvalidOperationException("You are not assigned to this course.");
         }
 
         var text = await _extractor.ExtractAsync(stream, fileName, cancellationToken);
         if (string.IsNullOrWhiteSpace(text))
         {
             throw new InvalidOperationException("Could not extract text content from the file.");
+        }
+
+        var contentHash = ComputeContentHash(text);
+        if (await _documentRepository.ContentHashExistsAsync(chapterId, contentHash, cancellationToken))
+        {
+            throw new InvalidOperationException("This document content already exists in the selected chapter.");
         }
 
         var document = new Document
@@ -164,13 +173,40 @@ public class DocumentService : IDocumentService
             FileType = Path.GetExtension(fileName).ToLowerInvariant(),
             FileSizeBytes = fileSize,
             ContentText = text,
+            ContentHash = contentHash,
             UploadedAtUtc = DateTime.UtcNow
         };
 
+        await _indexingService.PopulateChunksAsync(document, cancellationToken);
         await _documentRepository.AddAsync(document, cancellationToken);
-        await _queue.QueueAsync(document.Id, cancellationToken);
 
         return document.Id;
+    }
+
+    private static Guid? TeacherFilter(Guid userId, bool isAdmin, bool isTeacher)
+    {
+        return !isAdmin && isTeacher ? userId : null;
+    }
+
+    private static string ComputeContentHash(string text)
+    {
+        var normalized = TextNormalizer.Normalize(text);
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        return Convert.ToHexString(bytes);
+    }
+
+    private static CourseDto ToCourseDto(Course course)
+    {
+        return new CourseDto(
+            course.Id,
+            course.Code,
+            course.Name,
+            course.Description,
+            course.Tools,
+            course.Chapters
+                .OrderBy(c => c.Order)
+                .Select(c => new ChapterDto(c.Id, c.Order, c.Clo, c.Title, c.Summary))
+                .ToList());
     }
 
     private static DocumentIndexDto ToIndexDto(Document doc)
@@ -180,10 +216,6 @@ public class DocumentService : IDocumentService
             doc.OriginalFileName,
             doc.FileType,
             doc.FileSizeBytes,
-            doc.IndexStatus.ToString(),
-            doc.IndexProgressPercent,
-            doc.IndexStage,
-            doc.IndexError,
             doc.UploadedAtUtc,
             doc.Chapter?.Course?.Code,
             doc.Chapter?.Title,

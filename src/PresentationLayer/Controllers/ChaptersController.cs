@@ -20,7 +20,7 @@ public class ChaptersController : BaseController
     [HttpGet]
     public async Task<IActionResult> Create(Guid courseId, CancellationToken cancellationToken)
     {
-        var courses = await _courseService.ListDtosAsync(cancellationToken);
+        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         var model = new ChapterFormViewModel { CourseId = courseId };
         ViewBag.Courses = courses;
         return View(model);
@@ -30,7 +30,7 @@ public class ChaptersController : BaseController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ChapterFormViewModel model, CancellationToken cancellationToken)
     {
-        var courses = await _courseService.ListDtosAsync(cancellationToken);
+        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         ViewBag.Courses = courses;
 
         if (!ModelState.IsValid)
@@ -40,7 +40,7 @@ public class ChaptersController : BaseController
 
         try
         {
-            var result = await _chapterService.CreateAsync(model.CourseId, model.Order, model.Clo, model.Title, model.Summary, cancellationToken);
+            var result = await _chapterService.CreateAsync(model.CourseId, model.Order, model.Clo, model.Title, model.Summary, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
             SetFlashSuccess("Chapter was created.");
             return RedirectToAction("Chapters", "Courses", new { id = result.CourseId });
         }
@@ -54,13 +54,13 @@ public class ChaptersController : BaseController
     [HttpGet]
     public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
     {
-        var chapter = await _chapterService.GetEditableAsync(id, cancellationToken);
+        var chapter = await _chapterService.GetEditableAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         if (chapter is null)
         {
             return NotFound();
         }
 
-        var courses = await _courseService.ListDtosAsync(cancellationToken);
+        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         ViewBag.Courses = courses;
         var model = new ChapterFormViewModel
         {
@@ -79,7 +79,7 @@ public class ChaptersController : BaseController
     public async Task<IActionResult> Edit(Guid id, ChapterFormViewModel model, CancellationToken cancellationToken)
     {
         model.Id = id;
-        var courses = await _courseService.ListDtosAsync(cancellationToken);
+        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         ViewBag.Courses = courses;
 
         if (!ModelState.IsValid)
@@ -89,7 +89,7 @@ public class ChaptersController : BaseController
 
         try
         {
-            await _chapterService.UpdateAsync(id, model.CourseId, model.Order, model.Clo, model.Title, model.Summary, cancellationToken);
+            await _chapterService.UpdateAsync(id, model.CourseId, model.Order, model.Clo, model.Title, model.Summary, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
             SetFlashSuccess("Chapter was updated.");
             return RedirectToAction("Chapters", "Courses", new { id = model.CourseId });
         }

@@ -29,7 +29,7 @@ public class ChatHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
     }
 
-    public async Task SendMessage(string sessionId, string courseId, string modelType, string text)
+    public async Task SendMessage(string sessionId, string courseId, string text)
     {
         if (!Guid.TryParse(sessionId, out var parsedSessionId))
         {
@@ -43,18 +43,12 @@ public class ChatHub : Hub
             return;
         }
 
-        if (!ModelTypeParser.TryParse(modelType, out var parsedModelType))
-        {
-            await Clients.Caller.SendAsync("MessageFailed", "Invalid model type.");
-            return;
-        }
-
         try
         {
-            var userMessage = await _chatService.SaveUserMessageAsync(parsedSessionId, CurrentUserId(), parsedCourseId, parsedModelType, text, Context.ConnectionAborted);
+            var userMessage = await _chatService.SaveUserMessageAsync(parsedSessionId, CurrentUserId(), parsedCourseId, text, Context.ConnectionAborted);
             await Clients.Group(sessionId).SendAsync("MessageReceived", userMessage);
 
-            var botMessage = await _chatService.GenerateAssistantReplyAsync(parsedSessionId, CurrentUserId(), parsedCourseId, parsedModelType, text, Context.ConnectionAborted);
+            var botMessage = await _chatService.GenerateAssistantReplyAsync(parsedSessionId, CurrentUserId(), parsedCourseId, text, Context.ConnectionAborted);
             await Clients.Group(sessionId).SendAsync("MessageReceived", botMessage);
         }
         catch (Exception ex)

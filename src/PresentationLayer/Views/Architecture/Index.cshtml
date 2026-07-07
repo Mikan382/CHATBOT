@@ -4,7 +4,7 @@
 
 <div class="card app-card mb-4">
     <div class="card-body">
-        <h4>Architecture: MVC + 3 Projects + SignalR + Worker Service</h4>
+        <h4>Architecture: MVC + 3 Projects + SignalR</h4>
         <p class="text-muted mb-0">The solution is split into PresentationLayer, BusinessLayer, and DataAccessLayer.</p>
     </div>
 </div>
@@ -13,7 +13,7 @@
     <div class="col-lg-4">
         <div class="card app-card h-100"><div class="card-body">
             <h5>Workflow 1: Document Ingestion</h5>
-            <p>PDF/DOCX/PPTX/TXT/MD files are uploaded through the Documents controller. BusinessLayer validates, parses, and queues indexing. DataAccessLayer persists documents and chunks.</p>
+            <p>PDF/DOCX/PPTX/TXT/MD files are uploaded through the Documents controller. BusinessLayer validates, parses, chunks, embeds, and persists documents synchronously.</p>
             <code>PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server</code>
         </div></div>
     </div>
@@ -26,9 +26,9 @@
     </div>
     <div class="col-lg-4">
         <div class="card app-card h-100"><div class="card-body">
-            <h5>Workflow 3: RBL Benchmark</h5>
-            <p>EvaluationService runs ground-truth questions, measures faithfulness, relevance, recall, and citation accuracy, then saves results through DataAccessLayer.</p>
-            <code>BenchmarkController -> EvaluationService -> EvaluationRepository -> SQL Server</code>
+            <h5>Workflow 3: Admin Configuration</h5>
+            <p>Admin manages users, teacher-course assignments, and the global chunking strategy used by future uploads.</p>
+            <code>SettingsController -> ChunkingSettingsService -> SystemSettings -> SQL Server</code>
         </div></div>
     </div>
 </div>
@@ -38,7 +38,7 @@
         <h5>3-Layers Mapping</h5>
         <table class="table table-sm">
             <tr><th>PresentationLayer</th><td>MVC Controllers, Views, SignalR Hub, ViewModels, Bootstrap UI, browser JavaScript clients.</td></tr>
-            <tr><th>BusinessLayer</th><td>Services (interfaces + implementations), DTOs, AI clients, parsers, retrieval, scoring, indexing orchestration.</td></tr>
+            <tr><th>BusinessLayer</th><td>Services (interfaces + implementations), DTOs, AI clients, parsers, retrieval, indexing orchestration.</td></tr>
             <tr><th>DataAccessLayer</th><td>Repositories, EF Core entities, SQL Server LocalDB, migrations.</td></tr>
         </table>
     </div>

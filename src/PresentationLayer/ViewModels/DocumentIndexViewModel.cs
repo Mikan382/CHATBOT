@@ -10,9 +10,7 @@ public class DocumentIndexViewModel
     public string? SearchTerm { get; set; }
     public Guid? SelectedCourseId { get; set; }
     public Guid? SelectedChapterId { get; set; }
-    public string? SelectedStatus { get; set; }
     public string? Message { get; set; }
     public string? Error { get; set; }
     public bool CanManageDocuments { get; set; }
-    public IReadOnlyList<string> StatusOptions { get; set; } = [];
 }

@@ -13,19 +13,10 @@
                     <dd>@Model.CourseCode - @Model.CourseName</dd>
                     <dt>Chapter</dt>
                     <dd>@Model.ChapterTitle</dd>
-                    <dt>Status</dt>
-                    <dd>
-                        <div class="d-flex align-items-center gap-2 mb-1">
-                            <span>@Model.IndexStatus</span>
-                            <span class="text-muted">@Model.IndexProgressPercent%</span>
-                        </div>
-                        <div class="progress index-progress">
-                            <div class="progress-bar" role="progressbar" style="width: @Model.IndexProgressPercent%;" aria-valuenow="@Model.IndexProgressPercent" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <div class="text-muted mt-1">@Model.IndexStage</div>
-                    </dd>
                     <dt>File</dt>
                     <dd>@Model.FileType / @(Model.FileSizeBytes / 1024) KB</dd>
+                    <dt>Content Hash</dt>
+                    <dd class="text-break">@Model.ContentHash</dd>
                     <dt>Uploaded By</dt>
                     <dd>@(Model.UploadedByEmail ?? "Unknown")</dd>
                     <dt>Uploaded At</dt>
@@ -33,10 +24,6 @@
                     <dt>Sections</dt>
                     <dd>@Model.Chunks.Count</dd>
                 </dl>
-                @if (!string.IsNullOrWhiteSpace(Model.IndexError))
-                {
-                    <div class="alert alert-danger small mt-3">@Model.IndexError</div>
-                }
                 <a class="btn btn-outline-secondary mt-3" asp-controller="Documents" asp-action="Index">Back</a>
             </div>
         </div>

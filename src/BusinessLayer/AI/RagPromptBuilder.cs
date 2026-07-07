@@ -13,7 +13,7 @@ public static class RagPromptBuilder
         """;
     }
 
-    public static string BuildPrompt(string question, IReadOnlyList<RetrievedChunkDto> chunks, IReadOnlyList<FineTuneHistoryMessage> history)
+    public static string BuildPrompt(string question, IReadOnlyList<RetrievedChunkDto> chunks, IReadOnlyList<ChatHistoryMessage> history)
     {
         var historyText = history.Count == 0
             ? "No previous conversation history."

@@ -22,11 +22,12 @@ public class DocumentsController : BaseController
         string? searchTerm,
         Guid? courseId,
         Guid? chapterId,
-        string? status,
         CancellationToken cancellationToken)
     {
-        var data = await _documentService.GetIndexDataAsync(searchTerm, courseId, chapterId, status, cancellationToken);
-        var courses = await _documentService.ListCoursesAsync(cancellationToken);
+        var isAdmin = User.IsInRole("Admin");
+        var isTeacher = User.IsInRole("Teacher");
+        var data = await _documentService.GetIndexDataAsync(searchTerm, courseId, chapterId, CurrentUserId(), isAdmin, isTeacher, cancellationToken);
+        var courses = await _documentService.ListCoursesAsync(CurrentUserId(), isAdmin, isTeacher, cancellationToken);
 
         var model = new DocumentIndexViewModel
         {
@@ -36,9 +37,7 @@ public class DocumentsController : BaseController
             SearchTerm = searchTerm,
             SelectedCourseId = courseId,
             SelectedChapterId = chapterId,
-            SelectedStatus = status,
-            CanManageDocuments = User.IsInRole("Teacher") || User.IsInRole("Admin"),
-            StatusOptions = ["Pending", "Processing", "Indexed", "Failed"]
+            CanManageDocuments = isTeacher || isAdmin
         };
 
         return View(model);
@@ -66,8 +65,8 @@ public class DocumentsController : BaseController
         try
         {
             await using var stream = file.OpenReadStream();
-            await _documentService.UploadAsync(chapterId, CurrentUserId(), stream, file.FileName, file.Length, cancellationToken);
-            SetFlashSuccess("Document uploaded. The worker will prepare it in the background.");
+            await _documentService.UploadAsync(chapterId, CurrentUserId(), User.IsInRole("Admin"), stream, file.FileName, file.Length, cancellationToken);
+            SetFlashSuccess("Document uploaded and indexed.");
         }
         catch (Exception ex)
         {
@@ -84,7 +83,7 @@ public class DocumentsController : BaseController
     {
         try
         {
-            await _documentService.DeleteAsync(id, cancellationToken);
+            await _documentService.DeleteAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
             SetFlashSuccess("Document and related indexed sections were deleted.");
         }
         catch (Exception ex)

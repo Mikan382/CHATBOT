@@ -7,8 +7,8 @@ namespace DataAccessLayer.Repositories;
 public interface ICourseRepository
 {
     Task<Course> GetCurrentWithChaptersAsync(CancellationToken cancellationToken);
-    Task<IReadOnlyList<Course>> ListAsync(string? searchTerm, CancellationToken cancellationToken);
-    Task<IReadOnlyList<Course>> ListWithChaptersAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<Course>> ListAsync(string? searchTerm, Guid? teacherId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Course>> ListWithChaptersAsync(Guid? teacherId, CancellationToken cancellationToken);
     Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<Course?> GetByCodeAsync(string code, CancellationToken cancellationToken);
     Task AddAsync(Course course, CancellationToken cancellationToken);
@@ -16,6 +16,8 @@ public interface ICourseRepository
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> CodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
     Task<bool> HasChaptersAsync(Guid courseId, CancellationToken cancellationToken);
+    Task<bool> TeacherCanManageCourseAsync(Guid courseId, Guid teacherId, CancellationToken cancellationToken);
+    Task SetTeacherAssignmentsAsync(Guid courseId, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken);
 }
 
 public class CourseRepository : ICourseRepository
@@ -36,11 +38,18 @@ public class CourseRepository : ICourseRepository
             .FirstAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Course>> ListAsync(string? searchTerm, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Course>> ListAsync(string? searchTerm, Guid? teacherId, CancellationToken cancellationToken)
     {
         var query = _db.Courses
             .Include(x => x.Chapters)
+            .Include(x => x.TeacherAssignments)
+            .ThenInclude(x => x.Teacher)
             .AsQueryable();
+
+        if (teacherId.HasValue)
+        {
+            query = query.Where(x => x.TeacherAssignments.Any(t => t.TeacherUserId == teacherId.Value));
+        }
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -54,10 +63,20 @@ public class CourseRepository : ICourseRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Course>> ListWithChaptersAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Course>> ListWithChaptersAsync(Guid? teacherId, CancellationToken cancellationToken)
     {
-        return await _db.Courses
+        var query = _db.Courses
             .Include(x => x.Chapters)
+            .Include(x => x.TeacherAssignments)
+            .ThenInclude(x => x.Teacher)
+            .AsQueryable();
+
+        if (teacherId.HasValue)
+        {
+            query = query.Where(x => x.TeacherAssignments.Any(t => t.TeacherUserId == teacherId.Value));
+        }
+
+        return await query
             .OrderBy(x => x.Code)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
@@ -67,6 +86,8 @@ public class CourseRepository : ICourseRepository
     {
         return await _db.Courses
             .Include(x => x.Chapters)
+            .Include(x => x.TeacherAssignments)
+            .ThenInclude(x => x.Teacher)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
@@ -74,6 +95,8 @@ public class CourseRepository : ICourseRepository
     {
         return await _db.Courses
             .Include(x => x.Chapters)
+            .Include(x => x.TeacherAssignments)
+            .ThenInclude(x => x.Teacher)
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
     }
@@ -115,5 +138,32 @@ public class CourseRepository : ICourseRepository
     public async Task<bool> HasChaptersAsync(Guid courseId, CancellationToken cancellationToken)
     {
         return await _db.Chapters.AnyAsync(x => x.CourseId == courseId, cancellationToken);
+    }
+
+    public async Task<bool> TeacherCanManageCourseAsync(Guid courseId, Guid teacherId, CancellationToken cancellationToken)
+    {
+        return await _db.CourseTeachers.AnyAsync(
+            x => x.CourseId == courseId && x.TeacherUserId == teacherId,
+            cancellationToken);
+    }
+
+    public async Task SetTeacherAssignmentsAsync(Guid courseId, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken)
+    {
+        await _db.CourseTeachers
+            .Where(x => x.CourseId == courseId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var distinctTeacherIds = teacherIds.Distinct().ToList();
+        foreach (var teacherId in distinctTeacherIds)
+        {
+            _db.CourseTeachers.Add(new CourseTeacher
+            {
+                CourseId = courseId,
+                TeacherUserId = teacherId,
+                AssignedAtUtc = DateTime.UtcNow
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -15,10 +15,6 @@
     chatEmptyHint.hidden = messages.querySelector(".message:not(.typing)") !== null;
   }
 
-  function modelType() {
-    return document.querySelector("input[name='modelType']:checked").value;
-  }
-
   function parseUtc(dateStr) {
     if (!dateStr) return new Date(0);
     // Treat as UTC when server omits timezone suffix
@@ -316,7 +312,7 @@
     showTyping();
 
     try {
-      await connection.invoke("SendMessage", sessionId, courseSelect.value, modelType(), text);
+      await connection.invoke("SendMessage", sessionId, courseSelect.value, text);
     } catch {
       hideTyping();
       clearOptimistic();

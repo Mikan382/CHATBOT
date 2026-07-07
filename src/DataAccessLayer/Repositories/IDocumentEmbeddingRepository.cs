@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
-using DataAccessLayer.Enums;
 
 namespace DataAccessLayer.Repositories;
 
@@ -45,7 +44,7 @@ public class DocumentEmbeddingRepository : IDocumentEmbeddingRepository
             .ThenInclude(x => x!.Document)
             .ThenInclude(x => x!.Chapter)
             .ThenInclude(x => x!.Course)
-            .Where(x => x.ModelName == modelName && x.DocumentChunk!.Document!.IndexStatus == DocumentIndexStatus.Indexed);
+            .Where(x => x.ModelName == modelName);
 
         if (courseId.HasValue)
         {

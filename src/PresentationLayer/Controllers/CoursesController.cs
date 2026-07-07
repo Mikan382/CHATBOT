@@ -20,40 +20,49 @@ public class CoursesController : BaseController
     [HttpGet]
     public async Task<IActionResult> Index(string? searchTerm, CancellationToken cancellationToken)
     {
-        var courses = await _courseService.ListAsync(searchTerm, cancellationToken);
+        var courses = await _courseService.ListManageAsync(searchTerm, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         ViewBag.SearchTerm = searchTerm;
+        ViewBag.CanManageCourses = User.IsInRole("Admin");
         return View(courses);
     }
 
     [HttpGet]
-    public IActionResult Create()
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Create(CancellationToken cancellationToken)
     {
-        return View(new CourseFormViewModel());
+        return View(new CourseFormViewModel
+        {
+            Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken)
+        });
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CourseFormViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
+            model.Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken);
             return View(model);
         }
 
         try
         {
-            await _courseService.CreateAsync(model.Code, model.Name, model.Description, model.Tools, cancellationToken);
+            await _courseService.CreateAsync(model.Code, model.Name, model.Description, model.Tools, model.TeacherIds, cancellationToken);
             SetFlashSuccess("Course was created.");
             return RedirectToAction("Index");
         }
         catch (Exception ex)
         {
             model.Error = ex.Message;
+            model.Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken);
             return View(model);
         }
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
     {
         var course = await _courseService.GetEditableAsync(id, cancellationToken);
@@ -68,24 +77,28 @@ public class CoursesController : BaseController
             Code = course.Code,
             Name = course.Name,
             Description = course.Description,
-            Tools = course.Tools
+            Tools = course.Tools,
+            TeacherIds = course.TeacherIds.ToList(),
+            Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken)
         };
         return View(model);
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(Guid id, CourseFormViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
             model.Id = id;
+            model.Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken);
             return View(model);
         }
 
         try
         {
-            await _courseService.UpdateAsync(id, model.Code, model.Name, model.Description, model.Tools, cancellationToken);
+            await _courseService.UpdateAsync(id, model.Code, model.Name, model.Description, model.Tools, model.TeacherIds, cancellationToken);
             SetFlashSuccess("Course was updated.");
             return RedirectToAction("Index");
         }
@@ -93,11 +106,13 @@ public class CoursesController : BaseController
         {
             model.Id = id;
             model.Error = ex.Message;
+            model.Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken);
             return View(model);
         }
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
@@ -117,13 +132,13 @@ public class CoursesController : BaseController
     [HttpGet]
     public async Task<IActionResult> Chapters(Guid id, CancellationToken cancellationToken)
     {
-        var course = await _courseService.GetDetailsAsync(id, cancellationToken);
+        var course = await _courseService.GetDetailsAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         if (course is null)
         {
             return NotFound();
         }
 
-        var chapters = await _courseService.ListChaptersAsync(id, cancellationToken);
+        var chapters = await _courseService.ListChaptersAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
         ViewBag.Course = course;
         return View(chapters);
     }
@@ -134,7 +149,7 @@ public class CoursesController : BaseController
     {
         try
         {
-            await _chapterService.DeleteAsync(chapterId, cancellationToken);
+            await _chapterService.DeleteAsync(chapterId, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
             SetFlashSuccess("Chapter was deleted.");
         }
         catch (Exception ex)

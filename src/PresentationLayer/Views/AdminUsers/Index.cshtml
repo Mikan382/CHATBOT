@@ -60,7 +60,7 @@
                         {
                             <tr>
                                 <td>@user.Email</td>
-                                <td>@user.FullName</td>
+                                <td>@user.DisplayName</td>
                                 <td>
                                     <form class="role-action-form" method="post" asp-controller="AdminUsers" asp-action="ChangeRole" asp-route-userId="@user.Id">
                                         @Html.AntiForgeryToken()

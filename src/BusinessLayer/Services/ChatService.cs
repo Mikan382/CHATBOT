@@ -10,24 +10,25 @@ namespace BusinessLayer.Services;
 
 public class ChatService : IChatService
 {
+    private const double MinCitationScore = 0.36;
     private readonly IChatRepository _chatRepository;
     private readonly ICourseRepository _courseRepository;
     private readonly RetrievalService _retrievalService;
     private readonly IGeminiClient _geminiClient;
-    private readonly IFineTuneClient _fineTuneClient;
 
-    public ChatService(IChatRepository chatRepository, ICourseRepository courseRepository, RetrievalService retrievalService, IGeminiClient geminiClient, IFineTuneClient fineTuneClient)
+    public ChatService(
+        IChatRepository chatRepository,
+        ICourseRepository courseRepository,
+        RetrievalService retrievalService,
+        IGeminiClient geminiClient)
     {
         _chatRepository = chatRepository;
         _courseRepository = courseRepository;
         _retrievalService = retrievalService;
         _geminiClient = geminiClient;
-        _fineTuneClient = fineTuneClient;
     }
 
     public bool GeminiConfigured => _geminiClient.IsConfigured;
-
-    public bool FineTuneConfigured => _fineTuneClient.IsConfigured;
 
     public async Task<ChatSessionDto?> GetSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
@@ -48,7 +49,7 @@ public class ChatService : IChatService
         return messages.Select(m => ToDto(m)).ToList();
     }
 
-    public async Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, ChatModelType modelType, string text, CancellationToken cancellationToken)
+    public async Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -65,7 +66,6 @@ public class ChatService : IChatService
             Id = Guid.NewGuid(),
             ChatSessionId = sessionId,
             Role = ChatRole.User,
-            ModelType = ToEntityModelType(modelType),
             Content = text.Trim(),
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -75,7 +75,7 @@ public class ChatService : IChatService
         return ToDto(userMessage);
     }
 
-    public async Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, ChatModelType modelType, string text, CancellationToken cancellationToken)
+    public async Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken)
     {
         var course = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
@@ -88,19 +88,9 @@ public class ChatService : IChatService
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            if (ConversationalMessageDetector.IsConversationalOnly(text))
-            {
-                answer = await GenerateConversationalAsync(text, course.Name, cancellationToken);
-            }
-            else
-            {
-                answer = modelType switch
-                {
-                    ChatModelType.FineTunedOnly => await GenerateFineTunedAsync(sessionId, course.Code, text, history, cancellationToken),
-                    ChatModelType.RagHybrid => await GenerateHybridAsync(sessionId, course.Id, course.Code, course.Name, text, history, citations, cancellationToken),
-                    _ => await GenerateRagAsync(course.Id, course.Name, text, history, citations, cancellationToken)
-                };
-            }
+            answer = ConversationalMessageDetector.IsConversationalOnly(text)
+                ? await GenerateConversationalAsync(text, course.Name, cancellationToken)
+                : await GenerateRagAsync(course.Id, course.Name, text, history, citations, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -117,7 +107,6 @@ public class ChatService : IChatService
             Id = Guid.NewGuid(),
             ChatSessionId = sessionId,
             Role = ChatRole.Assistant,
-            ModelType = ToEntityModelType(modelType),
             Content = answer,
             CitationsJson = citations.Count > 0 ? JsonSerializer.Serialize(citations) : null,
             Error = error,
@@ -128,7 +117,7 @@ public class ChatService : IChatService
         return ToDto(botMessage, stopwatch.Elapsed.TotalSeconds);
     }
 
-    public async Task<ChatResponseDto> SendAsync(Guid sessionId, Guid userId, Guid courseId, ChatModelType modelType, string text, CancellationToken cancellationToken)
+    public async Task<ChatResponseDto> SendAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -136,8 +125,8 @@ public class ChatService : IChatService
         }
 
         var trimmed = text.Trim();
-        var userDto = await SaveUserMessageAsync(sessionId, userId, courseId, modelType, trimmed, cancellationToken);
-        var botDto = await GenerateAssistantReplyAsync(sessionId, userId, courseId, modelType, trimmed, cancellationToken);
+        var userDto = await SaveUserMessageAsync(sessionId, userId, courseId, trimmed, cancellationToken);
+        var botDto = await GenerateAssistantReplyAsync(sessionId, userId, courseId, trimmed, cancellationToken);
         return new ChatResponseDto(userDto, botDto);
     }
 
@@ -157,8 +146,6 @@ public class ChatService : IChatService
         return await _chatRepository.DeleteSessionAsync(sessionId, userId, cancellationToken);
     }
 
-    private const double MinCitationScore = 0.36;
-
     private async Task<string> GenerateConversationalAsync(string text, string courseName, CancellationToken cancellationToken)
     {
         return await _geminiClient.GenerateAsync(
@@ -167,7 +154,13 @@ public class ChatService : IChatService
             cancellationToken);
     }
 
-    private async Task<string> GenerateRagAsync(Guid courseId, string courseName, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
+    private async Task<string> GenerateRagAsync(
+        Guid courseId,
+        string courseName,
+        string text,
+        IReadOnlyList<ChatHistoryMessage> history,
+        List<CitationDto> citations,
+        CancellationToken cancellationToken)
     {
         var chunks = FilterRelevantChunks(await _retrievalService.RetrieveAsync(text, courseId, 3, cancellationToken));
         citations.AddRange(chunks.Select(ToCitation));
@@ -180,31 +173,12 @@ public class ChatService : IChatService
         return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(courseName), prompt, cancellationToken);
     }
 
-    private async Task<string> GenerateFineTunedAsync(Guid sessionId, string courseCode, string text, IReadOnlyList<FineTuneHistoryMessage> history, CancellationToken cancellationToken)
-    {
-        var response = await _fineTuneClient.GenerateAsync(new FineTuneRequest(sessionId.ToString(), courseCode, text, history), cancellationToken);
-        return response.Answer;
-    }
-
-    private async Task<string> GenerateHybridAsync(Guid sessionId, Guid courseId, string courseCode, string courseName, string text, IReadOnlyList<FineTuneHistoryMessage> history, List<CitationDto> citations, CancellationToken cancellationToken)
-    {
-        var chunks = FilterRelevantChunks(await _retrievalService.RetrieveAsync(text, courseId, 3, cancellationToken));
-        citations.AddRange(chunks.Select(ToCitation));
-        if (chunks.Count == 0)
-        {
-            return await GenerateFineTunedAsync(sessionId, courseCode, text, history, cancellationToken);
-        }
-
-        var prompt = RagPromptBuilder.BuildPrompt(text, chunks, history);
-        return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(courseName), prompt, cancellationToken);
-    }
-
     private static IReadOnlyList<RetrievedChunkDto> FilterRelevantChunks(IReadOnlyList<RetrievedChunkDto> chunks)
     {
         return chunks.Where(chunk => chunk.Score >= MinCitationScore).ToList();
     }
 
-    private async Task<IReadOnlyList<FineTuneHistoryMessage>> BuildHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken, bool excludeLatestUserMessage = false)
+    private async Task<IReadOnlyList<ChatHistoryMessage>> BuildHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken, bool excludeLatestUserMessage = false)
     {
         var messages = await _chatRepository.ListRecentMessagesAsync(sessionId, userId, 12, cancellationToken);
         if (excludeLatestUserMessage && messages.Count > 0 && messages[^1].Role == ChatRole.User)
@@ -213,7 +187,7 @@ public class ChatService : IChatService
         }
 
         return messages
-            .Select(x => new FineTuneHistoryMessage(x.Role == ChatRole.User ? "user" : "assistant", x.Content))
+            .Select(x => new ChatHistoryMessage(x.Role == ChatRole.User ? "user" : "assistant", x.Content))
             .ToList();
     }
 
@@ -231,31 +205,10 @@ public class ChatService : IChatService
         return new ChatMessageDto(
             message.Id,
             message.Role == ChatRole.User ? "user" : "assistant",
-            ToChatModelType(message.ModelType).ToClientValue(),
             message.Content,
             citations,
             message.Error,
             message.CreatedAtUtc,
             processingSeconds);
-    }
-
-    private static ModelType ToEntityModelType(ChatModelType modelType)
-    {
-        return modelType switch
-        {
-            ChatModelType.FineTunedOnly => ModelType.FineTunedOnly,
-            ChatModelType.RagHybrid => ModelType.RagHybrid,
-            _ => ModelType.RagStandard
-        };
-    }
-
-    private static ChatModelType ToChatModelType(ModelType modelType)
-    {
-        return modelType switch
-        {
-            ModelType.FineTunedOnly => ChatModelType.FineTunedOnly,
-            ModelType.RagHybrid => ChatModelType.RagHybrid,
-            _ => ChatModelType.RagStandard
-        };
     }
 }

@@ -32,11 +32,11 @@
                             @if (User.IsInRole("Teacher") || User.IsInRole("Admin"))
                             {
                                 <li class="nav-item"><a class="nav-link @Active("Courses", "Chapters")" asp-controller="Courses" asp-action="Index">Courses</a></li>
-                                <li class="nav-item"><a class="nav-link @Active("Benchmark")" asp-controller="Benchmark" asp-action="Index">Benchmark</a></li>
                             }
                             @if (User.IsInRole("Admin"))
                             {
                                 <li class="nav-item"><a class="nav-link @Active("AdminUsers")" asp-controller="AdminUsers" asp-action="Index">Users</a></li>
+                                <li class="nav-item"><a class="nav-link @Active("Settings")" asp-controller="Settings" asp-action="Index">Settings</a></li>
                             }
                             <li class="nav-item user-menu">
                                 <a class="nav-link d-inline px-2" asp-controller="Account" asp-action="ChangePassword" style="font-size:0.85rem">@User.Identity.Name</a>

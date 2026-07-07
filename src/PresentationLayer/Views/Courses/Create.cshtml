@@ -34,6 +34,16 @@
                             <input class="form-control" asp-for="Tools" />
                             <span class="text-danger small" asp-validation-for="Tools"></span>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label" asp-for="TeacherIds">Teachers</label>
+                            <select class="form-select" asp-for="TeacherIds" multiple size="5">
+                                @foreach (var teacher in Model.Teachers)
+                                {
+                                    <option value="@teacher.Id">@teacher.DisplayName (@teacher.Email)</option>
+                                }
+                            </select>
+                            <div class="form-text">Hold Ctrl to select multiple teachers.</div>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 mt-3">
                         <button class="btn btn-primary" type="submit">Save</button>

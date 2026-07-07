@@ -34,7 +34,6 @@ public class ChatController : BaseController
             SessionId = sessionId ?? Guid.NewGuid(),
             SelectedCourseId = selectedCourseId,
             Courses = courses,
-            FineTuneConfigured = _chatService.FineTuneConfigured,
             GeminiConfigured = _chatService.GeminiConfigured
         };
 
