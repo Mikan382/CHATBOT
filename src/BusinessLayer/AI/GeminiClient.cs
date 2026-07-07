@@ -20,7 +20,7 @@ public class GeminiClient : IGeminiClient
 
     private string? ApiKey => _configuration["Gemini:ApiKey"];
 
-    private string Model => _configuration["Gemini:Model"] ?? "gemini-1.5-flash";
+    private string Model => _configuration["Gemini:Model"] ?? "gemini-2.5-flash";
 
     public async Task<string> GenerateAsync(string systemInstruction, string prompt, CancellationToken cancellationToken)
     {

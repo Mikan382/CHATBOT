@@ -8,7 +8,7 @@ using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.Services;
 
-public class ChatService
+public class ChatService : IChatService
 {
     private readonly IChatRepository _chatRepository;
     private readonly ICourseRepository _courseRepository;
@@ -29,9 +29,11 @@ public class ChatService
 
     public bool FineTuneConfigured => _fineTuneClient.IsConfigured;
 
-    public async Task<ChatSession?> GetSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    public async Task<ChatSessionDto?> GetSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
-        return await _chatRepository.GetOwnedSessionAsync(sessionId, userId, cancellationToken);
+        var session = await _chatRepository.GetOwnedSessionAsync(sessionId, userId, cancellationToken);
+        if (session is null) return null;
+        return new ChatSessionDto(session.Id, session.CourseId);
     }
 
     public async Task<IReadOnlyList<ChatMessageDto>> GetHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)

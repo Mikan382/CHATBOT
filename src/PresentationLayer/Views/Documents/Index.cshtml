@@ -1,0 +1,261 @@
+@model DocumentIndexViewModel
+@{
+    ViewData["Title"] = "Documents";
+}
+
+<div class="documents-page documents-layout">
+    <div class="documents-upload-panel">
+        <div class="card app-card">
+            <div class="card-body">
+                <h5 class="card-title">Upload Documents</h5>
+                <p class="text-muted small">Supports PDF, DOCX, PPTX, TXT, and MD. Limit: 20MB per file.</p>
+                @if (Model.CanManageDocuments)
+                {
+                    <form id="uploadForm" method="post" asp-controller="Documents" asp-action="Upload" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-3">
+                            <label class="form-label">Course</label>
+                            <select id="uploadCourseId" class="form-select" required>
+                                @foreach (var course in Model.Courses)
+                                {
+                                    <option value="@course.Id">@course.Code - @course.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Chapter</label>
+                            <select id="uploadChapterId" class="form-select" name="chapterId" required>
+                                <option value="" disabled hidden>Select a chapter</option>
+                                @foreach (var chapter in Model.Chapters)
+                                {
+                                    <option value="@chapter.Id" data-course-id="@chapter.CourseId">@chapter.Order. @chapter.Title</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">File</label>
+                            <input id="uploadFileInput" class="form-control" type="file" name="file" accept=".pdf,.docx,.pptx,.txt,.md" required />
+                            <div id="uploadFileError" class="text-danger small d-none" aria-live="polite"></div>
+                        </div>
+                        <button id="uploadButton" class="btn btn-primary w-100" type="submit">
+                            <span class="upload-button-text">Upload Document</span>
+                            <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                        </button>
+                        <div id="uploadStatus" class="small text-muted mt-2 d-none" aria-live="polite">Uploading and preparing the document...</div>
+                    </form>
+                }
+                else
+                {
+                    <div class="alert alert-info small mb-0">Students can view indexed documents but cannot upload or delete files.</div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="documents-list-panel">
+        <div class="card app-card">
+            <div class="card-body">
+                <h5 class="card-title">Indexed Documents</h5>
+                <form method="get" asp-controller="Documents" asp-action="Index" class="documents-filter-form">
+                    <div>
+                        <label class="form-label small text-muted" for="searchTerm">File name</label>
+                        <input id="searchTerm" class="form-control form-control-sm" type="text" name="searchTerm" value="@Model.SearchTerm" placeholder="Search file name..." />
+                    </div>
+                    <div>
+                        <label class="form-label small text-muted" for="courseId">Course</label>
+                        <select id="courseId" class="form-select form-select-sm" name="courseId">
+                            <option value="">All courses</option>
+                            @foreach (var course in Model.Courses)
+                            {
+                                <option value="@course.Id" selected="@(Model.SelectedCourseId == course.Id)">@course.Code</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label small text-muted" for="chapterId">Chapter</label>
+                        <select id="chapterId" class="form-select form-select-sm" name="chapterId">
+                            <option value="">All chapters</option>
+                            @foreach (var chapter in Model.Chapters)
+                            {
+                                <option value="@chapter.Id" selected="@(Model.SelectedChapterId == chapter.Id)">@chapter.Order. @chapter.Title</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label small text-muted" for="status">Status</label>
+                        <select id="status" class="form-select form-select-sm" name="status">
+                            <option value="">All</option>
+                            @foreach (var s in Model.StatusOptions)
+                            {
+                                <option value="@s" selected="@(Model.SelectedStatus == s)">@s</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="documents-filter-actions">
+                        <button class="btn btn-sm btn-primary" type="submit">Search</button>
+                        <a class="btn btn-sm btn-outline-secondary" asp-controller="Documents" asp-action="Index">Clear</a>
+                    </div>
+                </form>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle documents-table">
+                        <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Course</th>
+                            <th>Chapter</th>
+                            <th class="status-column">Status</th>
+                            <th>Sections</th>
+                            <th>Uploaded</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @if (Model.Documents.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" class="text-muted small">No documents match the current filters.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var doc in Model.Documents)
+                            {
+                                <tr>
+                                    <td><a asp-controller="Documents" asp-action="Details" asp-route-id="@doc.Id">@doc.OriginalFileName</a><br><span class="text-muted small">@doc.FileType / @(doc.FileSizeBytes / 1024) KB</span></td>
+                                    <td>@doc.CourseCode</td>
+                                    <td class="chapter-cell">@doc.ChapterTitle</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="badge @StatusClass(doc.IndexStatus)">@doc.IndexStatus</span>
+                                            <span class="small text-muted">@doc.IndexProgressPercent%</span>
+                                        </div>
+                                        <div class="progress index-progress" aria-label="@doc.IndexStage">
+                                            <div class="progress-bar @ProgressClass(doc.IndexStatus)" role="progressbar" style="width: @doc.IndexProgressPercent%;" aria-valuenow="@doc.IndexProgressPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <div class="small text-muted text-truncate mt-1" title="@doc.IndexStage">@doc.IndexStage</div>
+                                    </td>
+                                    <td>@doc.ChunksCount</td>
+                                    <td class="small" data-utc="@doc.UploadedAtUtc.ToString("o")">@doc.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>
+                                        <div class="action-cell">
+                                        <a class="btn btn-sm btn-outline-primary" asp-controller="Documents" asp-action="Details" asp-route-id="@doc.Id">View</a>
+                                        @if (Model.CanManageDocuments)
+                                        {
+                                            <form method="post" asp-controller="Documents" asp-action="Delete" asp-route-id="@doc.Id" class="document-delete-form">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="searchTerm" value="@Model.SearchTerm" />
+                                                @if (Model.SelectedChapterId.HasValue)
+                                                {
+                                                    <input type="hidden" name="chapterId" value="@Model.SelectedChapterId.Value" />
+                                                }
+                                                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                            </form>
+                                        }
+                                        </div>
+                                    </td>
+                                </tr>
+                                @if (!string.IsNullOrWhiteSpace(doc.IndexError))
+                                {
+                                    <tr><td colspan="7" class="text-danger small">@doc.IndexError</td></tr>
+                                }
+                            }
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".document-delete-form").forEach((form) => {
+            form.addEventListener("submit", (event) => {
+                if (!confirm("Delete this document and all related indexed sections?")) {
+                    event.preventDefault();
+                }
+            });
+        });
+
+        const uploadForm = document.getElementById("uploadForm");
+        if (uploadForm) {
+            const uploadCourse = document.getElementById("uploadCourseId");
+            const uploadChapter = document.getElementById("uploadChapterId");
+            const uploadFileInput = document.getElementById("uploadFileInput");
+            const uploadFileError = document.getElementById("uploadFileError");
+            const maxUploadBytes = 20 * 1024 * 1024;
+            const formatMb = (bytes) => `${Math.round(bytes / 1024 / 1024)}MB`;
+            const validateUploadFile = () => {
+                uploadFileError.classList.add("d-none");
+                uploadFileError.textContent = "";
+                const file = uploadFileInput.files && uploadFileInput.files[0];
+                if (!file || file.size <= maxUploadBytes) {
+                    return true;
+                }
+
+                uploadFileError.textContent = `File size must be 20MB or smaller. Selected file is ${formatMb(file.size)}.`;
+                uploadFileError.classList.remove("d-none");
+                return false;
+            };
+            const syncUploadChapters = () => {
+                let firstVisible = null;
+                uploadChapter.querySelectorAll("option").forEach((option) => {
+                    const visible = option.dataset.courseId === uploadCourse.value;
+                    option.hidden = !visible;
+                    if (visible && !firstVisible) {
+                        firstVisible = option;
+                    }
+                });
+                if (firstVisible && uploadChapter.selectedOptions[0]?.hidden) {
+                    uploadChapter.value = firstVisible.value;
+                }
+            };
+            uploadCourse.addEventListener("change", syncUploadChapters);
+            uploadFileInput.addEventListener("change", validateUploadFile);
+            syncUploadChapters();
+
+            uploadForm.addEventListener("submit", (event) => {
+                if (!validateUploadFile()) {
+                    event.preventDefault();
+                    return;
+                }
+
+                const button = document.getElementById("uploadButton");
+                document.getElementById("uploadStatus").classList.remove("d-none");
+                button.disabled = true;
+                button.querySelector(".upload-button-text").textContent = "Uploading...";
+                button.querySelector(".spinner-border").classList.remove("d-none");
+            });
+        }
+
+        if (document.querySelector(".badge.bg-warning, .badge.bg-info")) {
+            setTimeout(() => window.location.reload(), 5000);
+        }
+    </script>
+}
+
+@functions {
+    private static string StatusClass(string status)
+    {
+        return status switch
+        {
+            "Indexed" => "bg-success",
+            "Failed" => "bg-danger",
+            "Processing" => "bg-info",
+            "Pending" => "bg-warning text-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private static string ProgressClass(string status)
+    {
+        return status switch
+        {
+            "Indexed" => "bg-success",
+            "Failed" => "bg-danger",
+            "Processing" => "bg-info",
+            "Pending" => "bg-warning",
+            _ => "bg-secondary"
+        };
+    }
+}

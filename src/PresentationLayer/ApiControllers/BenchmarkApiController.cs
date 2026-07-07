@@ -2,18 +2,17 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using BusinessLayer.Services;
-using DataAccessLayer.Enums;
 
 namespace PresentationLayer.ApiControllers;
 
 [ApiController]
-[Authorize(Roles = UserRoleNames.TeacherOrAdmin)]
+[Authorize(Roles = "Teacher,Admin")]
 public class BenchmarkApiController : ControllerBase
 {
-    private readonly EvaluationService _evaluationService;
-    private readonly BenchmarkJobRunner _jobRunner;
+    private readonly IEvaluationService _evaluationService;
+    private readonly IBenchmarkJobRunner _jobRunner;
 
-    public BenchmarkApiController(EvaluationService evaluationService, BenchmarkJobRunner jobRunner)
+    public BenchmarkApiController(IEvaluationService evaluationService, IBenchmarkJobRunner jobRunner)
     {
         _evaluationService = evaluationService;
         _jobRunner = jobRunner;
@@ -38,12 +37,12 @@ public class BenchmarkApiController : ControllerBase
             return BadRequest(new { success = false, errors });
         }
 
-        var results = await _evaluationService.RunAsync(
+        var count = await _evaluationService.RunAsync(
             request.Limit ?? 5,
             request.ChunkingStrategy,
             request.EmbeddingModel,
             cancellationToken);
-        return Ok(new { success = true, count = results.Count, results });
+        return Ok(new { success = true, count });
     }
 
     [HttpPost("/api/evaluations/run-full")]

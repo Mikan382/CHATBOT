@@ -18,15 +18,14 @@ public class DocumentTextExtractor : IDocumentTextExtractor
         ".md"
     };
 
-    public async Task<string> ExtractAsync(IFormFile file, CancellationToken cancellationToken)
+    public async Task<string> ExtractAsync(Stream stream, string fileName, CancellationToken cancellationToken)
     {
-        var extension = Path.GetExtension(file.FileName);
+        var extension = Path.GetExtension(fileName);
         if (!SupportedExtensions.Contains(extension))
         {
             throw new InvalidOperationException("Only PDF, DOCX, PPTX, TXT, or MD uploads are supported.");
         }
 
-        await using var stream = file.OpenReadStream();
         return extension.ToLowerInvariant() switch
         {
             ".pdf" => ExtractPdf(stream),

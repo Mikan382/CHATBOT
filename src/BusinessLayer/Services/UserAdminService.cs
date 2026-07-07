@@ -3,10 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
+using BusinessLayer.Helpers;
 
 namespace BusinessLayer.Services;
 
-public class UserAdminService
+public class UserAdminService : IUserAdminService
 {
     private static readonly string[] AllowedRoles = [UserRoleNames.Student, UserRoleNames.Teacher, UserRoleNames.Admin];
     private readonly UserManager<ApplicationUser> _userManager;
@@ -52,7 +53,7 @@ public class UserAdminService
     public async Task CreateAsync(string email, string fullName, string role, string password)
     {
         role = ValidateRole(role);
-        email = NormalizeRequired(email, "Email");
+        email = StringHelper.NormalizeRequired(email, "Email");
         fullName = fullName?.Trim() ?? "";
 
         var user = new ApplicationUser
@@ -128,15 +129,6 @@ public class UserAdminService
         return role;
     }
 
-    private static string NormalizeRequired(string value, string label)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidOperationException($"{label} is required.");
-        }
-
-        return value.Trim();
-    }
 
     private static void EnsureSuccess(IdentityResult result)
     {

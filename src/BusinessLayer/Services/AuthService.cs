@@ -3,7 +3,7 @@ using DataAccessLayer.Entities;
 
 namespace BusinessLayer.Services;
 
-public class AuthService
+public class AuthService : IAuthService
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
 

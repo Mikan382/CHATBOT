@@ -114,7 +114,7 @@ public class RetrievalService
             .Select(x => new
             {
                 x.Embedding,
-                Score = Cosine(queryVector, x.Vector)
+                Score = CosineSimilarity.Cosine(queryVector.AsSpan(), x.Vector.AsSpan())
             })
             .Where(x => x.Score > 0)
             .OrderByDescending(x => x.Score)
@@ -168,31 +168,7 @@ public class RetrievalService
         return scored;
     }
 
-    private static double Cosine(IReadOnlyList<float> left, IReadOnlyList<float> right)
-    {
-        var dimensions = Math.Min(left.Count, right.Count);
-        if (dimensions == 0)
-        {
-            return 0;
-        }
 
-        var dot = 0d;
-        var leftMagnitude = 0d;
-        var rightMagnitude = 0d;
-        for (var i = 0; i < dimensions; i++)
-        {
-            dot += left[i] * right[i];
-            leftMagnitude += left[i] * left[i];
-            rightMagnitude += right[i] * right[i];
-        }
-
-        if (leftMagnitude <= 0 || rightMagnitude <= 0)
-        {
-            return 0;
-        }
-
-        return dot / (Math.Sqrt(leftMagnitude) * Math.Sqrt(rightMagnitude));
-    }
 
     private static double Score(IReadOnlyList<string> terms, string normalizedContent)
     {

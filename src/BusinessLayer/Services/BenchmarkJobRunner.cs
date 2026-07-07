@@ -15,13 +15,15 @@ public class BenchmarkProgress
 /// Singleton that runs a full benchmark in a background Task.
 /// Prevents concurrent runs and exposes live progress.
 /// </summary>
-public class BenchmarkJobRunner
+public class BenchmarkJobRunner : IBenchmarkJobRunner
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BenchmarkJobRunner> _logger;
 
     private readonly object _lock = new();
     private BenchmarkProgress _progress = new();
+    private CancellationTokenSource? _cts;
+    private Task? _runningTask;
 
     public BenchmarkJobRunner(IServiceScopeFactory scopeFactory, ILogger<BenchmarkJobRunner> logger)
     {
@@ -54,19 +56,29 @@ public class BenchmarkJobRunner
             }
 
             _progress = new BenchmarkProgress { Running = true, Total = 0, Done = 0 };
+            _cts = new CancellationTokenSource();
         }
 
         error = null;
-        _ = Task.Run(() => RunAsync(questionLimit));
+        var token = _cts.Token;
+        _runningTask = Task.Run(() => RunAsync(questionLimit, token));
         return true;
     }
 
-    private async Task RunAsync(int questionLimit)
+    public void Cancel()
+    {
+        lock (_lock)
+        {
+            _cts?.Cancel();
+        }
+    }
+
+    private async Task RunAsync(int questionLimit, CancellationToken cancellationToken)
     {
         try
         {
             using var scope = _scopeFactory.CreateScope();
-            var evalService = scope.ServiceProvider.GetRequiredService<EvaluationService>();
+            var evalService = scope.ServiceProvider.GetRequiredService<IEvaluationService>();
 
             var strategies = evalService.AvailableChunkingStrategies;
             var models = evalService.AvailableEmbeddingModels;
@@ -80,9 +92,18 @@ public class BenchmarkJobRunner
                 {
                     lock (_lock) { _progress.Done++; }
                 },
-                CancellationToken.None);
+                cancellationToken);
 
             lock (_lock) { _progress.Running = false; }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Background benchmark was cancelled");
+            lock (_lock)
+            {
+                _progress.Running = false;
+                _progress.Error = "Benchmark was cancelled.";
+            }
         }
         catch (Exception ex)
         {
@@ -91,6 +112,14 @@ public class BenchmarkJobRunner
             {
                 _progress.Running = false;
                 _progress.Error = ex.Message;
+            }
+        }
+        finally
+        {
+            lock (_lock)
+            {
+                _cts?.Dispose();
+                _cts = null;
             }
         }
     }

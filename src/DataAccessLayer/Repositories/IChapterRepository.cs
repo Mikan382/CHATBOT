@@ -14,6 +14,7 @@ public interface IChapterRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> OrderExistsAsync(Guid courseId, int order, Guid? excludeId, CancellationToken cancellationToken);
+    Task<bool> HasDependenciesAsync(Guid chapterId, CancellationToken cancellationToken);
 }
 
 public class ChapterRepository : IChapterRepository
@@ -71,18 +72,11 @@ public class ChapterRepository : IChapterRepository
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         var chapter = await _db.Chapters
-            .Include(x => x.Documents)
-            .Include(x => x.EvaluationQuestions)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (chapter is null)
         {
             return false;
-        }
-
-        if (chapter.Documents.Count > 0 || chapter.EvaluationQuestions.Count > 0)
-        {
-            throw new InvalidOperationException("Cannot delete a chapter that still has documents or evaluation questions.");
         }
 
         _db.Chapters.Remove(chapter);
@@ -95,5 +89,12 @@ public class ChapterRepository : IChapterRepository
         return await _db.Chapters.AnyAsync(
             x => x.CourseId == courseId && x.Order == order && (!excludeId.HasValue || x.Id != excludeId.Value),
             cancellationToken);
+    }
+
+    public async Task<bool> HasDependenciesAsync(Guid chapterId, CancellationToken cancellationToken)
+    {
+        var hasDocuments = await _db.Documents.AnyAsync(x => x.ChapterId == chapterId, cancellationToken);
+        if (hasDocuments) return true;
+        return await _db.EvaluationQuestions.AnyAsync(x => x.ChapterId == chapterId, cancellationToken);
     }
 }

@@ -1,0 +1,51 @@
+@model IReadOnlyList<ChapterDto>
+@{
+    ViewData["Title"] = "Chapters";
+    var course = (CourseDto)ViewBag.Course;
+}
+
+<div class="card app-card table-card">
+    <div class="card-body">
+        <div class="page-toolbar">
+            <div>
+                <h4 class="card-title mb-1">@course.Code Chapters</h4>
+                <div class="text-muted small">@course.Name</div>
+            </div>
+            <a class="btn btn-primary" asp-controller="Chapters" asp-action="Create" asp-route-courseId="@course.Id">Create Chapter</a>
+        </div>
+
+        <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>Order</th>
+                <th>CLO</th>
+                <th>Title</th>
+                <th>Summary</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var chapter in Model)
+            {
+                <tr>
+                    <td>@chapter.Order</td>
+                    <td>@chapter.Clo</td>
+                    <td>@chapter.Title</td>
+                    <td class="small">@chapter.Summary</td>
+                    <td>
+                        <div class="action-cell">
+                        <a class="btn btn-sm btn-outline-secondary" asp-controller="Chapters" asp-action="Edit" asp-route-id="@chapter.Id">Edit</a>
+                        <form method="post" asp-controller="Courses" asp-action="DeleteChapter" asp-route-id="@course.Id" asp-route-chapterId="@chapter.Id" onsubmit="return confirm('Delete this chapter? It must have no documents or evaluation questions.');">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                        </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
