@@ -60,10 +60,15 @@ public class DocumentsController : BaseController
     [HttpPost]
     [Authorize(Roles = "Teacher,Admin")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Upload(Guid chapterId, IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Upload(Guid chapterId, IFormFile? file, CancellationToken cancellationToken)
     {
         try
         {
+            if (file is null)
+            {
+                throw new InvalidOperationException("Please select a file to upload.");
+            }
+
             await using var stream = file.OpenReadStream();
             await _documentService.UploadAsync(chapterId, CurrentUserId(), User.IsInRole("Admin"), stream, file.FileName, file.Length, cancellationToken);
             SetFlashSuccess("Document uploaded and indexed.");

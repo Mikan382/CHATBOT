@@ -10,7 +10,5 @@ public interface IDocumentRepository
     Task<IReadOnlyList<DocumentChunk>> ListChunksAsync(Guid documentId, CancellationToken cancellationToken);
     Task<bool> ContentHashExistsAsync(Guid chapterId, string contentHash, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
-    Task ReplaceChunksAsync(Guid documentId, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken);
-    Task SaveChangesAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(Guid? courseId, CancellationToken cancellationToken);
 }

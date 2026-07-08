@@ -44,20 +44,7 @@ public class SubscriptionService : ISubscriptionService
         }
 
         var now = DateTime.UtcNow;
-        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, cancellationToken);
-        if (current is not null)
-        {
-            if (current.SubscriptionPlanId == planId && (!current.ExpiresAtUtc.HasValue || current.ExpiresAtUtc > now))
-            {
-                throw new InvalidOperationException("You are already registered for this package.");
-            }
-
-            current.Status = SubscriptionStatusNames.Replaced;
-            current.UpdatedAtUtc = now;
-            await _subscriptionRepository.SaveChangesAsync(cancellationToken);
-        }
-
-        await _subscriptionRepository.AddSubscriptionAsync(new StudentSubscription
+        await _subscriptionRepository.ReplaceCurrentSubscriptionAsync(new StudentSubscription
         {
             Id = Guid.NewGuid(),
             StudentUserId = studentUserId,

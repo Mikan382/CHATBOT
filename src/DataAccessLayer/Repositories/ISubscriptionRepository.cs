@@ -9,7 +9,7 @@ public interface ISubscriptionRepository
     Task<bool> PlanCodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
     Task AddPlanAsync(SubscriptionPlan plan, CancellationToken cancellationToken);
     Task<StudentSubscription?> GetCurrentForStudentAsync(Guid studentUserId, CancellationToken cancellationToken);
-    Task AddSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken);
+    Task ReplaceCurrentSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken);
     Task<int> CountStudentsAsync(CancellationToken cancellationToken);
     Task<int> CountActiveSubscriptionsAsync(DateTime nowUtc, CancellationToken cancellationToken);
     Task<int> CountNewSubscriptionsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken);

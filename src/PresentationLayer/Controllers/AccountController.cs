@@ -54,19 +54,19 @@ public class AccountController : BaseController
     }
 
     [Authorize]
-    [HttpGet]
-    public IActionResult Logout()
-    {
-        return RedirectToAction("Login");
-    }
-
-    [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout(string? _)
     {
         await _authService.SignOutAsync();
         return RedirectToAction("Login");
+    }
+
+    [Authorize]
+    [HttpGet]
+    public IActionResult AccessDenied()
+    {
+        return View();
     }
 
     [Authorize]

@@ -79,6 +79,7 @@ public class DocumentRepository : IDocumentRepository
             .Include(x => x.UploadedByUser)
             .Include(x => x.Chunks.OrderBy(c => c.ChunkIndex))
             .ThenInclude(x => x.Embeddings)
+            .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
@@ -110,20 +111,6 @@ public class DocumentRepository : IDocumentRepository
         _db.Documents.Remove(document);
         await _db.SaveChangesAsync(cancellationToken);
         return true;
-    }
-
-    public async Task ReplaceChunksAsync(Guid documentId, IReadOnlyList<DocumentChunk> chunks, CancellationToken cancellationToken)
-    {
-        await _db.DocumentChunks
-            .Where(x => x.DocumentId == documentId)
-            .ExecuteDeleteAsync(cancellationToken);
-
-        _db.DocumentChunks.AddRange(chunks);
-    }
-
-    public async Task SaveChangesAsync(CancellationToken cancellationToken)
-    {
-        await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(Guid? courseId, CancellationToken cancellationToken)

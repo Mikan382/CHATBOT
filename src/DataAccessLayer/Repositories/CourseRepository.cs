@@ -28,6 +28,7 @@ public class CourseRepository : ICourseRepository
             .Include(x => x.Chapters)
             .Include(x => x.TeacherAssignments)
             .ThenInclude(x => x.Teacher)
+            .AsSplitQuery()
             .AsQueryable();
 
         if (teacherId.HasValue)
@@ -53,6 +54,7 @@ public class CourseRepository : ICourseRepository
             .Include(x => x.Chapters)
             .Include(x => x.TeacherAssignments)
             .ThenInclude(x => x.Teacher)
+            .AsSplitQuery()
             .AsQueryable();
 
         if (teacherId.HasValue)
@@ -72,6 +74,7 @@ public class CourseRepository : ICourseRepository
             .Include(x => x.Chapters)
             .Include(x => x.TeacherAssignments)
             .ThenInclude(x => x.Teacher)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
@@ -81,6 +84,7 @@ public class CourseRepository : ICourseRepository
             .Include(x => x.Chapters)
             .Include(x => x.TeacherAssignments)
             .ThenInclude(x => x.Teacher)
+            .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
     }
@@ -133,21 +137,31 @@ public class CourseRepository : ICourseRepository
 
     public async Task SetTeacherAssignmentsAsync(Guid courseId, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken)
     {
-        await _db.CourseTeachers
-            .Where(x => x.CourseId == courseId)
-            .ExecuteDeleteAsync(cancellationToken);
-
-        var distinctTeacherIds = teacherIds.Distinct().ToList();
-        foreach (var teacherId in distinctTeacherIds)
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            _db.CourseTeachers.Add(new CourseTeacher
-            {
-                CourseId = courseId,
-                TeacherUserId = teacherId,
-                AssignedAtUtc = DateTime.UtcNow
-            });
-        }
+            await _db.CourseTeachers
+                .Where(x => x.CourseId == courseId)
+                .ExecuteDeleteAsync(cancellationToken);
 
-        await _db.SaveChangesAsync(cancellationToken);
+            var distinctTeacherIds = teacherIds.Distinct().ToList();
+            foreach (var teacherId in distinctTeacherIds)
+            {
+                _db.CourseTeachers.Add(new CourseTeacher
+                {
+                    CourseId = courseId,
+                    TeacherUserId = teacherId,
+                    AssignedAtUtc = DateTime.UtcNow
+                });
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }

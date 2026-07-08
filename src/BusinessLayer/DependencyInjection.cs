@@ -27,7 +27,7 @@ public static class DependencyInjection
             .AddCookie(options =>
             {
                 options.LoginPath = "/Account/Login";
-                options.AccessDeniedPath = "/Account/Login";
+                options.AccessDeniedPath = "/Account/AccessDenied";
                 options.Events.OnRedirectToAccessDenied = context =>
                 {
                     if (HttpMethods.IsPost(context.Request.Method) || context.Request.Path.StartsWithSegments("/api"))

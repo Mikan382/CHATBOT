@@ -59,10 +59,37 @@ public class SubscriptionRepository : ISubscriptionRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task AddSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken)
+    public async Task ReplaceCurrentSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken)
     {
-        _db.StudentSubscriptions.Add(subscription);
-        await _db.SaveChangesAsync(cancellationToken);
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var current = await _db.StudentSubscriptions
+                .Where(x => x.StudentUserId == subscription.StudentUserId && x.Status == SubscriptionStatusNames.Active)
+                .OrderByDescending(x => x.StartedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (current is not null)
+            {
+                if (current.SubscriptionPlanId == subscription.SubscriptionPlanId
+                    && (!current.ExpiresAtUtc.HasValue || current.ExpiresAtUtc > subscription.CreatedAtUtc))
+                {
+                    throw new InvalidOperationException("You are already registered for this package.");
+                }
+
+                current.Status = SubscriptionStatusNames.Replaced;
+                current.UpdatedAtUtc = subscription.CreatedAtUtc;
+            }
+
+            _db.StudentSubscriptions.Add(subscription);
+            await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<int> CountStudentsAsync(CancellationToken cancellationToken)

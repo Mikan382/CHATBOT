@@ -1,4 +1,5 @@
 using DataAccessLayer.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace DataAccessLayer.Data.Seed;
 
@@ -20,7 +21,7 @@ public static class Prn222SeedData
 
     public static async Task SeedAsync(AppDbContext db)
     {
-        var course = db.Courses.FirstOrDefault(x => x.Id == CourseId);
+        var course = await db.Courses.FirstOrDefaultAsync(x => x.Id == CourseId);
         if (course is null)
         {
             db.Courses.Add(new Course
@@ -42,7 +43,7 @@ public static class Prn222SeedData
 
         foreach (var chapter in Chapters)
         {
-            var existing = db.Chapters.FirstOrDefault(x => x.Id == chapter.Id);
+            var existing = await db.Chapters.FirstOrDefaultAsync(x => x.Id == chapter.Id);
             if (existing is null)
             {
                 db.Chapters.Add(new Chapter
