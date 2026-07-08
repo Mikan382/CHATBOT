@@ -127,6 +127,20 @@ public class ChatRepository : IChatRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<bool> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken)
+    {
+        var session = await _db.ChatSessions
+            .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+        if (session is null)
+        {
+            return false;
+        }
+
+        session.Title = title;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
         var session = await _db.ChatSessions

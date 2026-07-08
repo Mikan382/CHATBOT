@@ -13,5 +13,6 @@ public interface IChatRepository
     Task ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ChatMessage>> ListRecentMessagesAsync(Guid sessionId, Guid userId, int take, CancellationToken cancellationToken);
     Task<IReadOnlyList<ChatSession>> ListSessionsAsync(Guid userId, int take, CancellationToken cancellationToken);
+    Task<bool> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken);
     Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
 }

@@ -10,5 +10,6 @@ public interface IChatService
     Task<ChatResponseDto> SendAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken);
     Task ClearAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<SessionListDto>> ListSessionsAsync(Guid userId, CancellationToken cancellationToken);
+    Task<bool> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken);
     Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
 }

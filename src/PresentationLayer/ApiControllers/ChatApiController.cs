@@ -29,6 +29,24 @@ public class ChatApiController : ControllerBase
         return Ok(new { success = true, sessions });
     }
 
+    [HttpPatch("/api/chat/{sessionId:guid}/title")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RenameSession(Guid sessionId, RenameSessionRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var title = request.Title?.Trim() ?? "";
+            var renamed = await _chatService.RenameSessionAsync(sessionId, CurrentUserId(), title, cancellationToken);
+            return renamed
+                ? Ok(new { success = true, title })
+                : NotFound(new { success = false, error = "Session was not found." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message });
+        }
+    }
+
     [HttpDelete("/api/chat/{sessionId:guid}")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteSession(Guid sessionId, CancellationToken cancellationToken)
@@ -45,3 +63,5 @@ public class ChatApiController : ControllerBase
             : throw new InvalidOperationException("Current user ID is invalid.");
     }
 }
+
+public record RenameSessionRequest(string? Title);

@@ -124,6 +124,7 @@
                 <input class="form-control form-control-sm subscription-description-input" name="Description" placeholder="Description" maxlength="600" />
                 <label class="form-check small">
                     <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked />
+                    <input type="hidden" name="IsActive" value="false" />
                     Active
                 </label>
                 <button class="btn btn-sm btn-primary" type="submit">Create</button>
@@ -134,45 +135,43 @@
     <div class="card app-card">
         <div class="card-body">
             <h5 class="card-title">Manage Packages</h5>
-            <div class="table-responsive">
-                <table class="table table-sm align-middle subscription-plan-table">
-                    <thead>
-                    <tr>
-                        <th>Code</th>
-                        <th>Name</th>
-                        <th>Price</th>
-                        <th>Days</th>
-                        <th>Order</th>
-                        <th>Description</th>
-                        <th>Active</th>
-                        <th></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach (var plan in Model.Dashboard.Plans)
-                    {
-                        <tr>
-                            <td colspan="8">
-                                <form method="post" asp-controller="Subscriptions" asp-action="UpdatePlan" class="subscription-plan-edit-form">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="Id" value="@plan.Id" />
-                                    <input class="form-control form-control-sm" name="Code" value="@plan.Code" maxlength="32" required />
-                                    <input class="form-control form-control-sm" name="Name" value="@plan.Name" maxlength="160" required />
-                                    <input class="form-control form-control-sm" name="MonthlyPrice" type="number" min="0" step="1000" value="@plan.MonthlyPrice" required />
-                                    <input class="form-control form-control-sm" name="DurationDays" type="number" min="0" max="3650" value="@plan.DurationDays" required />
-                                    <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="@plan.SortOrder" required />
-                                    <input class="form-control form-control-sm subscription-description-input" name="Description" value="@plan.Description" maxlength="600" />
-                                    <label class="form-check small">
-                                        <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked="@plan.IsActive" />
-                                        Active
-                                    </label>
-                                    <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+            <div class="subscription-plan-editor">
+                <div class="subscription-plan-grid subscription-plan-grid-header">
+                    <div>Code</div>
+                    <div>Name</div>
+                    <div>Price</div>
+                    <div>Days</div>
+                    <div>Order</div>
+                    <div>Description</div>
+                    <div>Active</div>
+                    <div></div>
+                </div>
+                @foreach (var plan in Model.Dashboard.Plans)
+                {
+                    <form method="post" asp-controller="Subscriptions" asp-action="UpdatePlan" class="subscription-plan-edit-form subscription-plan-grid">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Id" value="@plan.Id" />
+                        <input class="form-control form-control-sm" name="Code" value="@plan.Code" maxlength="32" required />
+                        <input class="form-control form-control-sm" name="Name" value="@plan.Name" maxlength="160" required />
+                        <input class="form-control form-control-sm" name="MonthlyPrice" type="number" min="0" step="1000" value="@plan.MonthlyPrice" required />
+                        <input class="form-control form-control-sm" name="DurationDays" type="number" min="0" max="3650" value="@plan.DurationDays" required />
+                        <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="@plan.SortOrder" required />
+                        <input class="form-control form-control-sm subscription-description-input" name="Description" value="@plan.Description" maxlength="600" />
+                        <label class="form-check small subscription-plan-active-field">
+                            @if (plan.IsActive)
+                            {
+                                <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked />
+                            }
+                            else
+                            {
+                                <input class="form-check-input" type="checkbox" name="IsActive" value="true" />
+                            }
+                            <input type="hidden" name="IsActive" value="false" />
+                            <span>Active</span>
+                        </label>
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
+                    </form>
+                }
             </div>
         </div>
     </div>

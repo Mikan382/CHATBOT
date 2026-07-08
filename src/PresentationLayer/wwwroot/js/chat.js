@@ -182,6 +182,96 @@
   }
 
   // --- Session list ---
+  function beginRenameSession(li, session, link, titleEl, actions) {
+    if (li.classList.contains("renaming")) return;
+
+    const form = document.createElement("form");
+    form.className = "session-rename-form";
+
+    const input = document.createElement("input");
+    input.className = "form-control form-control-sm session-rename-input";
+    input.maxLength = 160;
+    input.value = session.title;
+    form.appendChild(input);
+
+    link.hidden = true;
+    actions.hidden = true;
+    li.insertBefore(form, actions);
+    li.classList.add("renaming");
+    input.focus();
+    input.select();
+
+    let closed = false;
+    let saving = false;
+
+    function close() {
+      if (closed) return;
+      closed = true;
+      form.remove();
+      link.hidden = false;
+      actions.hidden = false;
+      li.classList.remove("renaming");
+    }
+
+    async function save() {
+      if (saving || closed) return;
+      const nextTitle = input.value.trim();
+      if (!nextTitle) {
+        input.classList.add("is-invalid");
+        input.focus();
+        return;
+      }
+
+      if (nextTitle === session.title) {
+        close();
+        return;
+      }
+
+      saving = true;
+      input.disabled = true;
+      try {
+        const response = await fetch(`/api/chat/${session.id}/title`, {
+          method: "PATCH",
+          headers: window.requestVerificationHeaders({
+            "Content-Type": "application/json"
+          }),
+          body: JSON.stringify({ title: nextTitle })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Rename failed.");
+        }
+
+        session.title = result.title || nextTitle;
+        titleEl.textContent = session.title;
+        link.title = session.title;
+        close();
+      } catch {
+        input.disabled = false;
+        input.classList.add("is-invalid");
+        input.focus();
+      } finally {
+        saving = false;
+      }
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      save();
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      }
+    });
+
+    input.addEventListener("blur", () => {
+      save();
+    });
+  }
+
   async function loadSessions() {
     if (!sessionList) return;
     try {
@@ -208,10 +298,24 @@
         link.appendChild(titleEl);
         link.appendChild(timeEl);
 
+        const actions = document.createElement("div");
+        actions.className = "session-actions";
+
+        const renameBtn = document.createElement("button");
+        renameBtn.className = "session-rename";
+        renameBtn.type = "button";
+        renameBtn.textContent = "Edit";
+        renameBtn.title = "Rename session";
+        renameBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          beginRenameSession(li, s, link, titleEl, actions);
+        });
+
         const delBtn = document.createElement("button");
         delBtn.className = "session-del";
         delBtn.type = "button";
-        delBtn.textContent = "✕";
+        delBtn.textContent = "x";
         delBtn.title = "Delete session";
         delBtn.addEventListener("click", async (e) => {
           e.preventDefault();
@@ -228,8 +332,10 @@
           }
         });
 
+        actions.appendChild(renameBtn);
+        actions.appendChild(delBtn);
         li.appendChild(link);
-        li.appendChild(delBtn);
+        li.appendChild(actions);
         sessionList.appendChild(li);
       }
     } catch { /* ignore */ }

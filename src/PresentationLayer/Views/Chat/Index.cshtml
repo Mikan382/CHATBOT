@@ -5,7 +5,7 @@
 
 <div class="chat-page row g-4">
     <div class="col-lg-3 chat-sidebar">
-        <div class="card app-card">
+        <div class="card app-card chat-sessions-card">
             <div class="card-header py-2">
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="fw-semibold">Recent Sessions</span>
@@ -13,45 +13,35 @@
                 </div>
             </div>
             <div class="session-search-wrap">
-                <input id="sessionSearch" type="search" class="form-control form-control-sm" placeholder="Search sessions…" autocomplete="off" />
+                <input id="sessionSearch" type="search" class="form-control form-control-sm" placeholder="Search sessions..." autocomplete="off" />
             </div>
             <ul id="sessionList" class="list-group list-group-flush session-list"></ul>
-        </div>
-
-        <div class="card app-card">
-            <div class="card-body">
-                <h5 class="card-title">Chat Settings</h5>
-                <span id="sessionId" class="visually-hidden">@Model.SessionId</span>
-                <div class="mb-3">
-                    <label class="form-label small text-muted" for="courseId">Course</label>
-                    <select id="courseId" class="form-select form-select-sm">
-                        @foreach (var course in Model.Courses)
-                        {
-                            <option value="@course.Id" selected="@(course.Id == Model.SelectedCourseId)">@course.Code - @course.Name</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="model-option">
-                    <div class="fw-semibold">Course Documents</div>
-                    <p class="text-muted small mb-0">Answer using the selected course documents.</p>
-                </div>
-
-                <div class="alert @(Model.GeminiConfigured ? "alert-success" : "alert-warning") small mt-3 mb-0">
-                    Assistant: @(Model.GeminiConfigured ? "ready" : "not available — set Gemini:ApiKey")
-                </div>
-            </div>
         </div>
     </div>
 
     <div class="col-lg-9 chat-main">
         <div class="card app-card chat-shell">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
+            <div class="card-header chat-header">
+                <div class="chat-header-title">
                     <strong>Ask about your course</strong>
                     <div class="small text-muted">Messages are saved for this session.</div>
                 </div>
-                <button id="clearButton" class="btn btn-sm btn-outline-danger">Clear</button>
+                <span id="sessionId" class="visually-hidden">@Model.SessionId</span>
+                <div class="chat-header-controls">
+                    <div class="chat-course-picker">
+                        <label class="form-label small text-muted" for="courseId">Course</label>
+                        <select id="courseId" class="form-select form-select-sm">
+                            @foreach (var course in Model.Courses)
+                            {
+                                <option value="@course.Id" selected="@(course.Id == Model.SelectedCourseId)">@course.Code - @course.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <span class="assistant-status @(Model.GeminiConfigured ? "assistant-status-ready" : "assistant-status-warning")">
+                        Assistant: @(Model.GeminiConfigured ? "ready" : "not available")
+                    </span>
+                    <button id="clearButton" class="btn btn-sm btn-outline-danger">Clear</button>
+                </div>
             </div>
             <div id="messages" class="chat-log">
                 <div class="chat-empty-hint" id="chatEmptyHint">Ask a question to start the conversation.</div>

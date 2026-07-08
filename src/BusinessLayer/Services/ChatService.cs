@@ -141,6 +141,12 @@ public class ChatService : IChatService
         return sessions.Select(s => new SessionListDto(s.Id, s.Title, s.UpdatedAtUtc)).ToList();
     }
 
+    public async Task<bool> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken)
+    {
+        var normalizedTitle = NormalizeSessionTitle(title);
+        return await _chatRepository.RenameSessionAsync(sessionId, userId, normalizedTitle, cancellationToken);
+    }
+
     public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
         return await _chatRepository.DeleteSessionAsync(sessionId, userId, cancellationToken);
@@ -194,6 +200,17 @@ public class ChatService : IChatService
     private static CitationDto ToCitation(RetrievedChunkDto chunk)
     {
         return new CitationDto(chunk.ChunkId, chunk.SourceName, chunk.ChapterTitle, chunk.ChunkIndex, chunk.Content);
+    }
+
+    private static string NormalizeSessionTitle(string title)
+    {
+        var clean = title.Trim().Replace('\n', ' ').Replace('\r', ' ');
+        if (string.IsNullOrWhiteSpace(clean))
+        {
+            throw new InvalidOperationException("Session title cannot be empty.");
+        }
+
+        return clean.Length <= 160 ? clean : clean[..160];
     }
 
     private static ChatMessageDto ToDto(ChatMessage message, double? processingSeconds = null)
