@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLayer.Services;
@@ -8,6 +10,7 @@ namespace PresentationLayer.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminUsersController : BaseController
 {
+    private static readonly string[] Roles = ["Student", "Teacher", "Admin"];
     private readonly IUserAdminService _userAdminService;
 
     public AdminUsersController(IUserAdminService userAdminService)
@@ -16,33 +19,30 @@ public class AdminUsersController : BaseController
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string? searchTerm, string? role, CancellationToken cancellationToken)
     {
-        var users = await _userAdminService.ListAsync();
-        var model = new UserAdminIndexViewModel
-        {
-            Users = users,
-            Roles = ["Student", "Teacher", "Admin"]
-        };
-        return View(model);
+        return View(await BuildIndexModelAsync(searchTerm, role, cancellationToken));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(CreateUserInput input)
+    public async Task<IActionResult> Create(
+        [Bind(Prefix = "CreateUser")] CreateUserInput input,
+        CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
-            var users = await _userAdminService.ListAsync();
-            return View("Index", new UserAdminIndexViewModel { Users = users, Roles = ["Student", "Teacher", "Admin"], CreateUser = input });
+            var model = await BuildIndexModelAsync(null, null, cancellationToken);
+            model.CreateUser = input;
+            return View("Index", model);
         }
 
         try
         {
-            await _userAdminService.CreateAsync(input.Email, input.FullName, input.Role, input.Password);
+            await _userAdminService.CreateAsync(input.Email, input.FullName, input.Role, input.Password, cancellationToken);
             SetFlashSuccess("User was created.");
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             SetFlashError(ex.Message);
         }
@@ -52,14 +52,31 @@ public class AdminUsersController : BaseController
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangeRole(Guid userId, string role)
+    public async Task<IActionResult> Update(UpdateUserInput input, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+        {
+            SetFlashError("Please check the user fields.");
+            return RedirectToAction("Index");
+        }
+
         try
         {
-            await _userAdminService.ChangeRoleAsync(userId, role);
-            SetFlashSuccess("User role was updated.");
+            var requiresRelogin = await _userAdminService.UpdateAsync(
+                CurrentUserId(),
+                input.Id,
+                input.Email,
+                input.FullName,
+                input.Role,
+                cancellationToken);
+            SetFlashSuccess("User was updated.");
+            if (requiresRelogin)
+            {
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                return RedirectToAction("Login", "Account");
+            }
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             SetFlashError(ex.Message);
         }
@@ -69,48 +86,30 @@ public class AdminUsersController : BaseController
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Lock(Guid userId)
+    public async Task<IActionResult> Lock(Guid userId, CancellationToken cancellationToken)
     {
-        try
-        {
-            await _userAdminService.SetLockoutAsync(userId, true);
-            SetFlashSuccess("User was locked.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(ex.Message);
-        }
-
+        await ChangeLockoutAsync(userId, true, cancellationToken);
         return RedirectToAction("Index");
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Unlock(Guid userId)
+    public async Task<IActionResult> Unlock(Guid userId, CancellationToken cancellationToken)
     {
-        try
-        {
-            await _userAdminService.SetLockoutAsync(userId, false);
-            SetFlashSuccess("User was unlocked.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(ex.Message);
-        }
-
+        await ChangeLockoutAsync(userId, false, cancellationToken);
         return RedirectToAction("Index");
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(Guid userId)
+    public async Task<IActionResult> Delete(Guid userId, CancellationToken cancellationToken)
     {
         try
         {
-            await _userAdminService.DeleteAsync(userId);
+            await _userAdminService.DeleteAsync(CurrentUserId(), userId, cancellationToken);
             SetFlashSuccess("User was deleted.");
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             SetFlashError(ex.Message);
         }
@@ -120,18 +119,46 @@ public class AdminUsersController : BaseController
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ResetPassword(Guid userId, string newPassword)
+    public async Task<IActionResult> ResetPassword(Guid userId, string newPassword, CancellationToken cancellationToken)
     {
         try
         {
-            await _userAdminService.ResetPasswordAsync(userId, newPassword);
+            await _userAdminService.ResetPasswordAsync(CurrentUserId(), userId, newPassword, cancellationToken);
             SetFlashSuccess("Password was reset.");
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
             SetFlashError(ex.Message);
         }
 
         return RedirectToAction("Index");
+    }
+
+    private async Task ChangeLockoutAsync(Guid userId, bool locked, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _userAdminService.SetLockoutAsync(CurrentUserId(), userId, locked, cancellationToken);
+            SetFlashSuccess(locked ? "User was locked." : "User was unlocked.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            SetFlashError(ex.Message);
+        }
+    }
+
+    private async Task<UserAdminIndexViewModel> BuildIndexModelAsync(
+        string? searchTerm,
+        string? role,
+        CancellationToken cancellationToken)
+    {
+        return new UserAdminIndexViewModel
+        {
+            Users = await _userAdminService.ListAsync(searchTerm, role, cancellationToken),
+            Roles = Roles,
+            SearchTerm = searchTerm,
+            SelectedRole = role,
+            CurrentUserId = CurrentUserId()
+        };
     }
 }

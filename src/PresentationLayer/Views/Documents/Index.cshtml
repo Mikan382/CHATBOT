@@ -41,7 +41,7 @@
                             <span class="upload-button-text">Upload Document</span>
                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                         </button>
-                        <div id="uploadStatus" class="small text-muted mt-2 d-none" aria-live="polite">Uploading and preparing the document...</div>
+                        <div id="uploadStatus" class="small text-muted mt-2 d-none" aria-live="polite">Uploading, chunking, and preparing search data...</div>
                     </form>
                 }
                 else
@@ -80,16 +80,6 @@
                             }
                         </select>
                     </div>
-                    <div>
-                        <label class="form-label small text-muted" for="status">Status</label>
-                        <select id="status" class="form-select form-select-sm" name="status">
-                            <option value="">All</option>
-                            @foreach (var s in Model.StatusOptions)
-                            {
-                                <option value="@s" selected="@(Model.SelectedStatus == s)">@s</option>
-                            }
-                        </select>
-                    </div>
                     <div class="documents-filter-actions">
                         <button class="btn btn-sm btn-primary" type="submit">Search</button>
                         <a class="btn btn-sm btn-outline-secondary" asp-controller="Documents" asp-action="Index">Clear</a>
@@ -102,7 +92,6 @@
                             <th>File</th>
                             <th>Course</th>
                             <th>Chapter</th>
-                            <th class="status-column">Status</th>
                             <th>Sections</th>
                             <th>Uploaded</th>
                             <th>Actions</th>
@@ -112,7 +101,7 @@
                         @if (Model.Documents.Count == 0)
                         {
                             <tr>
-                                <td colspan="7" class="text-muted small">No documents match the current filters.</td>
+                                <td colspan="6" class="text-muted small">No documents match the current filters.</td>
                             </tr>
                         }
                         else
@@ -123,16 +112,6 @@
                                     <td><a asp-controller="Documents" asp-action="Details" asp-route-id="@doc.Id">@doc.OriginalFileName</a><br><span class="text-muted small">@doc.FileType / @(doc.FileSizeBytes / 1024) KB</span></td>
                                     <td>@doc.CourseCode</td>
                                     <td class="chapter-cell">@doc.ChapterTitle</td>
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2 mb-1">
-                                            <span class="badge @StatusClass(doc.IndexStatus)">@doc.IndexStatus</span>
-                                            <span class="small text-muted">@doc.IndexProgressPercent%</span>
-                                        </div>
-                                        <div class="progress index-progress" aria-label="@doc.IndexStage">
-                                            <div class="progress-bar @ProgressClass(doc.IndexStatus)" role="progressbar" style="width: @doc.IndexProgressPercent%;" aria-valuenow="@doc.IndexProgressPercent" aria-valuemin="0" aria-valuemax="100"></div>
-                                        </div>
-                                        <div class="small text-muted text-truncate mt-1" title="@doc.IndexStage">@doc.IndexStage</div>
-                                    </td>
                                     <td>@doc.ChunksCount</td>
                                     <td class="small" data-utc="@doc.UploadedAtUtc.ToString("o")">@doc.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
                                     <td>
@@ -153,10 +132,6 @@
                                         </div>
                                     </td>
                                 </tr>
-                                @if (!string.IsNullOrWhiteSpace(doc.IndexError))
-                                {
-                                    <tr><td colspan="7" class="text-danger small">@doc.IndexError</td></tr>
-                                }
                             }
                         }
                         </tbody>
@@ -183,6 +158,8 @@
             const uploadChapter = document.getElementById("uploadChapterId");
             const uploadFileInput = document.getElementById("uploadFileInput");
             const uploadFileError = document.getElementById("uploadFileError");
+            const uploadButton = document.getElementById("uploadButton");
+            const chapterPlaceholder = uploadChapter.querySelector('option[value=""]');
             const maxUploadBytes = 20 * 1024 * 1024;
             const formatMb = (bytes) => `${Math.round(bytes / 1024 / 1024)}MB`;
             const validateUploadFile = () => {
@@ -200,13 +177,29 @@
             const syncUploadChapters = () => {
                 let firstVisible = null;
                 uploadChapter.querySelectorAll("option").forEach((option) => {
+                    if (!option.dataset.courseId) {
+                        return;
+                    }
                     const visible = option.dataset.courseId === uploadCourse.value;
                     option.hidden = !visible;
                     if (visible && !firstVisible) {
                         firstVisible = option;
                     }
                 });
-                if (firstVisible && uploadChapter.selectedOptions[0]?.hidden) {
+                if (!firstVisible) {
+                    chapterPlaceholder.hidden = false;
+                    chapterPlaceholder.textContent = "No chapters available";
+                    uploadChapter.value = "";
+                    uploadChapter.disabled = true;
+                    uploadButton.disabled = true;
+                    return;
+                }
+
+                chapterPlaceholder.hidden = true;
+                chapterPlaceholder.textContent = "Select a chapter";
+                uploadChapter.disabled = false;
+                uploadButton.disabled = false;
+                if (!uploadChapter.selectedOptions[0] || uploadChapter.selectedOptions[0].hidden) {
                     uploadChapter.value = firstVisible.value;
                 }
             };
@@ -220,42 +213,12 @@
                     return;
                 }
 
-                const button = document.getElementById("uploadButton");
                 document.getElementById("uploadStatus").classList.remove("d-none");
-                button.disabled = true;
-                button.querySelector(".upload-button-text").textContent = "Uploading...";
-                button.querySelector(".spinner-border").classList.remove("d-none");
+                uploadButton.disabled = true;
+                uploadButton.querySelector(".upload-button-text").textContent = "Uploading...";
+                uploadButton.querySelector(".spinner-border").classList.remove("d-none");
             });
         }
 
-        if (document.querySelector(".badge.bg-warning, .badge.bg-info")) {
-            setTimeout(() => window.location.reload(), 5000);
-        }
     </script>
-}
-
-@functions {
-    private static string StatusClass(string status)
-    {
-        return status switch
-        {
-            "Indexed" => "bg-success",
-            "Failed" => "bg-danger",
-            "Processing" => "bg-info",
-            "Pending" => "bg-warning text-dark",
-            _ => "bg-secondary"
-        };
-    }
-
-    private static string ProgressClass(string status)
-    {
-        return status switch
-        {
-            "Indexed" => "bg-success",
-            "Failed" => "bg-danger",
-            "Processing" => "bg-info",
-            "Pending" => "bg-warning",
-            _ => "bg-secondary"
-        };
-    }
 }

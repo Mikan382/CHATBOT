@@ -1,3 +1,4 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     string Active(params string[] controllers) => controllers.Any(c => currentController.Equals(c, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
@@ -7,10 +8,10 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="request-verification-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
     <title>@ViewData["Title"] - PRN222 Course Assistant</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/PresentationLayer.styles.css" asp-append-version="true" />
 </head>
 <body>
     <header>
@@ -27,14 +28,20 @@
                         {
                             <li class="nav-item"><a class="nav-link @Active("Chat")" asp-controller="Chat" asp-action="Index">Chat</a></li>
                             <li class="nav-item"><a class="nav-link @Active("Documents")" asp-controller="Documents" asp-action="Index">Documents</a></li>
+                            @if (User.IsInRole("Student"))
+                            {
+                                <li class="nav-item"><a class="nav-link @Active("Subscriptions")" asp-controller="Subscriptions" asp-action="Index">Subscription</a></li>
+                            }
                             @if (User.IsInRole("Teacher") || User.IsInRole("Admin"))
                             {
                                 <li class="nav-item"><a class="nav-link @Active("Courses", "Chapters")" asp-controller="Courses" asp-action="Index">Courses</a></li>
-                                <li class="nav-item"><a class="nav-link @Active("Benchmark")" asp-controller="Benchmark" asp-action="Index">Benchmark</a></li>
+                                <li class="nav-item"><a class="nav-link @Active("Architecture")" asp-controller="Architecture" asp-action="Index">Architecture</a></li>
                             }
                             @if (User.IsInRole("Admin"))
                             {
+                                <li class="nav-item"><a class="nav-link @Active("Subscriptions")" asp-controller="Subscriptions" asp-action="Dashboard">Subscriptions</a></li>
                                 <li class="nav-item"><a class="nav-link @Active("AdminUsers")" asp-controller="AdminUsers" asp-action="Index">Users</a></li>
+                                <li class="nav-item"><a class="nav-link @Active("Settings")" asp-controller="Settings" asp-action="Index">Settings</a></li>
                             }
                             <li class="nav-item user-menu">
                                 <a class="nav-link d-inline px-2" asp-controller="Account" asp-action="ChangePassword" style="font-size:0.85rem">@User.Identity.Name</a>
@@ -61,7 +68,6 @@
             &copy; 2026 - PRN222 Learning Assistant
         </div>
     </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

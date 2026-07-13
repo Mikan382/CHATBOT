@@ -3,10 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace PresentationLayer.Controllers;
 
-/// <summary>
-/// Base controller providing shared helpers for all MVC controllers.
-/// Eliminates the 4 duplicated CurrentUserId() implementations (fix #12).
-/// </summary>
 public abstract class BaseController : Controller
 {
     protected Guid CurrentUserId()
@@ -25,5 +21,19 @@ public abstract class BaseController : Controller
     protected void SetFlashError(string message)
     {
         TempData["Error"] = message;
+    }
+
+    protected string UserFacingError(Exception exception)
+    {
+        if (exception is InvalidOperationException)
+        {
+            return exception.Message;
+        }
+
+        var logger = HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger(GetType());
+        logger.LogError(exception, "Request failed in {Controller}.", GetType().Name);
+        return "The request could not be completed. Please try again.";
     }
 }

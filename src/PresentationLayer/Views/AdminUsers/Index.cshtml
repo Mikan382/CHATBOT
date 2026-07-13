@@ -28,7 +28,6 @@
                                 <option value="@role">@role</option>
                             }
                         </select>
-                        <span class="text-danger small" asp-validation-for="CreateUser.Role"></span>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" asp-for="CreateUser.Password"></label>
@@ -40,78 +39,81 @@
             </div>
         </div>
     </div>
+
     <div class="col-lg-8">
-        <div class="card app-card table-card">
-            <div class="card-body">
-                <h5 class="card-title">Users</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle user-table">
-                        <thead>
-                        <tr>
-                            <th>Email</th>
-                            <th>Name</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @foreach (var user in Model.Users)
+        <section class="user-management-panel">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                <h5 class="mb-0">Manage Users</h5>
+                <form method="get" class="user-filter-form">
+                    <input class="form-control form-control-sm" type="search" name="searchTerm" value="@Model.SearchTerm" placeholder="Search name or email" />
+                    <select class="form-select form-select-sm" name="role">
+                        <option value="">All roles</option>
+                        @foreach (var role in Model.Roles)
                         {
-                            <tr>
-                                <td>@user.Email</td>
-                                <td>@user.FullName</td>
-                                <td>
-                                    <form class="role-action-form" method="post" asp-controller="AdminUsers" asp-action="ChangeRole" asp-route-userId="@user.Id">
-                                        @Html.AntiForgeryToken()
-                                        <select class="form-select form-select-sm" name="role">
-                                            @foreach (var role in Model.Roles)
-                                            {
-                                                <option value="@role" selected="@(role == user.Role)">@role</option>
-                                            }
-                                        </select>
-                                        <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
-                                    </form>
-                                </td>
-                                <td>
-                                    <span class="badge @(user.IsLockedOut ? "bg-danger" : "bg-success")">
-                                        @(user.IsLockedOut ? "Locked" : "Active")
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="d-flex align-items-center gap-1 flex-nowrap">
-                                        @if (user.IsLockedOut)
-                                        {
-                                            <form method="post" asp-controller="AdminUsers" asp-action="Unlock" asp-route-userId="@user.Id">
-                                                @Html.AntiForgeryToken()
-                                                <button class="btn btn-sm btn-outline-success" type="submit">Unlock</button>
-                                            </form>
-                                        }
-                                        else
-                                        {
-                                            <form method="post" asp-controller="AdminUsers" asp-action="Lock" asp-route-userId="@user.Id">
-                                                @Html.AntiForgeryToken()
-                                                <button class="btn btn-sm btn-outline-secondary" type="submit">Lock</button>
-                                            </form>
-                                        }
-                                        <form method="post" asp-controller="AdminUsers" asp-action="ResetPassword" asp-route-userId="@user.Id" class="d-flex gap-1 align-items-center">
-                                            @Html.AntiForgeryToken()
-                                            <input type="password" name="newPassword" class="form-control form-control-sm" placeholder="New password" style="width:110px" required minlength="8" />
-                                            <button class="btn btn-sm btn-outline-warning" type="submit">Reset</button>
-                                        </form>
-                                        <form method="post" asp-controller="AdminUsers" asp-action="Delete" asp-route-userId="@user.Id"
-                                              onsubmit="return confirm('Delete @user.Email? This cannot be undone.')">
-                                            @Html.AntiForgeryToken()
-                                            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
+                            <option value="@role" selected="@(role == Model.SelectedRole)">@role</option>
                         }
-                        </tbody>
-                    </table>
-                </div>
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Search</button>
+                    <a class="btn btn-sm btn-outline-secondary" asp-action="Index">Clear</a>
+                </form>
             </div>
-        </div>
+
+            @if (Model.Users.Count == 0)
+            {
+                <div class="empty-state">No users match the current filter.</div>
+            }
+            else
+            {
+                <div class="user-editor-list">
+                    @foreach (var user in Model.Users)
+                    {
+                        var formId = $"update-user-{user.Id:N}";
+                        var isCurrent = user.Id == Model.CurrentUserId;
+                        <article class="user-editor-row">
+                            <div class="user-editor-fields">
+                                <input form="@formId" class="form-control form-control-sm" name="Email" value="@user.Email" type="email" required aria-label="Email" />
+                                <input form="@formId" class="form-control form-control-sm" name="FullName" value="@user.DisplayName" required maxlength="160" aria-label="Display name" />
+                                <select form="@formId" class="form-select form-select-sm" name="Role" aria-label="Role">
+                                    @foreach (var role in Model.Roles)
+                                    {
+                                        <option value="@role" selected="@(role == user.Role)">@role</option>
+                                    }
+                                </select>
+                                <span class="badge @(user.IsLockedOut ? "bg-danger" : "bg-success")">
+                                    @(user.IsLockedOut ? "Locked" : "Active")
+                                </span>
+                            </div>
+                            <div class="user-editor-actions">
+                                <form id="@formId" method="post" asp-action="Update">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="Id" value="@user.Id" />
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
+                                </form>
+                                @if (!isCurrent)
+                                {
+                                    <form method="post" asp-action="@(user.IsLockedOut ? "Unlock" : "Lock")" asp-route-userId="@user.Id">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-sm btn-outline-secondary" type="submit">@(user.IsLockedOut ? "Unlock" : "Lock")</button>
+                                    </form>
+                                    <form method="post" asp-action="ResetPassword" asp-route-userId="@user.Id" class="user-password-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="password" name="newPassword" class="form-control form-control-sm" placeholder="New password" required minlength="8" />
+                                        <button class="btn btn-sm btn-outline-warning" type="submit">Reset</button>
+                                    </form>
+                                    <form method="post" asp-action="Delete" asp-route-userId="@user.Id" onsubmit="return confirm('Delete this user? This cannot be undone.')">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="small text-muted">Current account</span>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
     </div>
 </div>

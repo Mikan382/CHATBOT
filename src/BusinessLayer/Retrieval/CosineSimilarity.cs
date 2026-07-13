@@ -2,7 +2,7 @@ namespace BusinessLayer.Retrieval;
 
 /// <summary>
 /// Shared cosine similarity calculation.
-/// Replaces the 2 duplicated private Cosine methods in RetrievalService and BenchmarkRetrievalService.
+/// Shared cosine similarity helper for embedding retrieval.
 /// </summary>
 public static class CosineSimilarity
 {

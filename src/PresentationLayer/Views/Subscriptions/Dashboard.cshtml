@@ -1,0 +1,192 @@
+@model SubscriptionDashboardViewModel
+@{
+    ViewData["Title"] = "Subscription Dashboard";
+}
+
+<div class="subscriptions-dashboard">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h2 class="mb-1">Subscription Dashboard</h2>
+            <div class="text-muted">Internal registration dashboard for student service packages.</div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card app-card stat-card">
+                <div class="card-body">
+                    <div class="text-muted small">Students</div>
+                    <div class="stat-value">@Model.Dashboard.TotalStudents</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card app-card stat-card">
+                <div class="card-body">
+                    <div class="text-muted small">Active subscriptions</div>
+                    <div class="stat-value">@Model.Dashboard.ActiveSubscriptions</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card app-card stat-card">
+                <div class="card-body">
+                    <div class="text-muted small">Registrations this month</div>
+                    <div class="stat-value">@Model.Dashboard.RegistrationsThisMonth</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-5">
+            <div class="card app-card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Package Distribution</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                            <tr>
+                                <th>Package</th>
+                                <th>Status</th>
+                                <th class="text-end">Active</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @if (Model.Dashboard.PlanStats.Count == 0)
+                            {
+                                <tr><td colspan="3" class="text-muted small">No packages have been created.</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var stat in Model.Dashboard.PlanStats)
+                                {
+                                    <tr>
+                                        <td>@stat.PlanCode - @stat.PlanName</td>
+                                        <td>
+                                            <span class="badge @(stat.IsActive ? "text-bg-success" : "text-bg-secondary")">@(stat.IsActive ? "Active" : "Inactive")</span>
+                                        </td>
+                                        <td class="text-end">@stat.ActiveSubscriptions</td>
+                                    </tr>
+                                }
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card app-card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Recent Registrations</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Package</th>
+                                <th>Status</th>
+                                <th>Started</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @if (Model.Dashboard.RecentSubscriptions.Count == 0)
+                            {
+                                <tr><td colspan="4" class="text-muted small">No registrations yet.</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in Model.Dashboard.RecentSubscriptions)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div>@item.StudentDisplayName</div>
+                                            <div class="text-muted small">@item.StudentEmail</div>
+                                        </td>
+                                        <td>@item.PlanName</td>
+                                        <td>@item.Status</td>
+                                        <td class="small">@item.StartedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                    </tr>
+                                }
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card app-card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Create Package</h5>
+            <form method="post" asp-controller="Subscriptions" asp-action="CreatePlan" class="subscription-plan-form">
+                @Html.AntiForgeryToken()
+                <input class="form-control form-control-sm" name="Code" placeholder="Code" maxlength="32" required />
+                <input class="form-control form-control-sm" name="Name" placeholder="Name" maxlength="160" required />
+                <input class="form-control form-control-sm" name="MonthlyPrice" type="number" min="0" step="1000" placeholder="Monthly price" required />
+                <input class="form-control form-control-sm" name="DurationDays" type="number" min="0" max="3650" value="30" required />
+                <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="100" required />
+                <input class="form-control form-control-sm subscription-description-input" name="Description" placeholder="Description" maxlength="600" />
+                <label class="form-check small">
+                    <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked />
+                    <input type="hidden" name="IsActive" value="false" />
+                    Active
+                </label>
+                <button class="btn btn-sm btn-primary" type="submit">Create</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card app-card">
+        <div class="card-body">
+            <h5 class="card-title">Manage Packages</h5>
+            <div class="subscription-plan-editor">
+                @if (Model.Dashboard.Plans.Count == 0)
+                {
+                    <div class="empty-state">Create a package to start managing registrations.</div>
+                }
+                else
+                {
+                    <div class="subscription-plan-grid subscription-plan-grid-header">
+                        <div>Code</div>
+                        <div>Name</div>
+                        <div>Price</div>
+                        <div>Days</div>
+                        <div>Order</div>
+                        <div>Description</div>
+                        <div>Active</div>
+                        <div></div>
+                    </div>
+                    @foreach (var plan in Model.Dashboard.Plans)
+                    {
+                        <form method="post" asp-controller="Subscriptions" asp-action="UpdatePlan" class="subscription-plan-edit-form subscription-plan-grid">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="Id" value="@plan.Id" />
+                            <input class="form-control form-control-sm" name="Code" value="@plan.Code" maxlength="32" required />
+                            <input class="form-control form-control-sm" name="Name" value="@plan.Name" maxlength="160" required />
+                            <input class="form-control form-control-sm" name="MonthlyPrice" type="number" min="0" step="1000" value="@plan.MonthlyPrice" required />
+                            <input class="form-control form-control-sm" name="DurationDays" type="number" min="0" max="3650" value="@plan.DurationDays" required />
+                            <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="@plan.SortOrder" required />
+                            <input class="form-control form-control-sm subscription-description-input" name="Description" value="@plan.Description" maxlength="600" />
+                            <label class="form-check small subscription-plan-active-field">
+                                @if (plan.IsActive)
+                                {
+                                    <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked />
+                                }
+                                else
+                                {
+                                    <input class="form-check-input" type="checkbox" name="IsActive" value="true" />
+                                }
+                                <input type="hidden" name="IsActive" value="false" />
+                                <span>Active</span>
+                            </label>
+                            <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
+                        </form>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>

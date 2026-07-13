@@ -6,8 +6,8 @@ using PresentationLayer.ViewModels;
 namespace PresentationLayer.Controllers;
 
 [Authorize]
-[RequestSizeLimit(100 * 1024 * 1024)]
-[RequestFormLimits(MultipartBodyLengthLimit = 100 * 1024 * 1024)]
+[RequestSizeLimit(DocumentUploadLimits.MaxRequestBodyBytes)]
+[RequestFormLimits(MultipartBodyLengthLimit = DocumentUploadLimits.MaxRequestBodyBytes)]
 public class DocumentsController : BaseController
 {
     private readonly IDocumentService _documentService;
@@ -22,11 +22,12 @@ public class DocumentsController : BaseController
         string? searchTerm,
         Guid? courseId,
         Guid? chapterId,
-        string? status,
         CancellationToken cancellationToken)
     {
-        var data = await _documentService.GetIndexDataAsync(searchTerm, courseId, chapterId, status, cancellationToken);
-        var courses = await _documentService.ListCoursesAsync(cancellationToken);
+        var isAdmin = User.IsInRole("Admin");
+        var isTeacher = User.IsInRole("Teacher");
+        var data = await _documentService.GetIndexDataAsync(searchTerm, courseId, chapterId, CurrentUserId(), isAdmin, isTeacher, cancellationToken);
+        var courses = await _documentService.ListCoursesAsync(CurrentUserId(), isAdmin, isTeacher, cancellationToken);
 
         var model = new DocumentIndexViewModel
         {
@@ -36,9 +37,7 @@ public class DocumentsController : BaseController
             SearchTerm = searchTerm,
             SelectedCourseId = courseId,
             SelectedChapterId = chapterId,
-            SelectedStatus = status,
-            CanManageDocuments = User.IsInRole("Teacher") || User.IsInRole("Admin"),
-            StatusOptions = ["Pending", "Processing", "Indexed", "Failed"]
+            CanManageDocuments = isTeacher || isAdmin
         };
 
         return View(model);
@@ -52,7 +51,7 @@ public class DocumentsController : BaseController
             var details = await _documentService.GetDetailsAsync(id, cancellationToken);
             return View(details);
         }
-        catch
+        catch (InvalidOperationException)
         {
             return NotFound();
         }
@@ -61,17 +60,22 @@ public class DocumentsController : BaseController
     [HttpPost]
     [Authorize(Roles = "Teacher,Admin")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Upload(Guid chapterId, IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Upload(Guid chapterId, IFormFile? file, CancellationToken cancellationToken)
     {
         try
         {
+            if (file is null)
+            {
+                throw new InvalidOperationException("Please select a file to upload.");
+            }
+
             await using var stream = file.OpenReadStream();
-            await _documentService.UploadAsync(chapterId, CurrentUserId(), stream, file.FileName, file.Length, cancellationToken);
-            SetFlashSuccess("Document uploaded. The worker will prepare it in the background.");
+            await _documentService.UploadAsync(chapterId, CurrentUserId(), User.IsInRole("Admin"), stream, file.FileName, file.Length, cancellationToken);
+            SetFlashSuccess("Document uploaded and indexed.");
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Index");
@@ -84,12 +88,12 @@ public class DocumentsController : BaseController
     {
         try
         {
-            await _documentService.DeleteAsync(id, cancellationToken);
+            await _documentService.DeleteAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
             SetFlashSuccess("Document and related indexed sections were deleted.");
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Index", new { searchTerm, chapterId });

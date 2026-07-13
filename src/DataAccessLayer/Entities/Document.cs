@@ -1,6 +1,4 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using DataAccessLayer.Enums;
-
 namespace DataAccessLayer.Entities;
 
 public class Document
@@ -14,14 +12,10 @@ public class Document
     public string FileType { get; set; } = "";
     public long FileSizeBytes { get; set; }
     public string ContentText { get; set; } = "";
-    public DocumentIndexStatus IndexStatus { get; set; } = DocumentIndexStatus.Pending;
-    public int IndexProgressPercent { get; set; }
-    public string IndexStage { get; set; } = "Queued";
-    public string? IndexError { get; set; }
+    public string ContentHash { get; set; } = "";
     public DateTime UploadedAtUtc { get; set; } = DateTime.UtcNow;
     public ICollection<DocumentChunk> Chunks { get; set; } = new List<DocumentChunk>();
 
-    // Set by repository when Chunks is not loaded (S12 projection fix)
     [NotMapped]
     public int ChunksCount { get; set; }
 }

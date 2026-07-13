@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Courses";
     var searchTerm = ViewBag.SearchTerm as string;
+    var canManageCourses = ViewBag.CanManageCourses as bool? == true;
 }
 
 <div class="card app-card table-card">
@@ -11,7 +12,10 @@
                 <h4 class="card-title mb-1">Courses</h4>
                 <div class="text-muted small">Manage courses and chapters shown to students.</div>
             </div>
-            <a class="btn btn-primary" asp-controller="Courses" asp-action="Create">Create Course</a>
+            @if (canManageCourses)
+            {
+                <a class="btn btn-primary" asp-controller="Courses" asp-action="Create">Create Course</a>
+            }
         </div>
 
         <form class="row g-2 mb-3" method="get" asp-controller="Courses" asp-action="Index">
@@ -31,29 +35,41 @@
                     <th>Code</th>
                     <th>Name</th>
                     <th>Chapters</th>
+                    <th>Teachers</th>
                     <th>Tools</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
                 <tbody>
-                @foreach (var course in Model)
+                @if (Model.Count == 0)
                 {
-                    <tr>
-                        <td><strong>@course.Code</strong></td>
-                        <td>@course.Name<br><span class="text-muted small">@course.Description</span></td>
-                        <td>@course.ChaptersCount</td>
-                        <td class="small">@course.Tools</td>
-                        <td>
-                            <div class="action-cell">
-                            <a class="btn btn-sm btn-outline-primary" asp-controller="Courses" asp-action="Chapters" asp-route-id="@course.Id">Chapters</a>
-                            <a class="btn btn-sm btn-outline-secondary" asp-controller="Courses" asp-action="Edit" asp-route-id="@course.Id">Edit</a>
-                            <form method="post" asp-controller="Courses" asp-action="Delete" asp-route-id="@course.Id" onsubmit="return confirm('Delete this course? It must have no chapters.');">
-                                @Html.AntiForgeryToken()
-                                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
-                            </form>
-                            </div>
-                        </td>
-                    </tr>
+                    <tr><td colspan="6" class="text-muted small py-3">No courses match the current filter or assignment.</td></tr>
+                }
+                else
+                {
+                    @foreach (var course in Model)
+                    {
+                        <tr>
+                            <td><strong>@course.Code</strong></td>
+                            <td>@course.Name<br><span class="text-muted small">@course.Description</span></td>
+                            <td>@course.ChaptersCount</td>
+                            <td class="small">@(course.TeacherNames.Count == 0 ? "Unassigned" : string.Join(", ", course.TeacherNames))</td>
+                            <td class="small">@course.Tools</td>
+                            <td>
+                                <div class="action-cell">
+                                <a class="btn btn-sm btn-outline-primary" asp-controller="Courses" asp-action="Chapters" asp-route-id="@course.Id">Chapters</a>
+                                @if (canManageCourses)
+                                {
+                                    <a class="btn btn-sm btn-outline-secondary" asp-controller="Courses" asp-action="Edit" asp-route-id="@course.Id">Edit</a>
+                                    <form method="post" asp-controller="Courses" asp-action="Delete" asp-route-id="@course.Id" onsubmit="return confirm('Delete this course? It must have no chapters.');">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                    </form>
+                                }
+                                </div>
+                            </td>
+                        </tr>
+                    }
                 }
                 </tbody>
             </table>

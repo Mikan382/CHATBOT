@@ -8,4 +8,5 @@ public class Course
     public string Description { get; set; } = "";
     public string Tools { get; set; } = "";
     public ICollection<Chapter> Chapters { get; set; } = new List<Chapter>();
+    public ICollection<CourseTeacher> TeacherAssignments { get; set; } = new List<CourseTeacher>();
 }

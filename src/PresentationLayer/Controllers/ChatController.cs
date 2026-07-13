@@ -26,7 +26,12 @@ public class ChatController : BaseController
         if (sessionId.HasValue)
         {
             var session = await _chatService.GetSessionAsync(sessionId.Value, CurrentUserId(), cancellationToken);
-            selectedCourseId = session?.CourseId ?? selectedCourseId;
+            if (session is null)
+            {
+                return NotFound();
+            }
+
+            selectedCourseId = session.CourseId ?? selectedCourseId;
         }
 
         var model = new ChatIndexViewModel
@@ -34,7 +39,6 @@ public class ChatController : BaseController
             SessionId = sessionId ?? Guid.NewGuid(),
             SelectedCourseId = selectedCourseId,
             Courses = courses,
-            FineTuneConfigured = _chatService.FineTuneConfigured,
             GeminiConfigured = _chatService.GeminiConfigured
         };
 

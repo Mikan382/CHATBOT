@@ -2,10 +2,10 @@ namespace BusinessLayer.Services;
 
 public interface IUserAdminService
 {
-    Task<IReadOnlyList<UserListDto>> ListAsync();
-    Task CreateAsync(string email, string fullName, string role, string password);
-    Task ChangeRoleAsync(Guid userId, string role);
-    Task SetLockoutAsync(Guid userId, bool locked);
-    Task DeleteAsync(Guid userId);
-    Task ResetPasswordAsync(Guid userId, string newPassword);
+    Task<IReadOnlyList<UserListDto>> ListAsync(string? searchTerm, string? role, CancellationToken cancellationToken);
+    Task CreateAsync(string email, string fullName, string role, string password, CancellationToken cancellationToken);
+    Task<bool> UpdateAsync(Guid actorUserId, Guid userId, string email, string fullName, string role, CancellationToken cancellationToken);
+    Task SetLockoutAsync(Guid actorUserId, Guid userId, bool locked, CancellationToken cancellationToken);
+    Task DeleteAsync(Guid actorUserId, Guid userId, CancellationToken cancellationToken);
+    Task ResetPasswordAsync(Guid actorUserId, Guid userId, string newPassword, CancellationToken cancellationToken);
 }
