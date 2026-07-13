@@ -1,6 +1,6 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using DataAccessLayer.Data.Seed;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
@@ -110,14 +110,9 @@ public static class DatabaseBootstrapper
             || await db.Documents.AnyAsync()
             || await db.ChatSessions.AnyAsync();
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
         if (!hasExistingData)
         {
-            await Prn222SeedData.SeedAsync(db);
-            var users = await SeedUsersAsync(db, configuration, hashPassword);
-            await SeedTeacherAssignmentAsync(db, users.Teacher.Id);
-            await SeedSubscriptionPlansAsync(db);
-            await SeedStudentSubscriptionAsync(db, users.Student.Id);
+            AddDemoData(db, configuration, hashPassword);
         }
 
         db.SystemSettings.Add(new SystemSetting
@@ -127,31 +122,50 @@ public static class DatabaseBootstrapper
             UpdatedAtUtc = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
-        await transaction.CommitAsync();
     }
 
-    private static async Task<(ApplicationUser Student, ApplicationUser Teacher)> SeedUsersAsync(
+    private static void AddDemoData(
         AppDbContext db,
         IConfiguration configuration,
         Func<ApplicationUser, string, string> hashPassword)
     {
-        var student = await SeedUserAsync(db, configuration, hashPassword, "Student", "student@prn222.local", "Student Demo", UserRoleNames.Student);
-        var teacher = await SeedUserAsync(db, configuration, hashPassword, "Teacher", "teacher@prn222.local", "Teacher Demo", UserRoleNames.Teacher);
-        var admin = await SeedUserAsync(db, configuration, hashPassword, "Admin", "admin@prn222.local", "Admin Demo", UserRoleNames.Admin);
+        var now = DateTime.UtcNow;
+        Prn222SeedData.AddTo(db);
 
-        _ = admin;
-        await db.SaveChangesAsync();
-        return (student, teacher);
+        var student = CreateSeedUser(configuration, hashPassword, "Student", "student@prn222.local", "Student Demo", UserRoleNames.Student, now);
+        var teacher = CreateSeedUser(configuration, hashPassword, "Teacher", "teacher@prn222.local", "Teacher Demo", UserRoleNames.Teacher, now);
+        var admin = CreateSeedUser(configuration, hashPassword, "Admin", "admin@prn222.local", "Admin Demo", UserRoleNames.Admin, now);
+        db.Users.AddRange(student, teacher, admin);
+
+        db.CourseTeachers.Add(new CourseTeacher
+        {
+            CourseId = Prn222SeedData.CourseId,
+            TeacherUserId = teacher.Id,
+            AssignedAtUtc = now
+        });
+
+        db.SubscriptionPlans.AddRange(CreateSubscriptionPlans(now));
+        db.StudentSubscriptions.Add(new StudentSubscription
+        {
+            Id = Guid.NewGuid(),
+            StudentUserId = student.Id,
+            SubscriptionPlanId = FreePlanId,
+            Status = SubscriptionStatusNames.Active,
+            StartedAtUtc = now,
+            ExpiresAtUtc = now.AddDays(30),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        });
     }
 
-    private static async Task<ApplicationUser> SeedUserAsync(
-        AppDbContext db,
+    private static ApplicationUser CreateSeedUser(
         IConfiguration configuration,
         Func<ApplicationUser, string, string> hashPassword,
         string key,
         string defaultEmail,
         string defaultDisplayName,
-        string role)
+        string role,
+        DateTime now)
     {
         var email = (configuration[$"SeedUsers:{key}:Email"] ?? defaultEmail).Trim().ToLowerInvariant();
         var displayName = configuration[$"SeedUsers:{key}:FullName"] ?? defaultDisplayName;
@@ -159,64 +173,26 @@ public static class DatabaseBootstrapper
         if (string.IsNullOrWhiteSpace(password))
         {
             password = "Prn222@123";
-            Console.WriteLine($"[SEED] No password configured for '{key}'. Using default dev password for {defaultEmail}.");
+            Console.WriteLine($"[SEED] No password configured for '{key}'. Using the default dev password for {email}.");
         }
 
-        var user = await db.Users.FirstOrDefaultAsync(x => x.Email == email);
-        if (user is null)
+        var user = new ApplicationUser
         {
-            user = new ApplicationUser
-            {
-                Id = Guid.NewGuid(),
-                Email = email,
-                DisplayName = displayName,
-                Role = role,
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow
-            };
-            user.PasswordHash = hashPassword(user, password);
-            db.Users.Add(user);
-            return user;
-        }
-
+            Id = Guid.NewGuid(),
+            Email = email,
+            DisplayName = displayName,
+            Role = role,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+        user.PasswordHash = hashPassword(user, password);
         return user;
     }
 
-    private static async Task SeedTeacherAssignmentAsync(AppDbContext db, Guid teacherId)
+    private static IReadOnlyList<SubscriptionPlan> CreateSubscriptionPlans(DateTime now)
     {
-        var exists = await db.CourseTeachers.AnyAsync(
-            x => x.CourseId == Prn222SeedData.CourseId && x.TeacherUserId == teacherId);
-        if (!exists)
-        {
-            db.CourseTeachers.Add(new CourseTeacher
-            {
-                CourseId = Prn222SeedData.CourseId,
-                TeacherUserId = teacherId,
-                AssignedAtUtc = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync();
-        }
-    }
-
-    private static async Task SeedSettingsAsync(AppDbContext db)
-    {
-        var exists = await db.SystemSettings.AnyAsync(x => x.Key == "ChunkingStrategy");
-        if (!exists)
-        {
-            db.SystemSettings.Add(new SystemSetting
-            {
-                Key = "ChunkingStrategy",
-                Value = DefaultChunkingStrategy,
-                UpdatedAtUtc = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync();
-        }
-    }
-
-    private static async Task SeedSubscriptionPlansAsync(AppDbContext db)
-    {
-        var plans = new[]
-        {
+        return
+        [
             new SubscriptionPlan
             {
                 Id = FreePlanId,
@@ -226,7 +202,9 @@ public static class DatabaseBootstrapper
                 MonthlyPrice = 0,
                 DurationDays = 30,
                 SortOrder = 1,
-                IsActive = true
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
             },
             new SubscriptionPlan
             {
@@ -237,7 +215,9 @@ public static class DatabaseBootstrapper
                 MonthlyPrice = 49000,
                 DurationDays = 30,
                 SortOrder = 2,
-                IsActive = true
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
             },
             new SubscriptionPlan
             {
@@ -248,42 +228,25 @@ public static class DatabaseBootstrapper
                 MonthlyPrice = 99000,
                 DurationDays = 30,
                 SortOrder = 3,
-                IsActive = true
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
             }
-        };
-
-        foreach (var seed in plans)
-        {
-            if (!await db.SubscriptionPlans.AnyAsync(x => x.Id == seed.Id))
-            {
-                seed.CreatedAtUtc = DateTime.UtcNow;
-                seed.UpdatedAtUtc = DateTime.UtcNow;
-                db.SubscriptionPlans.Add(seed);
-            }
-        }
-
-        await db.SaveChangesAsync();
+        ];
     }
 
-    private static async Task SeedStudentSubscriptionAsync(AppDbContext db, Guid studentId)
+    private static async Task SeedSettingsAsync(AppDbContext db)
     {
-        var exists = await db.StudentSubscriptions.AnyAsync(x => x.StudentUserId == studentId);
-        if (exists)
+        if (await db.SystemSettings.AnyAsync(x => x.Key == "ChunkingStrategy"))
         {
             return;
         }
 
-        var now = DateTime.UtcNow;
-        db.StudentSubscriptions.Add(new StudentSubscription
+        db.SystemSettings.Add(new SystemSetting
         {
-            Id = Guid.NewGuid(),
-            StudentUserId = studentId,
-            SubscriptionPlanId = FreePlanId,
-            Status = SubscriptionStatusNames.Active,
-            StartedAtUtc = now,
-            ExpiresAtUtc = now.AddDays(30),
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
+            Key = "ChunkingStrategy",
+            Value = DefaultChunkingStrategy,
+            UpdatedAtUtc = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
     }

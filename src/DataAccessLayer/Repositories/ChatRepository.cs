@@ -26,8 +26,7 @@ public class ChatRepository : IChatRepository
 
             if (session.CourseId != courseId)
             {
-                session.CourseId = courseId;
-                await _db.SaveChangesAsync(cancellationToken);
+                throw new InvalidOperationException("A saved chat session cannot change course.");
             }
 
             return session;
@@ -51,7 +50,6 @@ public class ChatRepository : IChatRepository
     public async Task<ChatSession?> GetOwnedSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
         return await _db.ChatSessions
-            .Include(x => x.Course)
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
     }
@@ -104,21 +102,22 @@ public class ChatRepository : IChatRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<bool> ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    public async Task ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
         var session = await _db.ChatSessions
             .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
         if (session is null)
         {
-            return false;
+            return;
         }
 
-        await _db.ChatMessages
+        var messages = await _db.ChatMessages
             .Where(x => x.ChatSessionId == sessionId && x.ChatSession!.UserId == userId)
-            .ExecuteDeleteAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+        _db.ChatMessages.RemoveRange(messages);
+        session.Title = "New chat";
         session.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
-        return true;
     }
 
     public async Task<IReadOnlyList<ChatMessage>> ListRecentMessagesAsync(Guid sessionId, Guid userId, int take, CancellationToken cancellationToken)

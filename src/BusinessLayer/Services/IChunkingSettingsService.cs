@@ -1,3 +1,5 @@
+using BusinessLayer.DTOs;
+
 namespace BusinessLayer.Services;
 
 public interface IChunkingSettingsService

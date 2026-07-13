@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
+using DataAccessLayer.Enums;
 
 namespace DataAccessLayer.Repositories;
 
@@ -96,7 +97,7 @@ public class UserAdminRepository : IUserAdminRepository
     public async Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default)
     {
         return await _db.Users.CountAsync(
-            x => x.Role == "Admin" && !x.IsLockedOut,
+            x => x.Role == UserRoleNames.Admin && !x.IsLockedOut,
             cancellationToken);
     }
 

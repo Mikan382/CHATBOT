@@ -1,7 +1,8 @@
 using System.Text.Json;
-using DataAccessLayer.Repositories;
-using BusinessLayer.Services;
+using Microsoft.Extensions.Logging;
 using BusinessLayer.AI;
+using BusinessLayer.DTOs;
+using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Retrieval;
 
@@ -32,7 +33,7 @@ public class RetrievalService
         {
             try
             {
-                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, _embeddingClient, cancellationToken);
+                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, cancellationToken);
                 if (embeddedResults.Count > 0)
                 {
                     return embeddedResults;
@@ -47,15 +48,22 @@ public class RetrievalService
         return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(string query, Guid? courseId, int topK, IEmbeddingClient client, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(
+        string query,
+        Guid? courseId,
+        int topK,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return [];
         }
 
-        var queryVector = await client.EmbedQueryAsync(query, cancellationToken);
-        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(client.ModelName, courseId, cancellationToken);
+        var queryVector = await _embeddingClient.EmbedQueryAsync(query, cancellationToken);
+        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(
+            _embeddingClient.ModelName,
+            courseId,
+            cancellationToken);
         if (embeddings.Count == 0)
         {
             return [];
@@ -120,8 +128,6 @@ public class RetrievalService
 
         return scored;
     }
-
-
 
     private static double Score(IReadOnlyList<string> terms, string normalizedContent)
     {

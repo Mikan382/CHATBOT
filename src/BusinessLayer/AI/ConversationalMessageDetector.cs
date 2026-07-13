@@ -48,6 +48,7 @@ public static class ConversationalMessageDetector
     {
         return new string(text
             .ToLowerInvariant()
+            .Replace('\u0111', 'd')
             .Normalize(NormalizationForm.FormD)
             .Where(ch => char.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
             .Select(ch => char.IsLetterOrDigit(ch) ? ch : ' ')

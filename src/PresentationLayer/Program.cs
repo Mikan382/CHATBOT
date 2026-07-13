@@ -1,11 +1,21 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using BusinessLayer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using BusinessLayer.AI;
+using BusinessLayer.Indexing;
+using BusinessLayer.Parsing;
+using BusinessLayer.Retrieval;
 using BusinessLayer.Services;
+using DataAccessLayer.Data;
+using DataAccessLayer.Entities;
+using DataAccessLayer.Repositories;
 using PresentationLayer.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Missing ConnectionStrings:DefaultConnection.");
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
@@ -13,7 +23,6 @@ builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerifica
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.Cookie.Name = ".Prn222.Auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.LoginPath = "/Account/Login";
@@ -72,7 +81,36 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
-builder.Services.AddApplicationServices(builder.Configuration);
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddScoped<IPasswordHasher<ApplicationUser>, PasswordHasher<ApplicationUser>>();
+
+builder.Services.AddSingleton<ITextChunker, ParagraphChunker>();
+builder.Services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker(1000, 150));
+builder.Services.AddSingleton<ITextChunker, SentenceChunker>();
+
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+builder.Services.AddScoped<IChapterRepository, ChapterRepository>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+builder.Services.AddScoped<IDocumentEmbeddingRepository, DocumentEmbeddingRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+
+builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IChapterService, ChapterService>();
+builder.Services.AddScoped<DocumentIndexingService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<IChunkingSettingsService, ChunkingSettingsService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<RetrievalService>();
+builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
+
+builder.Services.AddHttpClient<IGeminiClient, GeminiClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
 var app = builder.Build();
 
@@ -94,9 +132,18 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Chat}/{action=Index}/{id?}");
-app.MapControllers();
 app.MapHub<ChatHub>("/chatHub");
 
-await app.Services.InitializeApplicationDatabaseAsync();
+await InitializeApplicationDatabaseAsync(app.Services);
 
 app.Run();
+
+static async Task InitializeApplicationDatabaseAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<ApplicationUser>>();
+    await DatabaseBootstrapper.InitializeAsync(
+        scope.ServiceProvider,
+        (user, password) => passwordHasher.HashPassword(user, password),
+        DocumentContentHasher.Compute);
+}

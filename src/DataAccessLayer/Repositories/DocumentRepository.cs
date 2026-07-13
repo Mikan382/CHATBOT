@@ -32,7 +32,6 @@ public class DocumentRepository : IDocumentRepository
         var query = _db.Documents
             .Include(x => x.Chapter)
             .ThenInclude(x => x!.Course)
-            .Include(x => x.UploadedByUser)
             .AsQueryable();
 
         if (teacherId.HasValue)

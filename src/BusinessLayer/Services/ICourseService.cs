@@ -1,3 +1,5 @@
+using BusinessLayer.DTOs;
+
 namespace BusinessLayer.Services;
 
 public interface ICourseService
@@ -11,5 +13,4 @@ public interface ICourseService
     Task<Guid> CreateAsync(string code, string name, string? description, string? tools, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken);
     Task UpdateAsync(Guid id, string code, string name, string? description, string? tools, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
-    Task<IReadOnlyList<ChapterDto>> ListChaptersAsync(Guid courseId, Guid userId, bool isAdmin, CancellationToken cancellationToken);
 }

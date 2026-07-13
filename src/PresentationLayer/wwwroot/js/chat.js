@@ -66,10 +66,10 @@
 
   function buildMeta(message) {
     const time = formatTime(message.createdAtUtc);
-    if (message.role === "user") return `You · ${time}`;
-    let meta = `Assistant · ${time}`;
+    if (message.role === "user") return `You - ${time}`;
+    let meta = `Assistant - ${time}`;
     if (message.processingSeconds != null) {
-      meta += ` · ${message.processingSeconds.toFixed(1)}s`;
+      meta += ` - ${message.processingSeconds.toFixed(1)}s`;
     }
     return meta;
   }
@@ -117,7 +117,7 @@
       if (!typingEl || longWaitEl) return;
       longWaitEl = document.createElement("div");
       longWaitEl.className = "typing-status";
-      longWaitEl.textContent = "Searching documents and generating answer…";
+      longWaitEl.textContent = "Searching documents and generating answer...";
       typingEl.appendChild(longWaitEl);
     }, 3000);
   }
@@ -148,7 +148,7 @@
 
     const meta = document.createElement("div");
     meta.className = "message-meta";
-    meta.textContent = `You · ${formatTime(new Date().toISOString())}`;
+    meta.textContent = `You - ${formatTime(new Date().toISOString())}`;
 
     const body = document.createElement("div");
     body.textContent = text;
@@ -396,7 +396,7 @@
     }
   }
 
-  // --- Course change → new session ---
+  // --- Course change starts a new session ---
   courseSelect.addEventListener("change", async () => {
     if (messagePending) return;
     const previousSessionId = sessionId;
@@ -464,6 +464,7 @@
     messages.querySelectorAll(".message").forEach((el) => el.remove());
     clearOptimistic();
     updateEmptyHint();
+    loadSessions();
   });
 
   connection.onreconnecting(() => {

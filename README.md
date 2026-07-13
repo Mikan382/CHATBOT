@@ -1,91 +1,58 @@
-# PRN222 RAG Chatbot
+# PRN222 Course Assistant
 
-ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 assignment. The scope is demo/internal: course administration, synchronous document indexing, searchable RAG chat history, internal subscription registration, and dashboard statistics.
+Internal/demo ASP.NET Core MVC application for managing PRN222 course materials and answering questions with retrieval-augmented generation (RAG).
 
-## Project Status
+## Scope
 
-| Item | Value |
-|---|---|
-| Runtime | ASP.NET Core MVC Controllers + Razor Views |
-| Target framework | `net8.0` |
-| Database | SQL Server LocalDB by default |
-| ORM | EF Core |
-| Authentication | Custom cookie auth with password hashing |
-| Roles | `Student`, `Teacher`, `Admin` |
-| Architecture | `PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server` |
+- Cookie login with `Student`, `Teacher`, and `Admin` roles.
+- Course/chapter CRUD and teacher-course assignment.
+- Synchronous document extraction, duplicate detection, chunking, and optional embeddings.
+- SignalR chat with citations and searchable, renameable, clearable session history.
+- Admin-managed chunking strategy: `paragraph`, `fixed_1000`, or `sentence`.
+- Internal subscription registration, package management, and dashboard statistics.
 
-## Features
+Payment, subscription entitlements, deployment, background workers, fine-tuned models, and benchmark/evaluation features are outside this assignment.
 
-- Login/logout, change password, and admin user management.
-- Role-based access control for Student, Teacher, and Admin.
-- Admin assigns multiple teachers to each course.
-- Teachers manage only assigned courses, chapters, and documents.
-- Upload `.pdf`, `.docx`, `.pptx`, `.txt`, and `.md` materials.
-- Upload runs synchronously: extract text, check duplicate content, chunk, embed when configured, then save.
-- Duplicate documents are blocked per chapter by a Unicode/whitespace-normalized `ContentHash` that preserves technical punctuation.
-- RAG chat through SignalR with SQL Server chat history and citations.
-- Search, open, rename, clear, and delete owned chat sessions.
-- Hugging Face embedding retrieval when configured; lexical fallback otherwise.
-- Gemini-based answer generation.
-- Admin page for global chunking strategy: `paragraph`, `fixed_1000`, `sentence`.
-- Internal subscription packages, student registration, cancellation, and Admin statistics; no payment or feature entitlement.
-
-Removed from current scope:
-
-- ASP.NET Identity runtime/schema.
-- Background worker/indexing queue/progress columns.
-- Fine-tuned model modes/endpoints.
-- Benchmark/evaluation dashboard and tables.
-
-## Roles and Permissions
-
-| Feature | Student | Teacher | Admin |
-|---|---:|---:|---:|
-| Chat by selected course | Yes | Yes | Yes |
-| View documents | Yes | Yes | Yes |
-| Upload/delete documents | No | Assigned courses | Yes |
-| Manage chapters | No | Assigned courses | Yes |
-| Manage courses/teacher assignment | No | No | Yes |
-| User management | No | No | Yes |
-| Chunking settings | No | No | Yes |
-| Internal subscription registration | Yes | No | Dashboard |
-
-## Solution Layout
+## Architecture
 
 ```text
-src/
-  PresentationLayer/
-    Controllers/        MVC controllers for rendered pages and form posts
-    ApiControllers/     JSON API endpoints
-    Hubs/               SignalR hub
-    Views/              Razor Views
-    ViewModels/         View and input models
-
-  BusinessLayer/
-    Services/           Auth, chat, document, course, chapter, user, settings
-    AI/                 Gemini and Hugging Face embedding clients
-    Indexing/           Chunking and synchronous indexing orchestration
-    Parsing/            PDF, DOCX, PPTX, TXT, and MD extraction
-    Retrieval/          Embedding retrieval and lexical fallback
-    DTOs/               Data transfer records
-
-  DataAccessLayer/
-    Entities/           EF Core entities and enums
-    Repositories/       Data access boundary
-    Data/               AppDbContext, migrations, seed/bootstrapper
+User
+  -> PresentationLayer (MVC Controllers, Razor Views, SignalR Hub)
+  -> BusinessLayer     (services, DTOs, AI clients, parsing/indexing/retrieval)
+  -> DataAccessLayer   (repositories, EF Core, SQL Server)
 ```
 
-## Configuration
+`Program.cs` is the composition root. It references Business/DataAccess implementations for dependency registration and database initialization. Other Presentation code depends on Business interfaces and DTOs, not EF Core entities.
 
-Set local secrets with User Secrets:
+Interfaces are kept at layer boundaries, repositories, external clients, and replaceable chunking strategies. One-off internal orchestrators remain concrete. See [ARCHITECTURE_AUDIT.md](ARCHITECTURE_AUDIT.md) for the boundary checklist.
+
+## Run Locally
+
+Requirements: the .NET SDK selected by [`global.json`](global.json), SQL Server LocalDB (or another SQL Server), and internet access for configured AI providers and the SignalR browser-client CDN.
+
+Store secrets outside tracked configuration:
 
 ```powershell
 dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\PresentationLayer
 dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\PresentationLayer
-dotnet user-secrets set "SeedUsers:Admin:Password" "CHANGE_ME_ADMIN_PASSWORD" --project .\src\PresentationLayer
+dotnet user-secrets set "SeedUsers:Admin:Password" "YOUR_ADMIN_PASSWORD" --project .\src\PresentationLayer
 ```
 
-Default seeded accounts use `Prn222@123` when no password secret is configured:
+Gemini is required for chat replies. Hugging Face is optional; retrieval falls back to lexical search when embeddings are unavailable.
+
+```powershell
+dotnet restore .\Prn222Chatbot.sln
+dotnet build .\Prn222Chatbot.sln --no-restore
+dotnet run --project .\src\PresentationLayer
+```
+
+Open `http://localhost:5096` for the default `http` profile. Override the LocalDB connection in `appsettings.json` with User Secrets or `ConnectionStrings__DefaultConnection` when needed.
+
+Startup applies pending migrations and required settings. Demo data is inserted only when the database is empty, so later seed configuration changes do not overwrite stored data.
+
+## Demo Accounts
+
+Fresh databases use `Prn222@123` when no seed password secret is configured.
 
 | Role | Email |
 |---|---|
@@ -93,47 +60,39 @@ Default seeded accounts use `Prn222@123` when no password secret is configured:
 | Teacher | `teacher@prn222.local` |
 | Admin | `admin@prn222.local` |
 
-## Run Locally
-
-```powershell
-dotnet restore .\Prn222Chatbot.sln
-dotnet build .\Prn222Chatbot.sln
-# Optional: the application also applies pending migrations at startup.
-dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer --context AppDbContext
-dotnet run --project .\src\PresentationLayer --urls http://127.0.0.1:5100
-```
-
-## Main Pages
+## Main Routes
 
 | Route | Access | Purpose |
 |---|---|---|
-| `/account/login` | Anonymous | Login page |
-| `/chat` | Student, Teacher, Admin | Realtime RAG chat |
-| `/documents` | Student, Teacher, Admin | List, filter, upload, delete, inspect documents |
-| `/courses` | Teacher, Admin | Assigned course list for Teacher; full management for Admin |
-| `/admin/users` | Admin | User management |
+| `/chat` | All roles | RAG chat and session history |
+| `/documents` | All roles | Browse/filter; Teacher/Admin can upload and delete |
+| `/courses` | Teacher/Admin | Assigned courses or full management |
+| `/AdminUsers` | Admin | User CRUD, lockout, roles, and password reset |
 | `/settings` | Admin | Global chunking strategy |
-| `/subscriptions` | Student | Register, switch, or cancel an internal package |
-| `/subscriptions/dashboard` | Admin | Package management and registration statistics |
-| `/architecture` | Teacher, Admin | Architecture explanation |
+| `/subscriptions` | Student | Register, switch, or cancel a demo package |
+| `/subscriptions/dashboard` | Admin | Packages and registration statistics |
+| `/architecture` | Teacher/Admin | Current architecture overview |
 
-Sample data is created only on an empty database. Startup migrations and settings initialization do not overwrite edited users, passwords, courses, teacher assignments, packages, or subscriptions. Seed passwords are therefore applied only on the first empty-database initialization.
+## Project Layout
 
-The versioned document-hash upgrade recalculates legacy hashes once. If a chapter already contains duplicate normalized content, it keeps the earliest upload and removes later duplicates with their chunks and embeddings.
-
-## Verification
-
-```powershell
-dotnet build .\Prn222Chatbot.sln --no-restore
-dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer --context AppDbContext
-rg "FineTune|Benchmark|BackgroundIndexing|IIndexingQueue|DocumentIndexStatus" src\BusinessLayer src\PresentationLayer src\DataAccessLayer\Entities src\DataAccessLayer\Repositories -g "*.cs" -g "*.cshtml" -g "*.js"
+```text
+src/
+  PresentationLayer/
+    Controllers/  Hubs/  ViewModels/  Views/  wwwroot/
+  BusinessLayer/
+    Services/  DTOs/  AI/  Parsing/  Indexing/  Retrieval/
+  DataAccessLayer/
+    Entities/  Enums/  Repositories/  Data/
 ```
 
-Expected:
+## Database Notes
 
-- Build has `0 Warning(s)` and `0 Error(s)`.
-- Runtime code has no fine-tune, benchmark, background worker, or indexing progress symbols.
-- Document upload is limited to 20MB and 100 generated sections.
-- `PresentationLayer` references only `BusinessLayer`.
-- `BusinessLayer` references `DataAccessLayer`.
-- `DataAccessLayer` has no project references.
+Run migrations without starting the web app:
+
+```powershell
+dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer --context AppDbContext
+```
+
+`AppDbContextFactory` supports this design-time command. Migration files are append-only history; legacy migration names do not indicate current runtime features.
+
+The versioned document-hash bootstrap keeps the earliest document if old data contains duplicate normalized content within one chapter.

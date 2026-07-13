@@ -1,5 +1,4 @@
 using DataAccessLayer.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace DataAccessLayer.Data.Seed;
 
@@ -19,53 +18,25 @@ public static class Prn222SeedData
         (Guid.Parse("10000000-0000-0000-0000-000000000008"), 8, "CLO5", "Chapter 08: ASP.NET Core Application Services", "Service orchestration, dependency injection, request processing, and maintainable layered application design.")
     ];
 
-    public static async Task SeedAsync(AppDbContext db)
+    public static void AddTo(AppDbContext db)
     {
-        var course = await db.Courses.FirstOrDefaultAsync(x => x.Id == CourseId);
-        if (course is null)
+        db.Courses.Add(new Course
         {
-            db.Courses.Add(new Course
-            {
-                Id = CourseId,
-                Code = "PRN222",
-                Name = "Advanced Cross-Platform Application Programming With .NET",
-                Description = "Advanced cross-platform application programming with .NET: ASP.NET Core MVC, Blazor, SignalR, EF Core, asynchronous programming, and dependency injection.",
-                Tools = "Visual Studio 2022+, .NET 8+, SQL Server 2019+"
-            });
-        }
-        else
-        {
-            course.Code = "PRN222";
-            course.Name = "Advanced Cross-Platform Application Programming With .NET";
-            course.Description = "Advanced cross-platform application programming with .NET: ASP.NET Core MVC, Blazor, SignalR, EF Core, asynchronous programming, and dependency injection.";
-            course.Tools = "Visual Studio 2022+, .NET 8+, SQL Server 2019+";
-        }
+            Id = CourseId,
+            Code = "PRN222",
+            Name = "Advanced Cross-Platform Application Programming With .NET",
+            Description = "Advanced cross-platform application programming with .NET: ASP.NET Core MVC, Blazor, SignalR, EF Core, asynchronous programming, and dependency injection.",
+            Tools = "Visual Studio 2022+, .NET 8+, SQL Server 2019+"
+        });
 
-        foreach (var chapter in Chapters)
+        db.Chapters.AddRange(Chapters.Select(chapter => new Chapter
         {
-            var existing = await db.Chapters.FirstOrDefaultAsync(x => x.Id == chapter.Id);
-            if (existing is null)
-            {
-                db.Chapters.Add(new Chapter
-                {
-                    Id = chapter.Id,
-                    CourseId = CourseId,
-                    Order = chapter.Order,
-                    Clo = chapter.Clo,
-                    Title = chapter.Title,
-                    Summary = chapter.Summary
-                });
-            }
-            else
-            {
-                existing.CourseId = CourseId;
-                existing.Order = chapter.Order;
-                existing.Clo = chapter.Clo;
-                existing.Title = chapter.Title;
-                existing.Summary = chapter.Summary;
-            }
-        }
-
-        await db.SaveChangesAsync();
+            Id = chapter.Id,
+            CourseId = CourseId,
+            Order = chapter.Order,
+            Clo = chapter.Clo,
+            Title = chapter.Title,
+            Summary = chapter.Summary
+        }));
     }
 }

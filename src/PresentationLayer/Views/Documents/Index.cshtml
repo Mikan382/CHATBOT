@@ -113,7 +113,7 @@
                                     <td>@doc.CourseCode</td>
                                     <td class="chapter-cell">@doc.ChapterTitle</td>
                                     <td>@doc.ChunksCount</td>
-                                    <td class="small" data-utc="@doc.UploadedAtUtc.ToString("o")">@doc.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="small">@doc.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
                                     <td>
                                         <div class="action-cell">
                                         <a class="btn btn-sm btn-outline-primary" asp-controller="Documents" asp-action="Details" asp-route-id="@doc.Id">View</a>
@@ -122,6 +122,10 @@
                                             <form method="post" asp-controller="Documents" asp-action="Delete" asp-route-id="@doc.Id" class="document-delete-form">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="searchTerm" value="@Model.SearchTerm" />
+                                                @if (Model.SelectedCourseId.HasValue)
+                                                {
+                                                    <input type="hidden" name="courseId" value="@Model.SelectedCourseId.Value" />
+                                                }
                                                 @if (Model.SelectedChapterId.HasValue)
                                                 {
                                                     <input type="hidden" name="chapterId" value="@Model.SelectedChapterId.Value" />

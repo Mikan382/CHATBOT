@@ -1,6 +1,0 @@
-{
-  "name": "PRN222 RAG Chatbot",
-  "description": "ASP.NET Core MVC chatbot for PRN222 course documents with SQL Server, synchronous indexing, SignalR chat, Gemini RAG answers, internal subscriptions, and role-based administration.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BusinessLayer.DTOs;
 using BusinessLayer.Services;
 using PresentationLayer.ViewModels;
 
@@ -20,18 +21,18 @@ public class ChaptersController : BaseController
     [HttpGet]
     public async Task<IActionResult> Create(Guid courseId, CancellationToken cancellationToken)
     {
-        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
-        var model = new ChapterFormViewModel { CourseId = courseId };
-        ViewBag.Courses = courses;
-        return View(model);
+        return View(new ChapterFormViewModel
+        {
+            CourseId = courseId,
+            Courses = await ListManageableCoursesAsync(cancellationToken)
+        });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ChapterFormViewModel model, CancellationToken cancellationToken)
     {
-        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
-        ViewBag.Courses = courses;
+        model.Courses = await ListManageableCoursesAsync(cancellationToken);
 
         if (!ModelState.IsValid)
         {
@@ -60,8 +61,6 @@ public class ChaptersController : BaseController
             return NotFound();
         }
 
-        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
-        ViewBag.Courses = courses;
         var model = new ChapterFormViewModel
         {
             Id = chapter.Id,
@@ -69,7 +68,8 @@ public class ChaptersController : BaseController
             Order = chapter.Order,
             Clo = chapter.Clo,
             Title = chapter.Title,
-            Summary = chapter.Summary
+            Summary = chapter.Summary,
+            Courses = await ListManageableCoursesAsync(cancellationToken)
         };
         return View(model);
     }
@@ -79,8 +79,7 @@ public class ChaptersController : BaseController
     public async Task<IActionResult> Edit(Guid id, ChapterFormViewModel model, CancellationToken cancellationToken)
     {
         model.Id = id;
-        var courses = await _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
-        ViewBag.Courses = courses;
+        model.Courses = await ListManageableCoursesAsync(cancellationToken);
 
         if (!ModelState.IsValid)
         {
@@ -98,5 +97,10 @@ public class ChaptersController : BaseController
             model.Error = UserFacingError(ex);
             return View(model);
         }
+    }
+
+    private Task<IReadOnlyList<CourseDto>> ListManageableCoursesAsync(CancellationToken cancellationToken)
+    {
+        return _courseService.ListManageDtosAsync(CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
     }
 }

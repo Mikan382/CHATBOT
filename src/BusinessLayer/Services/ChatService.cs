@@ -1,10 +1,11 @@
 using System.Diagnostics;
 using System.Text.Json;
+using BusinessLayer.AI;
+using BusinessLayer.DTOs;
+using BusinessLayer.Retrieval;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
-using BusinessLayer.AI;
-using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.Services;
 
@@ -40,12 +41,6 @@ public class ChatService : IChatService
 
     public async Task<IReadOnlyList<ChatMessageDto>> GetHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
-        var session = await _chatRepository.GetOwnedSessionAsync(sessionId, userId, cancellationToken);
-        if (session is null)
-        {
-            return [];
-        }
-
         var messages = await _chatRepository.ListMessagesAsync(sessionId, userId, cancellationToken);
         return messages.Select(m => ToDto(m)).ToList();
     }
@@ -125,10 +120,7 @@ public class ChatService : IChatService
 
     public async Task ClearAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
-        if (!await _chatRepository.ClearMessagesAsync(sessionId, userId, cancellationToken))
-        {
-            throw new InvalidOperationException("Chat session was not found.");
-        }
+        await _chatRepository.ClearMessagesAsync(sessionId, userId, cancellationToken);
     }
 
     public async Task<IReadOnlyList<SessionListDto>> ListSessionsAsync(

@@ -1,4 +1,4 @@
-namespace BusinessLayer.Services;
+namespace BusinessLayer.DTOs;
 
 public record CitationDto(Guid ChunkId, string SourceName, string ChapterTitle, int ChunkIndex, string Text);
 
@@ -67,6 +67,11 @@ public record DocumentDetailsDto(
     IReadOnlyList<DocumentChunkViewDto> Chunks);
 
 public record ChapterSelectDto(Guid Id, Guid CourseId, int Order, string Title);
+
+public record DocumentIndexPageDto(
+    IReadOnlyList<CourseDto> Courses,
+    IReadOnlyList<ChapterSelectDto> Chapters,
+    IReadOnlyList<DocumentIndexDto> Documents);
 
 public record CourseFormDto(
     Guid Id,

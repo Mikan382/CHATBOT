@@ -1,3 +1,4 @@
+using BusinessLayer.DTOs;
 using BusinessLayer.Indexing;
 using DataAccessLayer.Repositories;
 
