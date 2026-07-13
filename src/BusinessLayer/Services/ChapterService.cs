@@ -1,6 +1,7 @@
+using BusinessLayer.DTOs;
+using BusinessLayer.Helpers;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Repositories;
-using BusinessLayer.Helpers;
 
 namespace BusinessLayer.Services;
 
@@ -119,11 +120,6 @@ public class ChapterService : IChapterService
         {
             throw new InvalidOperationException("You are not assigned to this course.");
         }
-    }
-
-    private static ChapterDto ToDto(Chapter chapter)
-    {
-        return new ChapterDto(chapter.Id, chapter.Order, chapter.Clo, chapter.Title, chapter.Summary);
     }
 
     private static void ValidateOrder(int order)

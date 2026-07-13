@@ -1,7 +1,6 @@
 namespace BusinessLayer.Retrieval;
 
 /// <summary>
-/// Shared cosine similarity calculation.
 /// Shared cosine similarity helper for embedding retrieval.
 /// </summary>
 public static class CosineSimilarity

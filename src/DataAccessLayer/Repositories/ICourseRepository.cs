@@ -5,7 +5,6 @@ namespace DataAccessLayer.Repositories;
 public interface ICourseRepository
 {
     Task<IReadOnlyList<Course>> ListAsync(string? searchTerm, Guid? teacherId, CancellationToken cancellationToken);
-    Task<IReadOnlyList<Course>> ListWithChaptersAsync(Guid? teacherId, CancellationToken cancellationToken);
     Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task AddAsync(Course course, CancellationToken cancellationToken);
     Task SaveWithTeacherAssignmentsAsync(Course course, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken);

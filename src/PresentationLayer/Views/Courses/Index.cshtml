@@ -1,8 +1,6 @@
-@model IReadOnlyList<CourseListDto>
+@model CourseIndexViewModel
 @{
     ViewData["Title"] = "Courses";
-    var searchTerm = ViewBag.SearchTerm as string;
-    var canManageCourses = ViewBag.CanManageCourses as bool? == true;
 }
 
 <div class="card app-card table-card">
@@ -12,7 +10,7 @@
                 <h4 class="card-title mb-1">Courses</h4>
                 <div class="text-muted small">Manage courses and chapters shown to students.</div>
             </div>
-            @if (canManageCourses)
+            @if (Model.CanManageCourses)
             {
                 <a class="btn btn-primary" asp-controller="Courses" asp-action="Create">Create Course</a>
             }
@@ -20,7 +18,7 @@
 
         <form class="row g-2 mb-3" method="get" asp-controller="Courses" asp-action="Index">
             <div class="col-md-10">
-                <input class="form-control" name="searchTerm" value="@searchTerm" placeholder="Search course code or name..." />
+                <input class="form-control" name="searchTerm" value="@Model.SearchTerm" placeholder="Search course code or name..." />
             </div>
             <div class="col-md-2 d-flex gap-2">
                 <button class="btn btn-primary flex-fill" type="submit">Search</button>
@@ -41,13 +39,13 @@
                 </tr>
                 </thead>
                 <tbody>
-                @if (Model.Count == 0)
+                @if (Model.Courses.Count == 0)
                 {
                     <tr><td colspan="6" class="text-muted small py-3">No courses match the current filter or assignment.</td></tr>
                 }
                 else
                 {
-                    @foreach (var course in Model)
+                    @foreach (var course in Model.Courses)
                     {
                         <tr>
                             <td><strong>@course.Code</strong></td>
@@ -58,7 +56,7 @@
                             <td>
                                 <div class="action-cell">
                                 <a class="btn btn-sm btn-outline-primary" asp-controller="Courses" asp-action="Chapters" asp-route-id="@course.Id">Chapters</a>
-                                @if (canManageCourses)
+                                @if (Model.CanManageCourses)
                                 {
                                     <a class="btn btn-sm btn-outline-secondary" asp-controller="Courses" asp-action="Edit" asp-route-id="@course.Id">Edit</a>
                                     <form method="post" asp-controller="Courses" asp-action="Delete" asp-route-id="@course.Id" onsubmit="return confirm('Delete this course? It must have no chapters.');">

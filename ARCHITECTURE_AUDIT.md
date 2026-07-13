@@ -1,6 +1,6 @@
 # Architecture Audit - Current State
 
-Date: 2026-07-12
+Date: 2026-07-13
 
 ## Target Diagram
 
@@ -21,8 +21,8 @@ User
 
 | Rule | Current state |
 |---|---|
-| `PresentationLayer` references only `BusinessLayer` | Pass |
-| `Program.cs` does not import `DataAccessLayer` or EF Core directly | Pass |
+| `Program.cs` is the composition root and registers Business/DataAccess implementations | Pass |
+| Controllers, Chat API, SignalR Hub, and ViewModels do not import DataAccess/EF Core | Pass |
 | Controllers, Chat API, and SignalR Hub call Business services | Pass |
 | Business service interfaces and DTOs do not expose DAL entity/enum types | Pass |
 | Business services do not inject or query `AppDbContext` directly | Pass |

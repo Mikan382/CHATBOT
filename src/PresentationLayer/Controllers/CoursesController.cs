@@ -21,9 +21,12 @@ public class CoursesController : BaseController
     public async Task<IActionResult> Index(string? searchTerm, CancellationToken cancellationToken)
     {
         var courses = await _courseService.ListManageAsync(searchTerm, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
-        ViewBag.SearchTerm = searchTerm;
-        ViewBag.CanManageCourses = User.IsInRole("Admin");
-        return View(courses);
+        return View(new CourseIndexViewModel
+        {
+            Courses = courses,
+            SearchTerm = searchTerm,
+            CanManageCourses = User.IsInRole("Admin")
+        });
     }
 
     [HttpGet]
@@ -138,9 +141,7 @@ public class CoursesController : BaseController
             return NotFound();
         }
 
-        var chapters = await _courseService.ListChaptersAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
-        ViewBag.Course = course;
-        return View(chapters);
+        return View(new CourseChaptersViewModel { Course = course });
     }
 
     [HttpPost]

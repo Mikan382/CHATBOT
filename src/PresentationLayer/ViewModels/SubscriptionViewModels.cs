@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using BusinessLayer.Services;
+using BusinessLayer.DTOs;
 
 namespace PresentationLayer.ViewModels;
 

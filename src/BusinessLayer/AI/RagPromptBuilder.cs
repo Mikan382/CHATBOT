@@ -1,3 +1,5 @@
+using BusinessLayer.DTOs;
+
 namespace BusinessLayer.AI;
 
 public static class RagPromptBuilder

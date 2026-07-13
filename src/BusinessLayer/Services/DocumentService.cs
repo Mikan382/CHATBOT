@@ -1,9 +1,9 @@
+using BusinessLayer.DTOs;
+using BusinessLayer.Indexing;
+using BusinessLayer.Parsing;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
-using BusinessLayer.Indexing;
-using BusinessLayer.Parsing;
-using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.Services;
 
@@ -29,7 +29,7 @@ public class DocumentService : IDocumentService
         _indexingService = indexingService;
     }
 
-    public async Task<(IReadOnlyList<ChapterSelectDto> Chapters, IReadOnlyList<DocumentIndexDto> Documents)> GetIndexDataAsync(
+    public async Task<DocumentIndexPageDto> GetIndexDataAsync(
         string? searchTerm,
         Guid? courseId,
         Guid? chapterId,
@@ -39,8 +39,7 @@ public class DocumentService : IDocumentService
         CancellationToken cancellationToken)
     {
         var teacherId = TeacherFilter(userId, isAdmin, isTeacher);
-        var courses = await _courseRepository.ListWithChaptersAsync(teacherId, cancellationToken);
-        var courseIds = courses.Select(x => x.Id).ToHashSet();
+        var courses = await _courseRepository.ListAsync(null, teacherId, cancellationToken);
         var chapters = courses
             .SelectMany(x => x.Chapters)
             .OrderBy(x => x.Course?.Code)
@@ -49,18 +48,12 @@ public class DocumentService : IDocumentService
         var documents = await _documentRepository.ListWithChapterAndChunksAsync(searchTerm, courseId, chapterId, teacherId, cancellationToken);
 
         var chapterDtos = chapters
-            .Where(c => courseIds.Contains(c.CourseId))
             .Select(c => new ChapterSelectDto(c.Id, c.CourseId, c.Order, c.Title))
             .ToList();
         var documentDtos = documents.Select(ToIndexDto).ToList();
+        var courseDtos = courses.Select(ToCourseDto).ToList();
 
-        return (chapterDtos, documentDtos);
-    }
-
-    public async Task<IReadOnlyList<CourseDto>> ListCoursesAsync(Guid userId, bool isAdmin, bool isTeacher, CancellationToken cancellationToken)
-    {
-        var courses = await _courseRepository.ListWithChaptersAsync(TeacherFilter(userId, isAdmin, isTeacher), cancellationToken);
-        return courses.Select(ToCourseDto).ToList();
+        return new DocumentIndexPageDto(courseDtos, chapterDtos, documentDtos);
     }
 
     public async Task<DocumentDetailsDto> GetDetailsAsync(Guid id, CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using BusinessLayer.DTOs;
 
 namespace PresentationLayer.ViewModels;
 
@@ -20,5 +21,6 @@ public class ChapterFormViewModel
     public string Title { get; set; } = "";
 
     public string? Summary { get; set; }
+    public IReadOnlyList<CourseDto> Courses { get; set; } = [];
     public string? Error { get; set; }
 }

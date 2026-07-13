@@ -39,26 +39,6 @@ public class CourseRepository : ICourseRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Course>> ListWithChaptersAsync(Guid? teacherId, CancellationToken cancellationToken)
-    {
-        var query = _db.Courses
-            .Include(x => x.Chapters)
-            .Include(x => x.TeacherAssignments)
-            .ThenInclude(x => x.Teacher)
-            .AsSplitQuery()
-            .AsQueryable();
-
-        if (teacherId.HasValue)
-        {
-            query = query.Where(x => x.TeacherAssignments.Any(t => t.TeacherUserId == teacherId.Value));
-        }
-
-        return await query
-            .OrderBy(x => x.Code)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         return await _db.Courses
@@ -139,5 +119,4 @@ public class CourseRepository : ICourseRepository
             x => x.CourseId == courseId && x.TeacherUserId == teacherId,
             cancellationToken);
     }
-
 }

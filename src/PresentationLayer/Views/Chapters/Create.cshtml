@@ -1,7 +1,6 @@
 @model ChapterFormViewModel
 @{
     ViewData["Title"] = "Create Chapter";
-    var courses = (IReadOnlyList<CourseDto>)ViewBag.Courses;
 }
 
 <div class="row justify-content-center">
@@ -19,7 +18,7 @@
                         <div class="col-md-12">
                             <label class="form-label" asp-for="CourseId">Course</label>
                             <select class="form-select" asp-for="CourseId">
-                                @foreach (var course in courses)
+                                @foreach (var course in Model.Courses)
                                 {
                                     <option value="@course.Id">@course.Code - @course.Name</option>
                                 }

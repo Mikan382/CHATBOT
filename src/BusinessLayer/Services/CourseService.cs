@@ -1,35 +1,33 @@
+using BusinessLayer.DTOs;
+using BusinessLayer.Helpers;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
-using BusinessLayer.Helpers;
 
 namespace BusinessLayer.Services;
 
 public class CourseService : ICourseService
 {
     private readonly ICourseRepository _courseRepository;
-    private readonly IChapterRepository _chapterRepository;
     private readonly IUserAdminRepository _userRepository;
 
     public CourseService(
         ICourseRepository courseRepository,
-        IChapterRepository chapterRepository,
         IUserAdminRepository userRepository)
     {
         _courseRepository = courseRepository;
-        _chapterRepository = chapterRepository;
         _userRepository = userRepository;
     }
 
     public async Task<IReadOnlyList<CourseDto>> ListDtosAsync(CancellationToken cancellationToken)
     {
-        var courses = await _courseRepository.ListWithChaptersAsync(null, cancellationToken);
+        var courses = await _courseRepository.ListAsync(null, null, cancellationToken);
         return courses.Select(ToDto).ToList();
     }
 
     public async Task<IReadOnlyList<CourseDto>> ListManageDtosAsync(Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
-        var courses = await _courseRepository.ListWithChaptersAsync(TeacherFilter(userId, isAdmin), cancellationToken);
+        var courses = await _courseRepository.ListAsync(null, TeacherFilter(userId, isAdmin), cancellationToken);
         return courses.Select(ToDto).ToList();
     }
 
@@ -147,17 +145,6 @@ public class CourseService : ICourseService
         {
             throw new InvalidOperationException("Course was not found.");
         }
-    }
-
-    public async Task<IReadOnlyList<ChapterDto>> ListChaptersAsync(Guid courseId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
-    {
-        if (!await CanManageCourseAsync(courseId, userId, isAdmin, cancellationToken))
-        {
-            throw new InvalidOperationException("You are not assigned to this course.");
-        }
-
-        var chapters = await _chapterRepository.ListByCourseAsync(courseId, cancellationToken);
-        return chapters.Select(ToDto).ToList();
     }
 
     private async Task<bool> CanManageCourseAsync(Guid courseId, Guid userId, bool isAdmin, CancellationToken cancellationToken)

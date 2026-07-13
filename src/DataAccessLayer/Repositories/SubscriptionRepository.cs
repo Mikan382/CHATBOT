@@ -56,7 +56,6 @@ public class SubscriptionRepository : ISubscriptionRepository
     {
         return await _db.StudentSubscriptions
             .Include(x => x.Plan)
-            .AsTracking()
             .Where(x => x.StudentUserId == studentUserId
                 && x.Status == SubscriptionStatusNames.Active
                 && (!x.ExpiresAtUtc.HasValue || x.ExpiresAtUtc > nowUtc))
@@ -66,35 +65,25 @@ public class SubscriptionRepository : ISubscriptionRepository
 
     public async Task ReplaceCurrentSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-        try
+        var current = await _db.StudentSubscriptions
+            .Where(x => x.StudentUserId == subscription.StudentUserId && x.Status == SubscriptionStatusNames.Active)
+            .OrderByDescending(x => x.StartedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (current is not null)
         {
-            var current = await _db.StudentSubscriptions
-                .Where(x => x.StudentUserId == subscription.StudentUserId && x.Status == SubscriptionStatusNames.Active)
-                .OrderByDescending(x => x.StartedAtUtc)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (current is not null)
+            if (current.SubscriptionPlanId == subscription.SubscriptionPlanId
+                && (!current.ExpiresAtUtc.HasValue || current.ExpiresAtUtc > subscription.CreatedAtUtc))
             {
-                if (current.SubscriptionPlanId == subscription.SubscriptionPlanId
-                    && (!current.ExpiresAtUtc.HasValue || current.ExpiresAtUtc > subscription.CreatedAtUtc))
-                {
-                    throw new InvalidOperationException("You are already registered for this package.");
-                }
-
-                current.Status = SubscriptionStatusNames.Replaced;
-                current.UpdatedAtUtc = subscription.CreatedAtUtc;
+                throw new InvalidOperationException("You are already registered for this package.");
             }
 
-            _db.StudentSubscriptions.Add(subscription);
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            current.Status = SubscriptionStatusNames.Replaced;
+            current.UpdatedAtUtc = subscription.CreatedAtUtc;
         }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+
+        _db.StudentSubscriptions.Add(subscription);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<int> CountStudentsAsync(CancellationToken cancellationToken)

@@ -27,12 +27,11 @@ public class DocumentsController : BaseController
         var isAdmin = User.IsInRole("Admin");
         var isTeacher = User.IsInRole("Teacher");
         var data = await _documentService.GetIndexDataAsync(searchTerm, courseId, chapterId, CurrentUserId(), isAdmin, isTeacher, cancellationToken);
-        var courses = await _documentService.ListCoursesAsync(CurrentUserId(), isAdmin, isTeacher, cancellationToken);
 
         var model = new DocumentIndexViewModel
         {
             Chapters = data.Chapters,
-            Courses = courses,
+            Courses = data.Courses,
             Documents = data.Documents,
             SearchTerm = searchTerm,
             SelectedCourseId = courseId,
@@ -84,7 +83,12 @@ public class DocumentsController : BaseController
     [HttpPost]
     [Authorize(Roles = "Teacher,Admin")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(Guid id, string? searchTerm, Guid? chapterId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(
+        Guid id,
+        string? searchTerm,
+        Guid? courseId,
+        Guid? chapterId,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -96,6 +100,6 @@ public class DocumentsController : BaseController
             SetFlashError(UserFacingError(ex));
         }
 
-        return RedirectToAction("Index", new { searchTerm, chapterId });
+        return RedirectToAction("Index", new { searchTerm, courseId, chapterId });
     }
 }
