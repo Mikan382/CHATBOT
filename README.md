@@ -1,6 +1,6 @@
 # PRN222 RAG Chatbot
 
-ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 assignment. The current scope is demo/internal: course and chapter management, teacher-course assignment, document upload with synchronous indexing, RAG chat with citations, and admin-managed chunking strategy.
+ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 assignment. The scope is demo/internal: course administration, synchronous document indexing, searchable RAG chat history, internal subscription registration, and dashboard statistics.
 
 ## Project Status
 
@@ -22,11 +22,13 @@ ASP.NET Core MVC application for a role-based RAG chatbot used in the PRN222 ass
 - Teachers manage only assigned courses, chapters, and documents.
 - Upload `.pdf`, `.docx`, `.pptx`, `.txt`, and `.md` materials.
 - Upload runs synchronously: extract text, check duplicate content, chunk, embed when configured, then save.
-- Duplicate documents are blocked per chapter by `ContentHash`.
+- Duplicate documents are blocked per chapter by a Unicode/whitespace-normalized `ContentHash` that preserves technical punctuation.
 - RAG chat through SignalR with SQL Server chat history and citations.
+- Search, open, rename, clear, and delete owned chat sessions.
 - Hugging Face embedding retrieval when configured; lexical fallback otherwise.
 - Gemini-based answer generation.
 - Admin page for global chunking strategy: `paragraph`, `fixed_1000`, `sentence`.
+- Internal subscription packages, student registration, cancellation, and Admin statistics; no payment or feature entitlement.
 
 Removed from current scope:
 
@@ -46,6 +48,7 @@ Removed from current scope:
 | Manage courses/teacher assignment | No | No | Yes |
 | User management | No | No | Yes |
 | Chunking settings | No | No | Yes |
+| Internal subscription registration | Yes | No | Dashboard |
 
 ## Solution Layout
 
@@ -95,6 +98,7 @@ Default seeded accounts use `Prn222@123` when no password secret is configured:
 ```powershell
 dotnet restore .\Prn222Chatbot.sln
 dotnet build .\Prn222Chatbot.sln
+# Optional: the application also applies pending migrations at startup.
 dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer --context AppDbContext
 dotnet run --project .\src\PresentationLayer --urls http://127.0.0.1:5100
 ```
@@ -109,7 +113,13 @@ dotnet run --project .\src\PresentationLayer --urls http://127.0.0.1:5100
 | `/courses` | Teacher, Admin | Assigned course list for Teacher; full management for Admin |
 | `/admin/users` | Admin | User management |
 | `/settings` | Admin | Global chunking strategy |
+| `/subscriptions` | Student | Register, switch, or cancel an internal package |
+| `/subscriptions/dashboard` | Admin | Package management and registration statistics |
 | `/architecture` | Teacher, Admin | Architecture explanation |
+
+Sample data is created only on an empty database. Startup migrations and settings initialization do not overwrite edited users, passwords, courses, teacher assignments, packages, or subscriptions. Seed passwords are therefore applied only on the first empty-database initialization.
+
+The versioned document-hash upgrade recalculates legacy hashes once. If a chapter already contains duplicate normalized content, it keeps the earliest upload and removes later duplicates with their chunks and embeddings.
 
 ## Verification
 
@@ -123,6 +133,7 @@ Expected:
 
 - Build has `0 Warning(s)` and `0 Error(s)`.
 - Runtime code has no fine-tune, benchmark, background worker, or indexing progress symbols.
+- Document upload is limited to 20MB and 100 generated sections.
 - `PresentationLayer` references only `BusinessLayer`.
 - `BusinessLayer` references `DataAccessLayer`.
 - `DataAccessLayer` has no project references.

@@ -26,11 +26,3 @@ public class CourseFormViewModel
 
     public string? Error { get; set; }
 }
-
-public class CourseIndexViewModel
-{
-    public IReadOnlyList<CourseListDto> Courses { get; set; } = [];
-    public string? SearchTerm { get; set; }
-    public string? Message { get; set; }
-    public string? Error { get; set; }
-}

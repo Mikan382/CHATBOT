@@ -10,6 +10,10 @@ namespace DataAccessLayer.Data;
 public static class DatabaseBootstrapper
 {
     private const string DefaultChunkingStrategy = "paragraph";
+    private const string DemoSeedVersionKey = "DemoSeedVersion";
+    private const string DemoSeedVersion = "1";
+    private const string DocumentHashVersionKey = "DocumentHashVersion";
+    private const string DocumentHashVersion = "3";
     private static readonly Guid FreePlanId = Guid.Parse("20000000-0000-0000-0000-000000000001");
     private static readonly Guid StandardPlanId = Guid.Parse("20000000-0000-0000-0000-000000000002");
     private static readonly Guid PremiumPlanId = Guid.Parse("20000000-0000-0000-0000-000000000003");
@@ -17,29 +21,123 @@ public static class DatabaseBootstrapper
     public static async Task InitializeAsync(
         IServiceProvider services,
         Func<ApplicationUser, string, string> hashPassword,
-        Func<ApplicationUser, string, bool> verifyPassword)
+        Func<string, string> computeDocumentHash)
     {
         var db = services.GetRequiredService<AppDbContext>();
         var configuration = services.GetRequiredService<IConfiguration>();
 
         await db.Database.MigrateAsync();
-        await Prn222SeedData.SeedAsync(db);
-        var users = await SeedUsersAsync(db, configuration, hashPassword, verifyPassword);
-        await SeedTeacherAssignmentAsync(db, users.Teacher.Id);
         await SeedSettingsAsync(db);
-        await SeedSubscriptionPlansAsync(db);
-        await SeedStudentSubscriptionAsync(db, users.Student.Id);
+        await SeedDemoDataOnceAsync(db, configuration, hashPassword);
+        await BackfillDocumentHashesAsync(db, computeDocumentHash);
+    }
+
+    private static async Task BackfillDocumentHashesAsync(
+        AppDbContext db,
+        Func<string, string> computeDocumentHash)
+    {
+        var version = await db.SystemSettings
+            .FirstOrDefaultAsync(x => x.Key == DocumentHashVersionKey);
+        if (version?.Value == DocumentHashVersion)
+        {
+            return;
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        var documents = await db.Documents
+            .OrderBy(x => x.UploadedAtUtc)
+            .ThenBy(x => x.Id)
+            .ToListAsync();
+
+        foreach (var document in documents)
+        {
+            document.ContentHash = $"tmp{document.Id:N}";
+        }
+        await db.SaveChangesAsync();
+
+        var seen = new HashSet<(Guid ChapterId, string Hash)>();
+        var duplicateCount = 0;
+        foreach (var document in documents)
+        {
+            var hash = computeDocumentHash(document.ContentText);
+            if (!seen.Add((document.ChapterId, hash)))
+            {
+                db.Documents.Remove(document);
+                duplicateCount++;
+                continue;
+            }
+
+            document.ContentHash = hash;
+        }
+
+        if (version is null)
+        {
+            db.SystemSettings.Add(new SystemSetting
+            {
+                Key = DocumentHashVersionKey,
+                Value = DocumentHashVersion,
+                UpdatedAtUtc = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            version.Value = DocumentHashVersion;
+            version.UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
+        if (duplicateCount > 0)
+        {
+            Console.WriteLine($"[DATA] Removed {duplicateCount} duplicate document(s) while backfilling content hashes.");
+        }
+    }
+
+    private static async Task SeedDemoDataOnceAsync(
+        AppDbContext db,
+        IConfiguration configuration,
+        Func<ApplicationUser, string, string> hashPassword)
+    {
+        if (await db.SystemSettings.AnyAsync(x => x.Key == DemoSeedVersionKey))
+        {
+            return;
+        }
+
+        var hasExistingData = await db.Users.AnyAsync()
+            || await db.Courses.AnyAsync()
+            || await db.SubscriptionPlans.AnyAsync()
+            || await db.StudentSubscriptions.AnyAsync()
+            || await db.Documents.AnyAsync()
+            || await db.ChatSessions.AnyAsync();
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        if (!hasExistingData)
+        {
+            await Prn222SeedData.SeedAsync(db);
+            var users = await SeedUsersAsync(db, configuration, hashPassword);
+            await SeedTeacherAssignmentAsync(db, users.Teacher.Id);
+            await SeedSubscriptionPlansAsync(db);
+            await SeedStudentSubscriptionAsync(db, users.Student.Id);
+        }
+
+        db.SystemSettings.Add(new SystemSetting
+        {
+            Key = DemoSeedVersionKey,
+            Value = DemoSeedVersion,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     private static async Task<(ApplicationUser Student, ApplicationUser Teacher)> SeedUsersAsync(
         AppDbContext db,
         IConfiguration configuration,
-        Func<ApplicationUser, string, string> hashPassword,
-        Func<ApplicationUser, string, bool> verifyPassword)
+        Func<ApplicationUser, string, string> hashPassword)
     {
-        var student = await SeedUserAsync(db, configuration, hashPassword, verifyPassword, "Student", "student@prn222.local", "Student Demo", UserRoleNames.Student);
-        var teacher = await SeedUserAsync(db, configuration, hashPassword, verifyPassword, "Teacher", "teacher@prn222.local", "Teacher Demo", UserRoleNames.Teacher);
-        var admin = await SeedUserAsync(db, configuration, hashPassword, verifyPassword, "Admin", "admin@prn222.local", "Admin Demo", UserRoleNames.Admin);
+        var student = await SeedUserAsync(db, configuration, hashPassword, "Student", "student@prn222.local", "Student Demo", UserRoleNames.Student);
+        var teacher = await SeedUserAsync(db, configuration, hashPassword, "Teacher", "teacher@prn222.local", "Teacher Demo", UserRoleNames.Teacher);
+        var admin = await SeedUserAsync(db, configuration, hashPassword, "Admin", "admin@prn222.local", "Admin Demo", UserRoleNames.Admin);
 
         _ = admin;
         await db.SaveChangesAsync();
@@ -50,7 +148,6 @@ public static class DatabaseBootstrapper
         AppDbContext db,
         IConfiguration configuration,
         Func<ApplicationUser, string, string> hashPassword,
-        Func<ApplicationUser, string, bool> verifyPassword,
         string key,
         string defaultEmail,
         string defaultDisplayName,
@@ -80,14 +177,6 @@ public static class DatabaseBootstrapper
             user.PasswordHash = hashPassword(user, password);
             db.Users.Add(user);
             return user;
-        }
-
-        user.DisplayName = displayName;
-        user.Role = role;
-        user.UpdatedAtUtc = DateTime.UtcNow;
-        if (string.IsNullOrWhiteSpace(user.PasswordHash) || !verifyPassword(user, password))
-        {
-            user.PasswordHash = hashPassword(user, password);
         }
 
         return user;
@@ -165,23 +254,12 @@ public static class DatabaseBootstrapper
 
         foreach (var seed in plans)
         {
-            var plan = await db.SubscriptionPlans.FirstOrDefaultAsync(x => x.Id == seed.Id);
-            if (plan is null)
+            if (!await db.SubscriptionPlans.AnyAsync(x => x.Id == seed.Id))
             {
                 seed.CreatedAtUtc = DateTime.UtcNow;
                 seed.UpdatedAtUtc = DateTime.UtcNow;
                 db.SubscriptionPlans.Add(seed);
-                continue;
             }
-
-            plan.Code = seed.Code;
-            plan.Name = seed.Name;
-            plan.Description = seed.Description;
-            plan.MonthlyPrice = seed.MonthlyPrice;
-            plan.DurationDays = seed.DurationDays;
-            plan.SortOrder = seed.SortOrder;
-            plan.IsActive = seed.IsActive;
-            plan.UpdatedAtUtc = DateTime.UtcNow;
         }
 
         await db.SaveChangesAsync();
@@ -189,8 +267,7 @@ public static class DatabaseBootstrapper
 
     private static async Task SeedStudentSubscriptionAsync(AppDbContext db, Guid studentId)
     {
-        var exists = await db.StudentSubscriptions.AnyAsync(
-            x => x.StudentUserId == studentId && x.Status == SubscriptionStatusNames.Active);
+        var exists = await db.StudentSubscriptions.AnyAsync(x => x.StudentUserId == studentId);
         if (exists)
         {
             return;

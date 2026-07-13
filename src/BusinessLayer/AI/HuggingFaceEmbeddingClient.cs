@@ -70,28 +70,44 @@ public class HuggingFaceEmbeddingClient : IEmbeddingClient
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        try
         {
-            _logger.LogWarning("Hugging Face embedding API returned {StatusCode}: {Body}", response.StatusCode, json);
-            throw new InvalidOperationException($"Hugging Face embedding API returned status {(int)response.StatusCode}.");
+            response = await _httpClient.SendAsync(request, cancellationToken);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new InvalidOperationException("Hugging Face embedding API request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException("Hugging Face embedding API is unavailable.", ex);
         }
 
-        using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
-        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error))
+        using (response)
         {
-            throw new InvalidOperationException($"Hugging Face embedding API returned an error: {error.GetString()}");
-        }
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Hugging Face embedding API returned status {StatusCode}.", response.StatusCode);
+                throw new InvalidOperationException($"Hugging Face embedding API returned status {(int)response.StatusCode}.");
+            }
 
-        var vector = ReadVector(root);
-        if (vector.Length == 0)
-        {
-            throw new InvalidOperationException("Hugging Face embedding API did not return a vector.");
-        }
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error))
+            {
+                throw new InvalidOperationException($"Hugging Face embedding API returned an error: {error.GetString()}");
+            }
 
-        return vector;
+            var vector = ReadVector(root);
+            if (vector.Length == 0)
+            {
+                throw new InvalidOperationException("Hugging Face embedding API did not return a vector.");
+            }
+
+            return vector;
+        }
     }
 
     private static float[] ReadVector(JsonElement element)

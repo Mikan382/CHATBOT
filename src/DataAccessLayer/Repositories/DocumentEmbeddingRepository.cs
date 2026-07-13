@@ -13,24 +13,6 @@ public class DocumentEmbeddingRepository : IDocumentEmbeddingRepository
         _db = db;
     }
 
-    public async Task ReplaceEmbeddingsAsync(IReadOnlyList<DocumentChunkEmbedding> embeddings, CancellationToken cancellationToken)
-    {
-        if (embeddings.Count == 0)
-        {
-            return;
-        }
-
-        var chunkIds = embeddings.Select(x => x.DocumentChunkId).Distinct().ToList();
-        var modelNames = embeddings.Select(x => x.ModelName).Distinct().ToList();
-
-        await _db.DocumentChunkEmbeddings
-            .Where(x => chunkIds.Contains(x.DocumentChunkId) && modelNames.Contains(x.ModelName))
-            .ExecuteDeleteAsync(cancellationToken);
-
-        _db.DocumentChunkEmbeddings.AddRange(embeddings);
-        await _db.SaveChangesAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyList<DocumentChunkEmbedding>> ListByModelWithChunksAsync(string modelName, Guid? courseId, CancellationToken cancellationToken)
     {
         var query = _db.DocumentChunkEmbeddings

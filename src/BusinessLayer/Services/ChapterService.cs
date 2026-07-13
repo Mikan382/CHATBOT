@@ -15,13 +15,6 @@ public class ChapterService : IChapterService
         _chapterRepository = chapterRepository;
     }
 
-    public async Task<IReadOnlyList<ChapterDto>> ListByCourseAsync(Guid courseId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
-    {
-        await EnsureCanManageCourseAsync(courseId, userId, isAdmin, cancellationToken);
-        var chapters = await _chapterRepository.ListByCourseAsync(courseId, cancellationToken);
-        return chapters.Select(ToDto).ToList();
-    }
-
     public async Task<ChapterFormDto?> GetEditableAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
         var chapter = await _chapterRepository.GetByIdAsync(id, cancellationToken);

@@ -16,9 +16,14 @@ public class ChatRepository : IChatRepository
 
     public async Task<ChatSession> EnsureSessionAsync(Guid sessionId, Guid userId, Guid courseId, CancellationToken cancellationToken)
     {
-        var session = await _db.ChatSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+        var session = await _db.ChatSessions.FirstOrDefaultAsync(x => x.Id == sessionId, cancellationToken);
         if (session is not null)
         {
+            if (session.UserId != userId)
+            {
+                throw new InvalidOperationException("Chat session was not found.");
+            }
+
             if (session.CourseId != courseId)
             {
                 session.CourseId = courseId;
@@ -99,11 +104,21 @@ public class ChatRepository : IChatRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    public async Task<bool> ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
+        var session = await _db.ChatSessions
+            .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+        if (session is null)
+        {
+            return false;
+        }
+
         await _db.ChatMessages
             .Where(x => x.ChatSessionId == sessionId && x.ChatSession!.UserId == userId)
             .ExecuteDeleteAsync(cancellationToken);
+        session.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<IReadOnlyList<ChatMessage>> ListRecentMessagesAsync(Guid sessionId, Guid userId, int take, CancellationToken cancellationToken)
@@ -117,10 +132,20 @@ public class ChatRepository : IChatRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ChatSession>> ListSessionsAsync(Guid userId, int take, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ChatSession>> ListSessionsAsync(
+        Guid userId,
+        string? searchTerm,
+        int take,
+        CancellationToken cancellationToken)
     {
-        return await _db.ChatSessions
-            .Where(x => x.UserId == userId)
+        var query = _db.ChatSessions.Where(x => x.UserId == userId);
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim();
+            query = query.Where(x => x.Title.Contains(term) || x.Messages.Any(m => m.Content.Contains(term)));
+        }
+
+        return await query
             .OrderByDescending(x => x.UpdatedAtUtc)
             .Take(take)
             .AsNoTracking()
@@ -137,6 +162,7 @@ public class ChatRepository : IChatRepository
         }
 
         session.Title = title;
+        session.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
         return true;
     }

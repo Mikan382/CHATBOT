@@ -13,15 +13,6 @@ public class CourseRepository : ICourseRepository
         _db = db;
     }
 
-    public async Task<Course> GetCurrentWithChaptersAsync(CancellationToken cancellationToken)
-    {
-        return await _db.Courses
-            .Include(x => x.Chapters)
-            .AsNoTracking()
-            .OrderBy(x => x.Code)
-            .FirstAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyList<Course>> ListAsync(string? searchTerm, Guid? teacherId, CancellationToken cancellationToken)
     {
         var query = _db.Courses
@@ -78,25 +69,39 @@ public class CourseRepository : ICourseRepository
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task<Course?> GetByCodeAsync(string code, CancellationToken cancellationToken)
-    {
-        return await _db.Courses
-            .Include(x => x.Chapters)
-            .Include(x => x.TeacherAssignments)
-            .ThenInclude(x => x.Teacher)
-            .AsSplitQuery()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
-    }
-
     public async Task AddAsync(Course course, CancellationToken cancellationToken)
     {
         _db.Courses.Add(course);
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    public async Task SaveWithTeacherAssignmentsAsync(
+        Course course,
+        IReadOnlyList<Guid> teacherIds,
+        CancellationToken cancellationToken)
     {
+        var selectedIds = teacherIds.Distinct().ToHashSet();
+        var removals = course.TeacherAssignments
+            .Where(x => !selectedIds.Contains(x.TeacherUserId))
+            .ToList();
+
+        foreach (var assignment in removals)
+        {
+            course.TeacherAssignments.Remove(assignment);
+            _db.CourseTeachers.Remove(assignment);
+        }
+
+        var existingIds = course.TeacherAssignments.Select(x => x.TeacherUserId).ToHashSet();
+        foreach (var teacherId in selectedIds.Where(x => !existingIds.Contains(x)))
+        {
+            course.TeacherAssignments.Add(new CourseTeacher
+            {
+                CourseId = course.Id,
+                TeacherUserId = teacherId,
+                AssignedAtUtc = DateTime.UtcNow
+            });
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -135,33 +140,4 @@ public class CourseRepository : ICourseRepository
             cancellationToken);
     }
 
-    public async Task SetTeacherAssignmentsAsync(Guid courseId, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken)
-    {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            await _db.CourseTeachers
-                .Where(x => x.CourseId == courseId)
-                .ExecuteDeleteAsync(cancellationToken);
-
-            var distinctTeacherIds = teacherIds.Distinct().ToList();
-            foreach (var teacherId in distinctTeacherIds)
-            {
-                _db.CourseTeachers.Add(new CourseTeacher
-                {
-                    CourseId = courseId,
-                    TeacherUserId = teacherId,
-                    AssignedAtUtc = DateTime.UtcNow
-                });
-            }
-
-            await _db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
 }

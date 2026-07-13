@@ -36,13 +36,15 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label" asp-for="TeacherIds">Teachers</label>
-                            <select class="form-select" asp-for="TeacherIds" multiple size="5">
+                            <div class="teacher-option-list">
                                 @foreach (var teacher in Model.Teachers)
                                 {
-                                    <option value="@teacher.Id" selected="@(Model.TeacherIds.Contains(teacher.Id))">@teacher.DisplayName (@teacher.Email)</option>
+                                    <label class="form-check teacher-option">
+                                        <input class="form-check-input" type="checkbox" name="TeacherIds" value="@teacher.Id" checked="@(Model.TeacherIds.Contains(teacher.Id))" />
+                                        <span>@teacher.DisplayName <small class="text-muted">@teacher.Email</small></span>
+                                    </label>
                                 }
-                            </select>
-                            <div class="form-text">Hold Ctrl to select multiple teachers.</div>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex gap-2 mt-3">

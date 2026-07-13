@@ -49,7 +49,7 @@ public class SubscriptionsController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Index");
@@ -67,7 +67,7 @@ public class SubscriptionsController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Index");
@@ -109,7 +109,7 @@ public class SubscriptionsController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Dashboard");
@@ -142,27 +142,10 @@ public class SubscriptionsController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Dashboard");
     }
 
-    [Authorize(Roles = "Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetPlanActive(Guid planId, bool isActive, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.SetPlanActiveAsync(planId, isActive, cancellationToken);
-            SetFlashSuccess(isActive ? "Subscription package was activated." : "Subscription package was deactivated.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(ex.Message);
-        }
-
-        return RedirectToAction("Dashboard");
-    }
 }

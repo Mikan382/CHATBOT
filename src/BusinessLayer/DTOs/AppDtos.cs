@@ -15,8 +15,6 @@ public record ChatMessageDto(
     DateTime CreatedAtUtc,
     double? ProcessingSeconds = null);
 
-public record ChatResponseDto(ChatMessageDto UserMessage, ChatMessageDto BotMessage);
-
 public record ChatHistoryMessage(string Role, string Content);
 
 public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Summary);
@@ -36,16 +34,11 @@ public record TeacherOptionDto(Guid Id, string Email, string DisplayName);
 
 public record UserListDto(Guid Id, string Email, string DisplayName, string Role, bool IsLockedOut);
 
-public record DocumentApiDto(
+public record AuthenticatedUserDto(
     Guid Id,
-    string OriginalFileName,
-    string FileType,
-    long FileSizeBytes,
-    DateTime UploadedAtUtc,
-    ChapterDto? Chapter,
-    int ChunksCount);
-
-public record DocumentChunkApiDto(Guid Id, Guid DocumentId, int ChunkIndex, string SourceName, string Content, DateTime CreatedAtUtc);
+    string Email,
+    string Role,
+    DateTime UpdatedAtUtc);
 
 public record DocumentIndexDto(
     Guid Id,
@@ -131,7 +124,7 @@ public record RecentSubscriptionDto(
 public record SubscriptionDashboardDto(
     int TotalStudents,
     int ActiveSubscriptions,
-    int NewSubscriptionsThisMonth,
+    int RegistrationsThisMonth,
     IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
     IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
     IReadOnlyList<SubscriptionPlanDto> Plans);

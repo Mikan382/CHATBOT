@@ -7,6 +7,8 @@ namespace BusinessLayer.Retrieval;
 
 public class RetrievalService
 {
+    private const double MinEmbeddingScore = 0.36;
+    private const double MinLexicalScore = 0.02;
     private readonly IDocumentRepository _documentRepository;
     private readonly IDocumentEmbeddingRepository _embeddingRepository;
     private readonly IEmbeddingClient _embeddingClient;
@@ -70,7 +72,7 @@ public class RetrievalService
                 x.Embedding,
                 Score = CosineSimilarity.Cosine(queryVector.AsSpan(), x.Vector.AsSpan())
             })
-            .Where(x => x.Score > 0)
+            .Where(x => x.Score >= MinEmbeddingScore)
             .OrderByDescending(x => x.Score)
             .Take(topK)
             .Select(x =>
@@ -97,16 +99,13 @@ public class RetrievalService
         }
 
         var chunks = await _documentRepository.ListIndexedChunksAsync(courseId, cancellationToken);
-        // Cap at 200 candidates before in-memory scoring to bound memory usage (S11)
-        const int CandidateLimit = 200;
         var scored = chunks
-            .Take(CandidateLimit)
             .Select(chunk => new
             {
                 Chunk = chunk,
                 Score = Score(terms, chunk.NormalizedContent)
             })
-            .Where(x => x.Score > 0)
+            .Where(x => x.Score >= MinLexicalScore)
             .OrderByDescending(x => x.Score)
             .Take(topK)
             .Select(x => new RetrievedChunkDto(

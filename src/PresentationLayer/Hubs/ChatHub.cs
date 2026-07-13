@@ -1,6 +1,6 @@
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using BusinessLayer.Services;
 
 namespace PresentationLayer.Hubs;
@@ -9,28 +9,40 @@ namespace PresentationLayer.Hubs;
 public class ChatHub : Hub
 {
     private readonly IChatService _chatService;
+    private readonly IAuthService _authService;
+    private readonly ILogger<ChatHub> _logger;
 
-    public ChatHub(IChatService chatService)
+    public ChatHub(IChatService chatService, IAuthService authService, ILogger<ChatHub> logger)
     {
         _chatService = chatService;
+        _authService = authService;
+        _logger = logger;
     }
 
     public async Task JoinSession(string sessionId)
     {
-        if (!Guid.TryParse(sessionId, out _))
+        if (!await EnsureCurrentPrincipalAsync()) return;
+        if (!Guid.TryParse(sessionId, out var parsedSessionId))
         {
             await Clients.Caller.SendAsync("MessageFailed", "Invalid session ID.");
             return;
         }
 
-        // Allow joining before session is persisted (new session on first page load).
-        // Ownership is enforced in SendMessage → SaveUserMessageAsync.
-        // GUID session IDs are unguessable so enumeration attack is not a concern.
-        await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, SessionGroup(parsedSessionId));
+    }
+
+    public async Task LeaveSession(string sessionId)
+    {
+        if (!await EnsureCurrentPrincipalAsync()) return;
+        if (Guid.TryParse(sessionId, out var parsedSessionId))
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, SessionGroup(parsedSessionId));
+        }
     }
 
     public async Task SendMessage(string sessionId, string courseId, string text)
     {
+        if (!await EnsureCurrentPrincipalAsync()) return;
         if (!Guid.TryParse(sessionId, out var parsedSessionId))
         {
             await Clients.Caller.SendAsync("MessageFailed", "Invalid session ID.");
@@ -45,28 +57,56 @@ public class ChatHub : Hub
 
         try
         {
-            var userMessage = await _chatService.SaveUserMessageAsync(parsedSessionId, CurrentUserId(), parsedCourseId, text, Context.ConnectionAborted);
-            await Clients.Group(sessionId).SendAsync("MessageReceived", userMessage);
+            var userId = CurrentUserId();
+            var userMessage = await _chatService.SaveUserMessageAsync(
+                parsedSessionId,
+                userId,
+                parsedCourseId,
+                text,
+                Context.ConnectionAborted);
+            await Clients.Group(SessionGroup(parsedSessionId)).SendAsync("MessageReceived", userMessage);
 
-            var botMessage = await _chatService.GenerateAssistantReplyAsync(parsedSessionId, CurrentUserId(), parsedCourseId, text, Context.ConnectionAborted);
-            await Clients.Group(sessionId).SendAsync("MessageReceived", botMessage);
+            var botMessage = await _chatService.GenerateAssistantReplyAsync(
+                parsedSessionId,
+                userId,
+                parsedCourseId,
+                text,
+                Context.ConnectionAborted);
+            await Clients.Group(SessionGroup(parsedSessionId)).SendAsync("MessageReceived", botMessage);
+        }
+        catch (InvalidOperationException ex)
+        {
+            await Clients.Caller.SendAsync("MessageFailed", ex.Message);
+        }
+        catch (OperationCanceledException) when (Context.ConnectionAborted.IsCancellationRequested)
+        {
+            return;
         }
         catch (Exception ex)
         {
-            await Clients.Caller.SendAsync("MessageFailed", ex.Message);
+            _logger.LogError(ex, "Chat message failed for session {SessionId}.", parsedSessionId);
+            await Clients.Caller.SendAsync("MessageFailed", "The assistant could not process the message.");
         }
     }
 
     public async Task ClearSession(string sessionId)
     {
+        if (!await EnsureCurrentPrincipalAsync()) return;
         if (!Guid.TryParse(sessionId, out var parsedSessionId))
         {
             await Clients.Caller.SendAsync("MessageFailed", "Invalid session ID.");
             return;
         }
 
-        await _chatService.ClearAsync(parsedSessionId, CurrentUserId(), Context.ConnectionAborted);
-        await Clients.Group(sessionId).SendAsync("SessionCleared");
+        try
+        {
+            await _chatService.ClearAsync(parsedSessionId, CurrentUserId(), Context.ConnectionAborted);
+            await Clients.Group(SessionGroup(parsedSessionId)).SendAsync("SessionCleared");
+        }
+        catch (InvalidOperationException ex)
+        {
+            await Clients.Caller.SendAsync("MessageFailed", ex.Message);
+        }
     }
 
     private Guid CurrentUserId()
@@ -75,5 +115,36 @@ public class ChatHub : Hub
         return Guid.TryParse(value, out var userId)
             ? userId
             : throw new InvalidOperationException("Current user ID is invalid.");
+    }
+
+    private string SessionGroup(Guid sessionId)
+    {
+        return $"chat:{CurrentUserId():N}:{sessionId:N}";
+    }
+
+    private async Task<bool> EnsureCurrentPrincipalAsync()
+    {
+        var idValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var email = Context.User?.FindFirstValue(ClaimTypes.Email);
+        var role = Context.User?.FindFirstValue(ClaimTypes.Role);
+        var versionValue = Context.User?.FindFirstValue("user_version");
+        var valid = Guid.TryParse(idValue, out var userId)
+            && long.TryParse(versionValue, out var userVersion)
+            && !string.IsNullOrWhiteSpace(email)
+            && !string.IsNullOrWhiteSpace(role)
+            && await _authService.IsPrincipalCurrentAsync(
+                userId,
+                email,
+                role,
+                userVersion,
+                Context.ConnectionAborted);
+        if (valid)
+        {
+            return true;
+        }
+
+        await Clients.Caller.SendAsync("MessageFailed", "Your session has expired. Please sign in again.");
+        Context.Abort();
+        return false;
     }
 }

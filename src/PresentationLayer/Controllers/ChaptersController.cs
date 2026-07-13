@@ -46,7 +46,7 @@ public class ChaptersController : BaseController
         }
         catch (Exception ex)
         {
-            model.Error = ex.Message;
+            model.Error = UserFacingError(ex);
             return View(model);
         }
     }
@@ -95,7 +95,7 @@ public class ChaptersController : BaseController
         }
         catch (Exception ex)
         {
-            model.Error = ex.Message;
+            model.Error = UserFacingError(ex);
             return View(model);
         }
     }

@@ -13,16 +13,6 @@ public class ChapterRepository : IChapterRepository
         _db = db;
     }
 
-    public async Task<IReadOnlyList<Chapter>> ListOrderedAsync(CancellationToken cancellationToken)
-    {
-        return await _db.Chapters
-            .Include(x => x.Course)
-            .OrderBy(x => x.Course!.Code)
-            .ThenBy(x => x.Order)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyList<Chapter>> ListByCourseAsync(Guid courseId, CancellationToken cancellationToken)
     {
         return await _db.Chapters
@@ -38,11 +28,6 @@ public class ChapterRepository : IChapterRepository
         return await _db.Chapters
             .Include(x => x.Course)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-    }
-
-    public async Task<bool> ExistsAsync(Guid chapterId, CancellationToken cancellationToken)
-    {
-        return await _db.Chapters.AnyAsync(x => x.Id == chapterId, cancellationToken);
     }
 
     public async Task AddAsync(Chapter chapter, CancellationToken cancellationToken)

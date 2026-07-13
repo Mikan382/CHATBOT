@@ -47,7 +47,7 @@
                 <div class="chat-empty-hint" id="chatEmptyHint">Ask a question to start the conversation.</div>
             </div>
             <form id="chatForm" class="chat-form">
-                <input id="messageInput" class="form-control" autocomplete="off"
+                <input id="messageInput" class="form-control" autocomplete="off" maxlength="4000"
                        placeholder="Ask a question about the selected course..."
                        @(Model.GeminiConfigured ? "" : "disabled") />
                 <button class="btn btn-primary" type="submit" id="sendButton"

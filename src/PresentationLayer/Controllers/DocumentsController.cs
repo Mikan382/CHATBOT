@@ -6,8 +6,8 @@ using PresentationLayer.ViewModels;
 namespace PresentationLayer.Controllers;
 
 [Authorize]
-[RequestSizeLimit(100 * 1024 * 1024)]
-[RequestFormLimits(MultipartBodyLengthLimit = 100 * 1024 * 1024)]
+[RequestSizeLimit(DocumentUploadLimits.MaxRequestBodyBytes)]
+[RequestFormLimits(MultipartBodyLengthLimit = DocumentUploadLimits.MaxRequestBodyBytes)]
 public class DocumentsController : BaseController
 {
     private readonly IDocumentService _documentService;
@@ -51,7 +51,7 @@ public class DocumentsController : BaseController
             var details = await _documentService.GetDetailsAsync(id, cancellationToken);
             return View(details);
         }
-        catch
+        catch (InvalidOperationException)
         {
             return NotFound();
         }
@@ -75,7 +75,7 @@ public class DocumentsController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Index");
@@ -93,7 +93,7 @@ public class DocumentsController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Index", new { searchTerm, chapterId });

@@ -1,7 +1,3 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Repositories;
@@ -12,26 +8,23 @@ public class AuthService : IAuthService
 {
     private readonly IUserAdminRepository _userRepository;
     private readonly IPasswordHasher<ApplicationUser> _passwordHasher;
-    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AuthService(
         IUserAdminRepository userRepository,
-        IPasswordHasher<ApplicationUser> passwordHasher,
-        IHttpContextAccessor httpContextAccessor)
+        IPasswordHasher<ApplicationUser> passwordHasher)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
-        _httpContextAccessor = httpContextAccessor;
     }
 
-    public async Task SignInAsync(string email, string password, bool rememberMe)
+    public async Task<AuthenticatedUserDto> AuthenticateAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
         {
             throw new InvalidOperationException("Email and password are required.");
         }
 
-        var user = await _userRepository.GetByEmailAsync(email);
+        var user = await _userRepository.GetByEmailAsync(email, cancellationToken);
         if (user is null)
         {
             throw new InvalidOperationException("Invalid email or password.");
@@ -52,41 +45,34 @@ public class AuthService : IAuthService
         {
             user.PasswordHash = _passwordHasher.HashPassword(user, password);
             user.UpdatedAtUtc = DateTime.UtcNow;
-            await _userRepository.SaveChangesAsync();
+            await _userRepository.SaveChangesAsync(cancellationToken);
         }
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Email),
-            new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role),
-            new("display_name", user.DisplayName)
-        };
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-        var properties = new AuthenticationProperties
-        {
-            IsPersistent = rememberMe,
-            ExpiresUtc = rememberMe ? DateTimeOffset.UtcNow.AddDays(14) : null
-        };
-
-        var httpContext = _httpContextAccessor.HttpContext
-            ?? throw new InvalidOperationException("HTTP context is unavailable.");
-        await httpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, properties);
+        return ToDto(user);
     }
 
-    public async Task SignOutAsync()
+    public async Task<bool> IsPrincipalCurrentAsync(
+        Guid userId,
+        string email,
+        string role,
+        long userVersion,
+        CancellationToken cancellationToken = default)
     {
-        var httpContext = _httpContextAccessor.HttpContext
-            ?? throw new InvalidOperationException("HTTP context is unavailable.");
-        await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        return user is not null
+            && !user.IsLockedOut
+            && user.Email.Equals(email, StringComparison.OrdinalIgnoreCase)
+            && user.Role == role
+            && user.UpdatedAtUtc.Ticks == userVersion;
     }
 
-    public async Task<(bool Success, string? Error)> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    public async Task<(bool Success, string? Error)> ChangePasswordAsync(
+        Guid userId,
+        string currentPassword,
+        string newPassword,
+        CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(userId);
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
         if (user is null)
         {
             return (false, "User not found.");
@@ -106,7 +92,12 @@ public class AuthService : IAuthService
 
         user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
         user.UpdatedAtUtc = DateTime.UtcNow;
-        await _userRepository.SaveChangesAsync();
+        await _userRepository.SaveChangesAsync(cancellationToken);
         return (true, null);
+    }
+
+    private static AuthenticatedUserDto ToDto(ApplicationUser user)
+    {
+        return new AuthenticatedUserDto(user.Id, user.Email, user.Role, user.UpdatedAtUtc);
     }
 }

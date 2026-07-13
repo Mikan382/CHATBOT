@@ -1,6 +1,6 @@
 # Architecture Audit - Current State
 
-Date: 2026-07-07
+Date: 2026-07-12
 
 ## Target Diagram
 
@@ -23,13 +23,13 @@ User
 |---|---|
 | `PresentationLayer` references only `BusinessLayer` | Pass |
 | `Program.cs` does not import `DataAccessLayer` or EF Core directly | Pass |
-| Controllers, API Controllers, and Hubs call Business services | Pass |
+| Controllers, Chat API, and SignalR Hub call Business services | Pass |
 | Business service interfaces and DTOs do not expose DAL entity/enum types | Pass |
 | Business services do not inject or query `AppDbContext` directly | Pass |
 | DAL owns repositories, EF entities, `AppDbContext`, migrations, and SQL Server access | Pass |
 | External AI calls go through AI client abstractions | Pass |
 | Document upload/indexing is synchronous in BusinessLayer; no hosted worker/queue | Pass |
-| Mutating JSON API endpoints use antiforgery validation | Pass |
+| Mutating Chat API endpoints use antiforgery validation and ownership checks | Pass |
 
 ## Current Scope Notes
 
@@ -38,6 +38,9 @@ User
 - Chat is RAG-only through Gemini and document retrieval.
 - Fine-tune and benchmark/evaluation code paths have been removed.
 - Admin controls the global chunking strategy through `SystemSettings`.
+- Demo seed data is initialized once and is not reapplied after administrative edits.
+- Internal subscriptions are registration/statistics only; they do not gate Chat access.
+- Chat groups and history queries are scoped to the authenticated user.
 - SQL Server still stores embeddings as JSON for assignment/demo scope.
 
 ## Verification Commands

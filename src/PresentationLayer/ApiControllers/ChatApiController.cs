@@ -23,10 +23,17 @@ public class ChatApiController : ControllerBase
     }
 
     [HttpGet("/api/chat/sessions")]
-    public async Task<IActionResult> Sessions(CancellationToken cancellationToken)
+    public async Task<IActionResult> Sessions(string? q, CancellationToken cancellationToken)
     {
-        var sessions = await _chatService.ListSessionsAsync(CurrentUserId(), cancellationToken);
-        return Ok(new { success = true, sessions });
+        try
+        {
+            var sessions = await _chatService.ListSessionsAsync(CurrentUserId(), q, cancellationToken);
+            return Ok(new { success = true, sessions });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message });
+        }
     }
 
     [HttpPatch("/api/chat/{sessionId:guid}/title")]
@@ -35,10 +42,13 @@ public class ChatApiController : ControllerBase
     {
         try
         {
-            var title = request.Title?.Trim() ?? "";
-            var renamed = await _chatService.RenameSessionAsync(sessionId, CurrentUserId(), title, cancellationToken);
-            return renamed
-                ? Ok(new { success = true, title })
+            var normalizedTitle = await _chatService.RenameSessionAsync(
+                sessionId,
+                CurrentUserId(),
+                request.Title ?? "",
+                cancellationToken);
+            return normalizedTitle is not null
+                ? Ok(new { success = true, title = normalizedTitle })
                 : NotFound(new { success = false, error = "Session was not found." });
         }
         catch (InvalidOperationException ex)
@@ -52,7 +62,9 @@ public class ChatApiController : ControllerBase
     public async Task<IActionResult> DeleteSession(Guid sessionId, CancellationToken cancellationToken)
     {
         var deleted = await _chatService.DeleteSessionAsync(sessionId, CurrentUserId(), cancellationToken);
-        return Ok(new { success = deleted });
+        return deleted
+            ? Ok(new { success = true })
+            : NotFound(new { success = false, error = "Session was not found." });
     }
 
     private Guid CurrentUserId()

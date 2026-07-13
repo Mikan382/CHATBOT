@@ -20,7 +20,7 @@
                     <dt>Uploaded By</dt>
                     <dd>@(Model.UploadedByEmail ?? "Unknown")</dd>
                     <dt>Uploaded At</dt>
-                    <dd>@Model.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm")</dd>
+                    <dd>@Model.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
                     <dt>Sections</dt>
                     <dd>@Model.Chunks.Count</dd>
                 </dl>
@@ -44,7 +44,7 @@
                         <tr>
                             <th>#</th>
                             <th>Content</th>
-                            <th>Search Data</th>
+                            <th>Retrieval</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -56,11 +56,11 @@
                                 <td class="small">
                                     @if (chunk.EmbeddingModels.Count == 0)
                                     {
-                                        <span class="text-muted">Not available</span>
+                                        <span class="text-muted">Lexical</span>
                                     }
                                     else
                                     {
-                                        @string.Join(", ", chunk.EmbeddingModels)
+                                        <span>Lexical + @string.Join(", ", chunk.EmbeddingModels)</span>
                                     }
                                 </td>
                             </tr>

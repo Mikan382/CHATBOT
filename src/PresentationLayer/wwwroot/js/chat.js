@@ -9,6 +9,32 @@
   const sessionList = document.getElementById("sessionList");
   const sessionSearch = document.getElementById("sessionSearch");
   const chatEmptyHint = document.getElementById("chatEmptyHint");
+  let connected = false;
+  let messagePending = false;
+  let sessionSearchTimer = null;
+
+  function setComposerEnabled(enabled) {
+    const interactionReady = enabled && !messagePending;
+    const canSend = interactionReady && window._geminiConfigured && courseSelect.value !== "";
+    input.disabled = !canSend;
+    sendButton.disabled = !canSend;
+    courseSelect.disabled = !interactionReady;
+    clearButton.disabled = !interactionReady;
+  }
+
+  async function readJson(response) {
+    if (response.status === 401) {
+      window.location.href = "/Account/Login";
+      throw new Error("Authentication required.");
+    }
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Request failed.");
+    }
+
+    return data;
+  }
 
   function updateEmptyHint() {
     if (!chatEmptyHint) return;
@@ -173,7 +199,7 @@
 
   async function loadHistory() {
     const response = await fetch(`/api/chat/${sessionId}`);
-    const data = await response.json();
+    const data = await readJson(response);
     messages.querySelectorAll(".message").forEach((el) => el.remove());
     for (const message of data.history) {
       renderMessage(message);
@@ -237,8 +263,8 @@
           }),
           body: JSON.stringify({ title: nextTitle })
         });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
+        const result = await readJson(response);
+        if (!result.success) {
           throw new Error(result.error || "Rename failed.");
         }
 
@@ -246,9 +272,12 @@
         titleEl.textContent = session.title;
         link.title = session.title;
         close();
-      } catch {
+        loadSessions();
+      } catch (error) {
         input.disabled = false;
         input.classList.add("is-invalid");
+        input.setCustomValidity(error.message || "Rename failed.");
+        input.reportValidity();
         input.focus();
       } finally {
         saving = false;
@@ -267,6 +296,11 @@
       }
     });
 
+    input.addEventListener("input", () => {
+      input.classList.remove("is-invalid");
+      input.setCustomValidity("");
+    });
+
     input.addEventListener("blur", () => {
       save();
     });
@@ -275,9 +309,19 @@
   async function loadSessions() {
     if (!sessionList) return;
     try {
-      const res = await fetch("/api/chat/sessions");
-      const data = await res.json();
+      const query = sessionSearch?.value.trim() ?? "";
+      const url = query ? `/api/chat/sessions?q=${encodeURIComponent(query)}` : "/api/chat/sessions";
+      const res = await fetch(url);
+      const data = await readJson(res);
       sessionList.innerHTML = "";
+      if (data.sessions.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "list-group-item text-muted small py-3";
+        empty.textContent = query ? "No matching sessions." : "No saved sessions yet.";
+        sessionList.appendChild(empty);
+        return;
+      }
+
       for (const s of data.sessions) {
         const li = document.createElement("li");
         li.className = "list-group-item session-item" + (s.id === sessionId ? " active" : "");
@@ -321,14 +365,19 @@
           e.preventDefault();
           e.stopPropagation();
           if (!confirm("Delete this session?")) return;
-          await fetch(`/api/chat/${s.id}`, {
-            method: "DELETE",
-            headers: window.requestVerificationHeaders({})
-          });
-          if (s.id === sessionId) {
-            window.location.href = "/chat";
-          } else {
-            loadSessions();
+          try {
+            const response = await fetch(`/api/chat/${s.id}`, {
+              method: "DELETE",
+              headers: window.requestVerificationHeaders({})
+            });
+            await readJson(response);
+            if (s.id === sessionId) {
+              window.location.href = "/chat";
+            } else {
+              loadSessions();
+            }
+          } catch (error) {
+            alert(error.message || "Delete failed.");
           }
         });
 
@@ -338,28 +387,40 @@
         li.appendChild(actions);
         sessionList.appendChild(li);
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      sessionList.innerHTML = "";
+      const item = document.createElement("li");
+      item.className = "list-group-item text-danger small py-3";
+      item.textContent = error.message || "Could not load sessions.";
+      sessionList.appendChild(item);
+    }
   }
 
   // --- Course change → new session ---
-  courseSelect.addEventListener("change", () => {
+  courseSelect.addEventListener("change", async () => {
+    if (messagePending) return;
+    const previousSessionId = sessionId;
+    if (connected) {
+      await connection.invoke("LeaveSession", previousSessionId).catch(() => {});
+    }
     sessionId = crypto.randomUUID();
     messages.querySelectorAll(".message").forEach((el) => el.remove());
     clearOptimistic();
     hideTyping();
     updateEmptyHint();
     history.replaceState(null, "", "/chat");
-    connection.invoke("JoinSession", sessionId).catch(() => {});
+    if (connected) {
+      await connection.invoke("JoinSession", sessionId).catch(() => {});
+    }
+    setComposerEnabled(connected);
+    loadSessions();
   });
 
   // --- Session search ---
   if (sessionSearch) {
     sessionSearch.addEventListener("input", () => {
-      const q = sessionSearch.value.trim().toLowerCase();
-      sessionList.querySelectorAll(".session-item").forEach((li) => {
-        const title = li.querySelector(".session-title")?.textContent.toLowerCase() ?? "";
-        li.hidden = q !== "" && !title.includes(q);
-      });
+      clearTimeout(sessionSearchTimer);
+      sessionSearchTimer = setTimeout(loadSessions, 300);
     });
   }
 
@@ -381,8 +442,8 @@
 
     hideTyping();
     renderMessage(message);
-    input.disabled = false;
-    sendButton.disabled = false;
+    messagePending = false;
+    setComposerEnabled(connected);
     input.focus();
     loadSessions();
   });
@@ -390,8 +451,8 @@
   connection.on("MessageFailed", (message) => {
     hideTyping();
     clearOptimistic();
-    input.disabled = false;
-    sendButton.disabled = false;
+    messagePending = false;
+    setComposerEnabled(connected);
     const err = document.createElement("div");
     err.className = "message assistant";
     err.innerHTML = `<div class="text-danger">${escapeHtml(message)}</div>`;
@@ -405,6 +466,26 @@
     updateEmptyHint();
   });
 
+  connection.onreconnecting(() => {
+    connected = false;
+    setComposerEnabled(false);
+  });
+
+  connection.onreconnected(async () => {
+    connected = true;
+    messagePending = false;
+    await connection.invoke("JoinSession", sessionId);
+    await loadHistory();
+    await loadSessions();
+    setComposerEnabled(true);
+  });
+
+  connection.onclose(() => {
+    connected = false;
+    messagePending = false;
+    setComposerEnabled(false);
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!window._geminiConfigured) return;
@@ -412,8 +493,8 @@
     if (!text) return;
 
     input.value = "";
-    input.disabled = true;
-    sendButton.disabled = true;
+    messagePending = true;
+    setComposerEnabled(false);
     renderOptimisticUserMessage(text);
     showTyping();
 
@@ -422,19 +503,24 @@
     } catch {
       hideTyping();
       clearOptimistic();
-      input.disabled = false;
-      sendButton.disabled = false;
+      messagePending = false;
+      setComposerEnabled(connected);
     }
   });
 
   clearButton.addEventListener("click", async () => {
-    if (confirm("Clear the current session history?")) {
+    if (!messagePending && confirm("Clear the current session history?")) {
       await connection.invoke("ClearSession", sessionId);
     }
   });
 
+  setComposerEnabled(false);
   connection.start()
-    .then(() => connection.invoke("JoinSession", sessionId))
+    .then(() => {
+      connected = true;
+      setComposerEnabled(true);
+      return connection.invoke("JoinSession", sessionId);
+    })
     .then(loadHistory)
     .then(loadSessions)
     .catch((error) => {

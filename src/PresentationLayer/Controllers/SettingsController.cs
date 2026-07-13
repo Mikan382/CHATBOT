@@ -44,7 +44,7 @@ public class SettingsController : BaseController
         }
         catch (Exception ex)
         {
-            model.Error = ex.Message;
+            model.Error = UserFacingError(ex);
             model.AvailableStrategies = _chunkingSettingsService.AvailableStrategies;
             return View(model);
         }

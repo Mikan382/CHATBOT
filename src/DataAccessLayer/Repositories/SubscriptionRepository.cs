@@ -49,12 +49,17 @@ public class SubscriptionRepository : ISubscriptionRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<StudentSubscription?> GetCurrentForStudentAsync(Guid studentUserId, CancellationToken cancellationToken)
+    public async Task<StudentSubscription?> GetCurrentForStudentAsync(
+        Guid studentUserId,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
     {
         return await _db.StudentSubscriptions
             .Include(x => x.Plan)
             .AsTracking()
-            .Where(x => x.StudentUserId == studentUserId && x.Status == SubscriptionStatusNames.Active)
+            .Where(x => x.StudentUserId == studentUserId
+                && x.Status == SubscriptionStatusNames.Active
+                && (!x.ExpiresAtUtc.HasValue || x.ExpiresAtUtc > nowUtc))
             .OrderByDescending(x => x.StartedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
     }

@@ -21,7 +21,7 @@ public class SubscriptionService : ISubscriptionService
     public async Task<StudentSubscriptionPageDto> GetStudentPageAsync(Guid studentUserId, CancellationToken cancellationToken)
     {
         var plans = await _subscriptionRepository.ListPlansAsync(includeInactive: false, cancellationToken);
-        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, cancellationToken);
+        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, DateTime.UtcNow, cancellationToken);
         return new StudentSubscriptionPageDto(
             ToStudentSubscriptionDto(current),
             plans.Select(ToPlanDto).ToList());
@@ -59,7 +59,7 @@ public class SubscriptionService : ISubscriptionService
 
     public async Task CancelCurrentAsync(Guid studentUserId, CancellationToken cancellationToken)
     {
-        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, cancellationToken)
+        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, DateTime.UtcNow, cancellationToken)
             ?? throw new InvalidOperationException("You do not have an active subscription.");
 
         current.Status = SubscriptionStatusNames.Cancelled;
@@ -86,7 +86,7 @@ public class SubscriptionService : ISubscriptionService
                 plan.Code,
                 plan.IsActive,
                 countByPlan.GetValueOrDefault(plan.Id, 0))).ToList(),
-            recent.Select(ToRecentDto).ToList(),
+            recent.Select(x => ToRecentDto(x, now)).ToList(),
             plans.Select(ToPlanDto).ToList());
     }
 
@@ -159,16 +159,6 @@ public class SubscriptionService : ISubscriptionService
         await _subscriptionRepository.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task SetPlanActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken)
-    {
-        var plan = await _subscriptionRepository.GetPlanAsync(id, cancellationToken)
-            ?? throw new InvalidOperationException("Subscription package was not found.");
-
-        plan.IsActive = isActive;
-        plan.UpdatedAtUtc = DateTime.UtcNow;
-        await _subscriptionRepository.SaveChangesAsync(cancellationToken);
-    }
-
     private static void ValidatePlan(decimal monthlyPrice, int durationDays)
     {
         if (monthlyPrice < 0)
@@ -217,14 +207,19 @@ public class SubscriptionService : ISubscriptionService
             subscription.ExpiresAtUtc);
     }
 
-    private static RecentSubscriptionDto ToRecentDto(StudentSubscription subscription)
+    private static RecentSubscriptionDto ToRecentDto(StudentSubscription subscription, DateTime nowUtc)
     {
+        var status = subscription.Status == SubscriptionStatusNames.Active
+            && subscription.ExpiresAtUtc.HasValue
+            && subscription.ExpiresAtUtc <= nowUtc
+                ? SubscriptionStatusNames.Expired
+                : subscription.Status;
         return new RecentSubscriptionDto(
             subscription.Id,
             subscription.Student?.Email ?? "",
             subscription.Student?.DisplayName ?? "",
             subscription.Plan?.Name ?? "",
-            subscription.Status,
+            status,
             subscription.StartedAtUtc,
             subscription.ExpiresAtUtc);
     }

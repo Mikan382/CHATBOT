@@ -55,7 +55,7 @@ public class CoursesController : BaseController
         }
         catch (Exception ex)
         {
-            model.Error = ex.Message;
+            model.Error = UserFacingError(ex);
             model.Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken);
             return View(model);
         }
@@ -105,7 +105,7 @@ public class CoursesController : BaseController
         catch (Exception ex)
         {
             model.Id = id;
-            model.Error = ex.Message;
+            model.Error = UserFacingError(ex);
             model.Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken);
             return View(model);
         }
@@ -123,7 +123,7 @@ public class CoursesController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Index");
@@ -154,7 +154,7 @@ public class CoursesController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(ex.Message);
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Chapters", new { id });

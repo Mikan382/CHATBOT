@@ -18,8 +18,6 @@ public class SubscriptionDashboardViewModel
         [],
         [],
         []);
-
-    public SubscriptionPlanInput CreatePlan { get; set; } = new();
 }
 
 public class SubscriptionPlanInput

@@ -8,7 +8,7 @@ public interface ISubscriptionRepository
     Task<SubscriptionPlan?> GetPlanAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> PlanCodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
     Task AddPlanAsync(SubscriptionPlan plan, CancellationToken cancellationToken);
-    Task<StudentSubscription?> GetCurrentForStudentAsync(Guid studentUserId, CancellationToken cancellationToken);
+    Task<StudentSubscription?> GetCurrentForStudentAsync(Guid studentUserId, DateTime nowUtc, CancellationToken cancellationToken);
     Task ReplaceCurrentSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken);
     Task<int> CountStudentsAsync(CancellationToken cancellationToken);
     Task<int> CountActiveSubscriptionsAsync(DateTime nowUtc, CancellationToken cancellationToken);

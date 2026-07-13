@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using DataAccessLayer.Data;
@@ -20,27 +18,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Missing ConnectionStrings:DefaultConnection in appsettings.json.");
 
         services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
-        services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
-        services.AddHttpContextAccessor();
         services.AddScoped<IPasswordHasher<ApplicationUser>, PasswordHasher<ApplicationUser>>();
-        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie(options =>
-            {
-                options.LoginPath = "/Account/Login";
-                options.AccessDeniedPath = "/Account/AccessDenied";
-                options.Events.OnRedirectToAccessDenied = context =>
-                {
-                    if (HttpMethods.IsPost(context.Request.Method) || context.Request.Path.StartsWithSegments("/api"))
-                    {
-                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                        return Task.CompletedTask;
-                    }
-
-                    context.Response.Redirect(context.RedirectUri);
-                    return Task.CompletedTask;
-                };
-            });
-        services.AddAuthorization();
 
         services.AddSingleton<ITextChunker, TextChunker>();
         services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker(1000, 150));
@@ -67,9 +45,8 @@ public static class DependencyInjection
         services.AddScoped<RetrievalService>();
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 
-        services.AddHttpClient<IGeminiClient, GeminiClient>();
-        services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>();
-        services.AddHttpClient();
+        services.AddHttpClient<IGeminiClient, GeminiClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
         return services;
     }
@@ -81,6 +58,6 @@ public static class DependencyInjection
         await DatabaseBootstrapper.InitializeAsync(
             scope.ServiceProvider,
             (user, password) => passwordHasher.HashPassword(user, password),
-            (user, password) => passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password) != PasswordVerificationResult.Failed);
+            DocumentContentHasher.Compute);
     }
 }

@@ -158,6 +158,8 @@
             const uploadChapter = document.getElementById("uploadChapterId");
             const uploadFileInput = document.getElementById("uploadFileInput");
             const uploadFileError = document.getElementById("uploadFileError");
+            const uploadButton = document.getElementById("uploadButton");
+            const chapterPlaceholder = uploadChapter.querySelector('option[value=""]');
             const maxUploadBytes = 20 * 1024 * 1024;
             const formatMb = (bytes) => `${Math.round(bytes / 1024 / 1024)}MB`;
             const validateUploadFile = () => {
@@ -175,13 +177,29 @@
             const syncUploadChapters = () => {
                 let firstVisible = null;
                 uploadChapter.querySelectorAll("option").forEach((option) => {
+                    if (!option.dataset.courseId) {
+                        return;
+                    }
                     const visible = option.dataset.courseId === uploadCourse.value;
                     option.hidden = !visible;
                     if (visible && !firstVisible) {
                         firstVisible = option;
                     }
                 });
-                if (firstVisible && uploadChapter.selectedOptions[0]?.hidden) {
+                if (!firstVisible) {
+                    chapterPlaceholder.hidden = false;
+                    chapterPlaceholder.textContent = "No chapters available";
+                    uploadChapter.value = "";
+                    uploadChapter.disabled = true;
+                    uploadButton.disabled = true;
+                    return;
+                }
+
+                chapterPlaceholder.hidden = true;
+                chapterPlaceholder.textContent = "Select a chapter";
+                uploadChapter.disabled = false;
+                uploadButton.disabled = false;
+                if (!uploadChapter.selectedOptions[0] || uploadChapter.selectedOptions[0].hidden) {
                     uploadChapter.value = firstVisible.value;
                 }
             };
@@ -195,11 +213,10 @@
                     return;
                 }
 
-                const button = document.getElementById("uploadButton");
                 document.getElementById("uploadStatus").classList.remove("d-none");
-                button.disabled = true;
-                button.querySelector(".upload-button-text").textContent = "Uploading...";
-                button.querySelector(".spinner-border").classList.remove("d-none");
+                uploadButton.disabled = true;
+                uploadButton.querySelector(".upload-button-text").textContent = "Uploading...";
+                uploadButton.querySelector(".spinner-border").classList.remove("d-none");
             });
         }
 

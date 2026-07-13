@@ -1,3 +1,6 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLayer.Services;
@@ -5,7 +8,6 @@ using PresentationLayer.ViewModels;
 
 namespace PresentationLayer.Controllers;
 
-[AllowAnonymous]
 public class AccountController : BaseController
 {
     private readonly IAuthService _authService;
@@ -16,6 +18,7 @@ public class AccountController : BaseController
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true)
@@ -28,8 +31,9 @@ public class AccountController : BaseController
     }
 
     [HttpPost]
+    [AllowAnonymous]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginViewModel model)
+    public async Task<IActionResult> Login(LoginViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
@@ -38,7 +42,8 @@ public class AccountController : BaseController
 
         try
         {
-            await _authService.SignInAsync(model.Email, model.Password, model.RememberMe);
+            var user = await _authService.AuthenticateAsync(model.Email, model.Password, cancellationToken);
+            await SignInAsync(user, model.RememberMe);
             if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
                 return Redirect(model.ReturnUrl);
@@ -48,7 +53,7 @@ public class AccountController : BaseController
         }
         catch (Exception ex)
         {
-            model.Error = ex.Message;
+            model.Error = UserFacingError(ex);
             return View(model);
         }
     }
@@ -58,11 +63,11 @@ public class AccountController : BaseController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout(string? _)
     {
-        await _authService.SignOutAsync();
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction("Login");
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet]
     public IActionResult AccessDenied()
     {
@@ -79,14 +84,18 @@ public class AccountController : BaseController
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
             return View(model);
         }
 
-        var (success, error) = await _authService.ChangePasswordAsync(CurrentUserId(), model.CurrentPassword, model.NewPassword);
+        var (success, error) = await _authService.ChangePasswordAsync(
+            CurrentUserId(),
+            model.CurrentPassword,
+            model.NewPassword,
+            cancellationToken);
         if (!success)
         {
             model.Error = error ?? "Password change failed.";
@@ -94,6 +103,28 @@ public class AccountController : BaseController
         }
 
         SetFlashSuccess("Password changed successfully.");
-        return RedirectToAction("ChangePassword");
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return RedirectToAction("Login");
+    }
+
+    private async Task SignInAsync(AuthenticatedUserDto user, bool rememberMe)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Email),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Role, user.Role),
+            new("user_version", user.UpdatedAtUtc.Ticks.ToString())
+        };
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+        var properties = new AuthenticationProperties
+        {
+            IsPersistent = rememberMe,
+            ExpiresUtc = rememberMe ? DateTimeOffset.UtcNow.AddDays(14) : null
+        };
+
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, properties);
     }
 }

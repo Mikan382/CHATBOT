@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using BusinessLayer.Retrieval;
 
 namespace BusinessLayer.AI;
 
@@ -15,20 +14,17 @@ public static class ConversationalMessageDetector
         "thanks", "thank", "thankyou", "thx", "ty",
         "bye", "goodbye", "good", "morning", "afternoon", "evening", "night",
         "nice", "cool", "great", "fine", "sure", "alright", "right",
-        "xin", "chao", "ban", "nhe", "nha", "ak", "akay",
-        "cam", "on", "camon", "tks",
-        "tam", "biet", "vui", "vai", "ha", "hehe", "haha", "hihi", "lol",
-        "duoc", "roi", "da", "dung", "uk", "uhm",
-        "oi", "e", "u", "woah", "wow"
+        "xin", "chao", "ban", "nhe", "nha", "cam", "on", "camon", "tks",
+        "tam", "biet", "vui", "ha", "hehe", "haha", "hihi", "lol",
+        "duoc", "roi", "da", "dung", "uk", "uhm", "oi", "e", "u", "woah", "wow"
     };
 
     private static readonly string[] QuestionIndicators =
     [
-        " la gi", " là gì", " la sao", " là sao", " nhu the nao", " như thế nào",
-        " tai sao", " tại sao", " khi nao", " khi nào", " o dau", " ở đâu",
-        " what is", " what are", " how to", " how do", " why ", " when ", " where ",
-        " explain", " huong dan", " hướng dẫn", " giup", " giúp", " cho minh", " cho toi",
-        "?", " lam sao", " làm sao", " co gi", " có gì", " khac nhau", " khác nhau"
+        "la gi", "la sao", "nhu the nao", "tai sao", "khi nao", "o dau",
+        "what is", "what are", "how to", "how do", "why", "when", "where",
+        "explain", "huong dan", "giup", "cho minh", "cho toi", "lam sao",
+        "co gi", "khac nhau"
     ];
 
     public static bool IsConversationalOnly(string text)
@@ -38,53 +34,16 @@ public static class ConversationalMessageDetector
             return false;
         }
 
-        var trimmed = text.Trim();
-        if (ContainsQuestionIndicator(trimmed))
+        var normalized = Collapse(NormalizeForDetection(text));
+        if (text.Contains('?') || QuestionIndicators.Any(normalized.Contains))
         {
             return false;
-        }
-
-        var normalized = Collapse(NormalizeForDetection(trimmed));
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            return true;
         }
 
         var terms = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (terms.Length > 6)
-        {
-            return false;
-        }
-
-        return terms.All(IsConversationalToken);
+        return terms.Length is > 0 and <= 6 && terms.All(ConversationalTokens.Contains);
     }
 
-    private static bool ContainsQuestionIndicator(string text)
-    {
-        var lower = text.ToLowerInvariant();
-        foreach (var indicator in QuestionIndicators)
-        {
-            if (lower.Contains(indicator, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsConversationalToken(string token)
-    {
-        if (ConversationalTokens.Contains(token))
-        {
-            return true;
-        }
-
-        return token.Length <= 2;
-    }
-
-    // Strip diacritics so "chào" → "chao", "bạn" → "ban", etc., matching the token set.
-    // Kept separate from TextNormalizer.Normalize to avoid degrading Vietnamese lexical search.
     private static string NormalizeForDetection(string text)
     {
         return new string(text

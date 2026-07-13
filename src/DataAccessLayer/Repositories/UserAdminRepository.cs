@@ -13,9 +13,24 @@ public class UserAdminRepository : IUserAdminRepository
         _db = db;
     }
 
-    public async Task<IReadOnlyList<UserListRow>> ListUsersAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserListRow>> ListUsersAsync(
+        string? searchTerm,
+        string? role,
+        CancellationToken cancellationToken = default)
     {
-        return await _db.Users
+        var query = _db.Users.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim();
+            query = query.Where(x => x.Email.Contains(term) || x.DisplayName.Contains(term));
+        }
+
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            query = query.Where(x => x.Role == role);
+        }
+
+        return await query
             .OrderBy(x => x.Email)
             .AsNoTracking()
             .Select(user => new UserListRow(
@@ -60,6 +75,29 @@ public class UserAdminRepository : IUserAdminRepository
     {
         _db.Users.Add(user);
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task SaveUserAsync(
+        ApplicationUser user,
+        bool removeTeachingAssignments,
+        CancellationToken cancellationToken = default)
+    {
+        if (removeTeachingAssignments)
+        {
+            var assignments = await _db.CourseTeachers
+                .Where(x => x.TeacherUserId == user.Id)
+                .ToListAsync(cancellationToken);
+            _db.CourseTeachers.RemoveRange(assignments);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _db.Users.CountAsync(
+            x => x.Role == "Admin" && !x.IsLockedOut,
+            cancellationToken);
     }
 
     public async Task DeleteAsync(ApplicationUser user, CancellationToken cancellationToken = default)

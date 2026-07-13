@@ -50,6 +50,12 @@ public class DocumentIndexingService
             throw new InvalidOperationException("Could not split the document into searchable sections.");
         }
 
+        if (chunks.Count > DocumentUploadLimits.MaxChunksPerDocument)
+        {
+            throw new InvalidOperationException(
+                $"Document creates {chunks.Count} sections; the limit is {DocumentUploadLimits.MaxChunksPerDocument}.");
+        }
+
         if (_embeddingClient.IsConfigured)
         {
             foreach (var chunk in chunks)

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 
@@ -16,7 +17,14 @@ public class DocumentRepository : IDocumentRepository
     public async Task AddAsync(Document document, CancellationToken cancellationToken)
     {
         _db.Documents.Add(document);
-        await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            throw new InvalidOperationException("This document content already exists in the selected chapter.", ex);
+        }
     }
 
     public async Task<IReadOnlyList<Document>> ListWithChapterAndChunksAsync(string? searchTerm, Guid? courseId, Guid? chapterId, Guid? teacherId, CancellationToken cancellationToken)
@@ -82,15 +90,6 @@ public class DocumentRepository : IDocumentRepository
             .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<DocumentChunk>> ListChunksAsync(Guid documentId, CancellationToken cancellationToken)
-    {
-        return await _db.DocumentChunks
-            .Where(x => x.DocumentId == documentId)
-            .OrderBy(x => x.ChunkIndex)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> ContentHashExistsAsync(Guid chapterId, string contentHash, CancellationToken cancellationToken)

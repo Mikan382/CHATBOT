@@ -25,5 +25,4 @@ public interface ISubscriptionService
         int sortOrder,
         bool isActive,
         CancellationToken cancellationToken);
-    Task SetPlanActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken);
 }
