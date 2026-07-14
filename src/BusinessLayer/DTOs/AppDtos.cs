@@ -54,7 +54,8 @@ public record DocumentIndexDto(
     DateTime UploadedAtUtc,
     string? CourseCode,
     string? ChapterTitle,
-    int ChunksCount);
+    int ChunksCount,
+    string ChunkingStrategy);
 
 public record DocumentChunkViewDto(int ChunkIndex, string Content, IReadOnlyList<string> EmbeddingModels);
 
@@ -70,6 +71,7 @@ public record DocumentDetailsDto(
     string? UploadedByEmail,
     string ContentText,
     string ContentHash,
+    string ChunkingStrategy,
     IReadOnlyList<DocumentChunkViewDto> Chunks);
 
 public record ChapterSelectDto(Guid Id, Guid CourseId, int Order, string Title);

@@ -13,6 +13,8 @@ public class Document
     public long FileSizeBytes { get; set; }
     public string ContentText { get; set; } = "";
     public string ContentHash { get; set; } = "";
+    // Name of the chunking strategy used to index this document (e.g. "paragraph", "fixed", "sentence").
+    public string ChunkingStrategy { get; set; } = "";
     public DateTime UploadedAtUtc { get; set; } = DateTime.UtcNow;
     public ICollection<DocumentChunk> Chunks { get; set; } = new List<DocumentChunk>();
 

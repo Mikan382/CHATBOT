@@ -73,6 +73,7 @@ public class DocumentService : IDocumentService
             doc.UploadedByUser?.Email,
             doc.ContentText,
             doc.ContentHash,
+            string.IsNullOrWhiteSpace(doc.ChunkingStrategy) ? "unknown" : doc.ChunkingStrategy,
             doc.Chunks.OrderBy(c => c.ChunkIndex).Select(c => new DocumentChunkViewDto(
                 c.ChunkIndex,
                 c.Content,
@@ -177,6 +178,7 @@ public class DocumentService : IDocumentService
             doc.UploadedAtUtc,
             doc.Chapter?.Course?.Code,
             doc.Chapter?.Title,
-            doc.ChunksCount > 0 ? doc.ChunksCount : doc.Chunks.Count);
+            doc.ChunksCount > 0 ? doc.ChunksCount : doc.Chunks.Count,
+            string.IsNullOrWhiteSpace(doc.ChunkingStrategy) ? "unknown" : doc.ChunkingStrategy);
     }
 }

@@ -72,6 +72,7 @@ public class AppDbContext : DbContext
             entity.Property(x => x.OriginalFileName).HasMaxLength(260);
             entity.Property(x => x.FileType).HasMaxLength(16);
             entity.Property(x => x.ContentHash).HasMaxLength(64);
+            entity.Property(x => x.ChunkingStrategy).HasMaxLength(64);
             entity.HasMany(x => x.Chunks).WithOne(x => x.Document).HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.UploadedByUser)
                 .WithMany()

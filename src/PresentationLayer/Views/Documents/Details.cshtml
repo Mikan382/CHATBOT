@@ -23,6 +23,8 @@
                     <dd>@Model.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
                     <dt>Sections</dt>
                     <dd>@Model.Chunks.Count</dd>
+                    <dt>Chunking</dt>
+                    <dd><span class="badge text-bg-light">@Model.ChunkingStrategy</span></dd>
                 </dl>
                 <a class="btn btn-outline-secondary mt-3" asp-controller="Documents" asp-action="Index">Back</a>
             </div>
