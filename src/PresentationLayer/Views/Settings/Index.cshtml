@@ -8,7 +8,7 @@
         <div class="card app-card">
             <div class="card-body">
                 <h4 class="card-title">Settings</h4>
-                <div class="text-muted small mb-3">Chunking strategy applies to new document uploads only.</div>
+                <div class="text-muted small mb-3">The selected strategy applies to new uploads only. Fixed-size values are also used by fixed benchmark runs.</div>
                 @if (!string.IsNullOrWhiteSpace(Model.Error))
                 {
                     <div class="alert alert-danger small">@Model.Error</div>
@@ -20,10 +20,29 @@
                         <select class="form-select" asp-for="CurrentStrategy">
                             @foreach (var strategy in Model.AvailableStrategies)
                             {
-                                <option value="@strategy" selected="@(strategy == Model.CurrentStrategy)">@strategy</option>
+                                <option value="@strategy" selected="@(strategy == Model.CurrentStrategy)">@(strategy switch
+                                {
+                                    "fixed" => "Fixed size",
+                                    "paragraph" => "Paragraph",
+                                    "sentence" => "Sentence",
+                                    _ => strategy
+                                })</option>
                             }
                         </select>
                         <span class="text-danger small" asp-validation-for="CurrentStrategy"></span>
+                    </div>
+                    <div id="fixedChunkSettings" class="chunking-fixed-settings">
+                        <div>
+                            <label class="form-label" asp-for="FixedChunkSize">Chunk size</label>
+                            <input class="form-control" asp-for="FixedChunkSize" type="number" min="200" max="4000" step="50" />
+                            <span class="text-danger small" asp-validation-for="FixedChunkSize"></span>
+                        </div>
+                        <div>
+                            <label class="form-label" asp-for="FixedChunkOverlap">Overlap</label>
+                            <input class="form-control" asp-for="FixedChunkOverlap" type="number" min="0" max="1000" step="25" />
+                            <span class="text-danger small" asp-validation-for="FixedChunkOverlap"></span>
+                        </div>
+                        <div class="text-muted small chunking-fixed-help">Character counts. Overlap must be smaller than chunk size.</div>
                     </div>
                     <button class="btn btn-primary" type="submit">Save</button>
                 </form>
@@ -31,3 +50,15 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        const strategySelect = document.getElementById("CurrentStrategy");
+        const fixedSettings = document.getElementById("fixedChunkSettings");
+        const syncFixedSettings = () => {
+            fixedSettings.hidden = strategySelect.value !== "fixed";
+        };
+        strategySelect.addEventListener("change", syncFixedSettings);
+        syncFixedSettings();
+    </script>
+}

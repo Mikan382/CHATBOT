@@ -4,16 +4,35 @@ namespace BusinessLayer.Indexing;
 
 public class FixedSizeChunker : ITextChunker
 {
+    public const int DefaultChunkSize = 1000;
+    public const int DefaultOverlap = 150;
+    public const int MinChunkSize = 200;
+    public const int MaxChunkSize = 4000;
+    public const int MaxOverlap = 1000;
+
     private readonly int _chunkSize;
     private readonly int _overlap;
 
-    public FixedSizeChunker(int chunkSize = 1000, int overlap = 150)
+    public FixedSizeChunker(int chunkSize = DefaultChunkSize, int overlap = DefaultOverlap)
     {
+        if (chunkSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be greater than zero.");
+        }
+
+        if (overlap < 0 || overlap >= chunkSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(overlap), "Overlap must be non-negative and smaller than chunk size.");
+        }
+
         _chunkSize = chunkSize;
         _overlap = overlap;
     }
 
-    public string StrategyName => $"fixed_{_chunkSize}";
+    public string StrategyName => "fixed";
+    public int ChunkSize => _chunkSize;
+    public int Overlap => _overlap;
+    public string ConfigurationName => $"fixed_{_chunkSize}_overlap_{_overlap}";
 
     public IReadOnlyList<string> Chunk(string text)
     {

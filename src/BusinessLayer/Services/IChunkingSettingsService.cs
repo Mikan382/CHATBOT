@@ -6,6 +6,9 @@ public interface IChunkingSettingsService
 {
     IReadOnlyList<string> AvailableStrategies { get; }
     Task<ChunkingSettingsDto> GetAsync(CancellationToken cancellationToken);
-    Task<string> GetCurrentStrategyAsync(CancellationToken cancellationToken);
-    Task UpdateAsync(string strategyName, CancellationToken cancellationToken);
+    Task UpdateAsync(
+        string strategyName,
+        int fixedChunkSize,
+        int fixedChunkOverlap,
+        CancellationToken cancellationToken);
 }

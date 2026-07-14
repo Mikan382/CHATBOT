@@ -11,8 +11,8 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
+    <div class="subscription-dashboard-stats mb-4">
+        <div>
             <div class="card app-card stat-card">
                 <div class="card-body">
                     <div class="text-muted small">Students</div>
@@ -20,7 +20,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div>
             <div class="card app-card stat-card">
                 <div class="card-body">
                     <div class="text-muted small">Active subscriptions</div>
@@ -28,12 +28,82 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div>
             <div class="card app-card stat-card">
                 <div class="card-body">
-                    <div class="text-muted small">Registrations this month</div>
-                    <div class="stat-value">@Model.Dashboard.RegistrationsThisMonth</div>
+                    <div class="text-muted small">Pending approvals</div>
+                    <div class="stat-value">@Model.Dashboard.PendingSubscriptions.Count</div>
                 </div>
+            </div>
+        </div>
+        <div>
+            <div class="card app-card stat-card">
+                <div class="card-body">
+                    <div class="text-muted small">Requests this month</div>
+                    <div class="stat-value">@Model.Dashboard.RequestsThisMonth</div>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="card app-card stat-card">
+                <div class="card-body">
+                    <div class="text-muted small">Estimated monthly value</div>
+                    <div class="stat-value stat-value-money">@Model.Dashboard.EstimatedMonthlyRevenue.ToString("N0") <span>VND</span></div>
+                    <div class="text-muted small">Active, unexpired packages only</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card app-card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
+                <h5 class="card-title mb-0">Pending Approvals</h5>
+                <span class="badge text-bg-warning">@Model.Dashboard.PendingSubscriptions.Count waiting</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle subscription-pending-table">
+                    <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Package</th>
+                        <th>Requested</th>
+                        <th class="text-end">Decision</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @if (Model.Dashboard.PendingSubscriptions.Count == 0)
+                    {
+                        <tr><td colspan="4" class="text-muted small text-center py-3">No subscription requests are awaiting approval.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var request in Model.Dashboard.PendingSubscriptions)
+                        {
+                            <tr>
+                                <td>
+                                    <div>@request.StudentDisplayName</div>
+                                    <div class="text-muted small">@request.StudentEmail</div>
+                                </td>
+                                <td>@request.PlanName</td>
+                                <td class="small">@request.RequestedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                <td>
+                                    <div class="subscription-decision-actions">
+                                        <form method="post" asp-controller="Subscriptions" asp-action="ApproveRequest" asp-route-id="@request.Id" class="subscription-decision-form" data-decision="approve">
+                                            @Html.AntiForgeryToken()
+                                            <button class="btn btn-sm btn-success" type="submit">Approve</button>
+                                        </form>
+                                        <form method="post" asp-controller="Subscriptions" asp-action="RejectRequest" asp-route-id="@request.Id" class="subscription-decision-form" data-decision="reject">
+                                            @Html.AntiForgeryToken()
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -50,12 +120,13 @@
                                 <th>Package</th>
                                 <th>Status</th>
                                 <th class="text-end">Active</th>
+                                <th class="text-end">Est. revenue</th>
                             </tr>
                             </thead>
                             <tbody>
                             @if (Model.Dashboard.PlanStats.Count == 0)
                             {
-                                <tr><td colspan="3" class="text-muted small">No packages have been created.</td></tr>
+                                <tr><td colspan="4" class="text-muted small">No packages have been created.</td></tr>
                             }
                             else
                             {
@@ -67,19 +138,21 @@
                                             <span class="badge @(stat.IsActive ? "text-bg-success" : "text-bg-secondary")">@(stat.IsActive ? "Active" : "Inactive")</span>
                                         </td>
                                         <td class="text-end">@stat.ActiveSubscriptions</td>
+                                        <td class="text-end text-nowrap">@stat.EstimatedMonthlyRevenue.ToString("N0") VND</td>
                                     </tr>
                                 }
                             }
                             </tbody>
                         </table>
                     </div>
+                    <div class="text-muted small mt-2">Estimated from current active subscriptions; no payment transactions are recorded.</div>
                 </div>
             </div>
         </div>
         <div class="col-lg-7">
             <div class="card app-card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">Recent Registrations</h5>
+                    <h5 class="card-title">Recent Requests</h5>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle">
                             <thead>
@@ -87,13 +160,14 @@
                                 <th>Student</th>
                                 <th>Package</th>
                                 <th>Status</th>
-                                <th>Started</th>
+                                <th>Requested</th>
+                                <th class="text-end">Action</th>
                             </tr>
                             </thead>
                             <tbody>
                             @if (Model.Dashboard.RecentSubscriptions.Count == 0)
                             {
-                                <tr><td colspan="4" class="text-muted small">No registrations yet.</td></tr>
+                                <tr><td colspan="5" class="text-muted small">No subscription requests yet.</td></tr>
                             }
                             else
                             {
@@ -105,8 +179,17 @@
                                             <div class="text-muted small">@item.StudentEmail</div>
                                         </td>
                                         <td>@item.PlanName</td>
-                                        <td>@item.Status</td>
-                                        <td class="small">@item.StartedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                        <td><span class="badge subscription-status subscription-status-@item.Status.ToLowerInvariant()">@item.Status</span></td>
+                                        <td class="small">@item.RequestedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                                        <td class="text-end">
+                                            @if (item.Status == "Active")
+                                            {
+                                                <form method="post" asp-controller="Subscriptions" asp-action="RevokeSubscription" asp-route-id="@item.Id" class="subscription-revoke-form">
+                                                    @Html.AntiForgeryToken()
+                                                    <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button>
+                                                </form>
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             }
@@ -127,6 +210,7 @@
                 <input class="form-control form-control-sm" name="Name" placeholder="Name" maxlength="160" required />
                 <input class="form-control form-control-sm" name="MonthlyPrice" type="number" min="0" step="1000" placeholder="Monthly price" required />
                 <input class="form-control form-control-sm" name="DurationDays" type="number" min="0" max="3650" value="30" required />
+                <input class="form-control form-control-sm" name="MessageQuota" type="number" min="0" max="1000000" value="0" title="Chat messages per period (0 = unlimited)" placeholder="Chat quota" required />
                 <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="100" required />
                 <input class="form-control form-control-sm subscription-description-input" name="Description" placeholder="Description" maxlength="600" />
                 <label class="form-check small">
@@ -154,6 +238,7 @@
                         <div>Name</div>
                         <div>Price</div>
                         <div>Days</div>
+                        <div>Quota</div>
                         <div>Order</div>
                         <div>Description</div>
                         <div>Active</div>
@@ -168,6 +253,7 @@
                             <input class="form-control form-control-sm" name="Name" value="@plan.Name" maxlength="160" required />
                             <input class="form-control form-control-sm" name="MonthlyPrice" type="number" min="0" step="1000" value="@plan.MonthlyPrice" required />
                             <input class="form-control form-control-sm" name="DurationDays" type="number" min="0" max="3650" value="@plan.DurationDays" required />
+                            <input class="form-control form-control-sm" name="MessageQuota" type="number" min="0" max="1000000" value="@plan.MessageQuota" title="Chat messages per period (0 = unlimited)" required />
                             <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="@plan.SortOrder" required />
                             <input class="form-control form-control-sm subscription-description-input" name="Description" value="@plan.Description" maxlength="600" />
                             <label class="form-check small subscription-plan-active-field">
@@ -190,3 +276,26 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".subscription-decision-form").forEach((form) => {
+            form.addEventListener("submit", (event) => {
+                const decision = form.dataset.decision;
+                const message = decision === "approve"
+                    ? "Approve this request and activate the package?"
+                    : "Reject this subscription request?";
+                if (!confirm(message)) {
+                    event.preventDefault();
+                }
+            });
+        });
+        document.querySelectorAll(".subscription-revoke-form").forEach((form) => {
+            form.addEventListener("submit", (event) => {
+                if (!confirm("Revoke this active subscription? The student will lose access.")) {
+                    event.preventDefault();
+                }
+            });
+        });
+    </script>
+}

@@ -42,6 +42,11 @@ public class ChatController : BaseController
             GeminiConfigured = _chatService.GeminiConfigured
         };
 
+        if (User.IsInRole("Student"))
+        {
+            model.Quota = await _chatService.GetQuotaStatusAsync(CurrentUserId(), cancellationToken);
+        }
+
         return View(model);
     }
 }

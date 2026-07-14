@@ -17,6 +17,12 @@ public record ChatMessageDto(
 
 public record ChatHistoryMessage(string Role, string Content);
 
+public record ChatQuotaStatusDto(string PlanName, int Quota, int Used, bool Unlimited)
+{
+    public bool Exhausted => !Unlimited && Used >= Quota;
+    public int Remaining => Unlimited ? 0 : Math.Max(0, Quota - Used);
+}
+
 public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Summary);
 
 public record CourseDto(Guid Id, string Code, string Name, string Description, string Tools, IReadOnlyList<ChapterDto> Chapters);
@@ -85,7 +91,11 @@ public record ChapterFormDto(Guid Id, Guid CourseId, int Order, string Clo, stri
 
 public record ChatSessionDto(Guid Id, Guid? CourseId);
 
-public record ChunkingSettingsDto(string CurrentStrategy, IReadOnlyList<string> AvailableStrategies);
+public record ChunkingSettingsDto(
+    string CurrentStrategy,
+    int FixedChunkSize,
+    int FixedChunkOverlap,
+    IReadOnlyList<string> AvailableStrategies);
 
 public record SubscriptionPlanDto(
     Guid Id,
@@ -94,6 +104,7 @@ public record SubscriptionPlanDto(
     string Description,
     decimal MonthlyPrice,
     int DurationDays,
+    int MessageQuota,
     int SortOrder,
     bool IsActive);
 
@@ -106,8 +117,16 @@ public record StudentSubscriptionDto(
     DateTime StartedAtUtc,
     DateTime? ExpiresAtUtc);
 
+public record SubscriptionRequestDto(
+    Guid Id,
+    Guid PlanId,
+    string PlanName,
+    string PlanCode,
+    DateTime RequestedAtUtc);
+
 public record StudentSubscriptionPageDto(
     StudentSubscriptionDto? CurrentSubscription,
+    SubscriptionRequestDto? PendingRequest,
     IReadOnlyList<SubscriptionPlanDto> AvailablePlans);
 
 public record SubscriptionPlanStatsDto(
@@ -115,7 +134,8 @@ public record SubscriptionPlanStatsDto(
     string PlanName,
     string PlanCode,
     bool IsActive,
-    int ActiveSubscriptions);
+    int ActiveSubscriptions,
+    decimal EstimatedMonthlyRevenue);
 
 public record RecentSubscriptionDto(
     Guid Id,
@@ -123,13 +143,15 @@ public record RecentSubscriptionDto(
     string StudentDisplayName,
     string PlanName,
     string Status,
-    DateTime StartedAtUtc,
+    DateTime RequestedAtUtc,
     DateTime? ExpiresAtUtc);
 
 public record SubscriptionDashboardDto(
     int TotalStudents,
     int ActiveSubscriptions,
-    int RegistrationsThisMonth,
+    int RequestsThisMonth,
+    decimal EstimatedMonthlyRevenue,
+    IReadOnlyList<RecentSubscriptionDto> PendingSubscriptions,
     IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
     IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
     IReadOnlyList<SubscriptionPlanDto> Plans);

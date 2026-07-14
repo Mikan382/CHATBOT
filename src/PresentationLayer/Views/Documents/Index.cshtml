@@ -41,7 +41,6 @@
                             <span class="upload-button-text">Upload Document</span>
                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                         </button>
-                        <div id="uploadStatus" class="small text-muted mt-2 d-none" aria-live="polite">Uploading, chunking, and preparing search data...</div>
                     </form>
                 }
                 else
@@ -146,6 +145,20 @@
     </div>
 </div>
 
+<div id="uploadProgressModal" class="modal fade upload-progress-modal" tabindex="-1" aria-labelledby="uploadProgressTitle" aria-describedby="uploadProgressDescription" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body upload-progress-body">
+                <div class="spinner-border text-primary upload-progress-spinner" role="status">
+                    <span class="visually-hidden">Processing document</span>
+                </div>
+                <h4 id="uploadProgressTitle">Indexing document</h4>
+                <p id="uploadProgressDescription" class="text-muted mb-0">Extracting text, creating chunks, and generating embeddings. Keep this page open until processing finishes.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         document.querySelectorAll(".document-delete-form").forEach((form) => {
@@ -163,9 +176,40 @@
             const uploadFileInput = document.getElementById("uploadFileInput");
             const uploadFileError = document.getElementById("uploadFileError");
             const uploadButton = document.getElementById("uploadButton");
+            const uploadModal = bootstrap.Modal.getOrCreateInstance(document.getElementById("uploadProgressModal"), {
+                backdrop: "static",
+                keyboard: false
+            });
             const chapterPlaceholder = uploadChapter.querySelector('option[value=""]');
             const maxUploadBytes = 20 * 1024 * 1024;
+            let uploadInProgress = false;
             const formatMb = (bytes) => `${Math.round(bytes / 1024 / 1024)}MB`;
+            const warnBeforeLeaving = (event) => {
+                if (!uploadInProgress) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.returnValue = "";
+            };
+            const setUploadBusy = (busy) => {
+                uploadInProgress = busy;
+                uploadCourse.disabled = busy;
+                uploadChapter.disabled = busy;
+                uploadFileInput.disabled = busy;
+                uploadButton.disabled = busy;
+                uploadButton.querySelector(".upload-button-text").textContent = busy ? "Processing..." : "Upload Document";
+                uploadButton.querySelector(".spinner-border").classList.toggle("d-none", !busy);
+
+                if (busy) {
+                    window.addEventListener("beforeunload", warnBeforeLeaving);
+                    uploadModal.show();
+                } else {
+                    window.removeEventListener("beforeunload", warnBeforeLeaving);
+                    uploadModal.hide();
+                    syncUploadChapters();
+                }
+            };
             const validateUploadFile = () => {
                 uploadFileError.classList.add("d-none");
                 uploadFileError.textContent = "";
@@ -211,16 +255,43 @@
             uploadFileInput.addEventListener("change", validateUploadFile);
             syncUploadChapters();
 
-            uploadForm.addEventListener("submit", (event) => {
+            uploadForm.addEventListener("submit", async (event) => {
+                event.preventDefault();
                 if (!validateUploadFile()) {
-                    event.preventDefault();
                     return;
                 }
 
-                document.getElementById("uploadStatus").classList.remove("d-none");
-                uploadButton.disabled = true;
-                uploadButton.querySelector(".upload-button-text").textContent = "Uploading...";
-                uploadButton.querySelector(".spinner-border").classList.remove("d-none");
+                setUploadBusy(true);
+                try {
+                    const response = await fetch(uploadForm.action, {
+                        method: "POST",
+                        body: new FormData(uploadForm),
+                        credentials: "same-origin",
+                        headers: { "X-Requested-With": "XMLHttpRequest" }
+                    });
+                    const contentType = response.headers.get("content-type") || "";
+                    if (!response.ok) {
+                        throw new Error(`Upload failed with status ${response.status}.`);
+                    }
+
+                    if (!contentType.includes("application/json")) {
+                        uploadInProgress = false;
+                        window.removeEventListener("beforeunload", warnBeforeLeaving);
+                        window.location.assign(response.url || uploadForm.action);
+                        return;
+                    }
+
+                    const result = await response.json();
+                    uploadInProgress = false;
+                    window.removeEventListener("beforeunload", warnBeforeLeaving);
+                    window.location.assign(result.redirectUrl || window.location.href);
+                } catch (error) {
+                    setUploadBusy(false);
+                    uploadFileError.textContent = error instanceof Error
+                        ? error.message
+                        : "Document upload failed. Please try again.";
+                    uploadFileError.classList.remove("d-none");
+                }
             });
         }
 

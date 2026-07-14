@@ -8,6 +8,7 @@ public class SubscriptionPlan
     public string Description { get; set; } = "";
     public decimal MonthlyPrice { get; set; }
     public int DurationDays { get; set; }
+    public int MessageQuota { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

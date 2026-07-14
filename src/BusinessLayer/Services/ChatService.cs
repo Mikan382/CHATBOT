@@ -13,19 +13,23 @@ public class ChatService : IChatService
 {
     private const int MaxMessageLength = 4000;
     private const int MaxSessionSearchLength = 100;
+    private const string DefaultPlanCode = "FREE";
     private readonly IChatRepository _chatRepository;
     private readonly ICourseRepository _courseRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly RetrievalService _retrievalService;
     private readonly IGeminiClient _geminiClient;
 
     public ChatService(
         IChatRepository chatRepository,
         ICourseRepository courseRepository,
+        ISubscriptionRepository subscriptionRepository,
         RetrievalService retrievalService,
         IGeminiClient geminiClient)
     {
         _chatRepository = chatRepository;
         _courseRepository = courseRepository;
+        _subscriptionRepository = subscriptionRepository;
         _retrievalService = retrievalService;
         _geminiClient = geminiClient;
     }
@@ -43,6 +47,44 @@ public class ChatService : IChatService
     {
         var messages = await _chatRepository.ListMessagesAsync(sessionId, userId, cancellationToken);
         return messages.Select(m => ToDto(m)).ToList();
+    }
+
+    public async Task<ChatQuotaStatusDto> GetQuotaStatusAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var (plan, periodKey) = await ResolveQuotaContextAsync(userId, cancellationToken);
+        var quota = plan?.MessageQuota ?? 0;
+        var planName = plan?.Name ?? "Free";
+        var unlimited = quota <= 0;
+        var used = unlimited
+            ? 0
+            : await _chatRepository.GetUsageAsync(userId, periodKey, cancellationToken);
+        return new ChatQuotaStatusDto(planName, quota, used, unlimited);
+    }
+
+    public async Task RegisterMessageUsageAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var (_, periodKey) = await ResolveQuotaContextAsync(userId, cancellationToken);
+        await _chatRepository.IncrementUsageAsync(userId, periodKey, cancellationToken);
+    }
+
+    // Resolves which plan's quota applies and the billing-period key used to meter usage.
+    // GetQuotaStatusAsync (read) and RegisterMessageUsageAsync (write) MUST agree on this key.
+    private async Task<(SubscriptionPlan? Plan, string PeriodKey)> ResolveQuotaContextAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var active = await _subscriptionRepository.GetCurrentForStudentAsync(userId, now, cancellationToken);
+        if (active?.Plan is not null)
+        {
+            // Active package: quota runs for the whole subscription period, keyed by its id
+            // so a new/renewed subscription starts a fresh counter.
+            return (active.Plan, $"SUB-{active.Id:N}");
+        }
+
+        // No active package: fall back to the FREE plan's quota, reset each calendar month.
+        var free = await _subscriptionRepository.GetPlanByCodeAsync(DefaultPlanCode, cancellationToken);
+        return (free, $"MONTH-{now:yyyyMM}");
     }
 
     public async Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken)

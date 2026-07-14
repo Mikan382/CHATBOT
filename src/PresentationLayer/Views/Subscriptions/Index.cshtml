@@ -7,13 +7,34 @@
     <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
             <h2 class="mb-1">My Subscription</h2>
-            <div class="text-muted">Choose an internal service package for course support.</div>
+            <div class="text-muted">Request an internal service package for admin approval. No payment is processed.</div>
         </div>
     </div>
 
+    @if (Model.PendingRequest is not null)
+    {
+        <div class="card app-card subscription-pending-banner mb-4">
+            <div class="card-body">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h5 class="card-title mb-0">Pending approval: @Model.PendingRequest.PlanName</h5>
+                        <span class="badge text-bg-warning">Pending</span>
+                    </div>
+                    <div class="text-muted small">
+                        @Model.PendingRequest.PlanCode · Requested @Model.PendingRequest.RequestedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC · Your current package remains unchanged until Admin approves this request.
+                    </div>
+                </div>
+                <form method="post" asp-controller="Subscriptions" asp-action="CancelRequest" class="subscription-cancel-request-form">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Cancel request</button>
+                </form>
+            </div>
+        </div>
+    }
+
     <div class="row g-3 mb-4">
-        <div class="col-lg-4">
-            <div class="card app-card h-100">
+        <div class="col-lg-3">
+            <div class="card app-card">
                 <div class="card-body">
                     <h5 class="card-title">Current Package</h5>
                     @if (Model.CurrentSubscription is null)
@@ -25,16 +46,20 @@
                         <div class="subscription-current-name">@Model.CurrentSubscription.PlanName</div>
                         <div class="text-muted small mb-2">@Model.CurrentSubscription.PlanCode / @Model.CurrentSubscription.Status</div>
                         <div class="small">Started: @Model.CurrentSubscription.StartedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</div>
-                        <div class="small mb-3">Expires: @(Model.CurrentSubscription.ExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "No expiry") UTC</div>
-                        <form method="post" asp-controller="Subscriptions" asp-action="Cancel">
-                            @Html.AntiForgeryToken()
-                            <button class="btn btn-outline-danger btn-sm" type="submit">Cancel package</button>
-                        </form>
+                        @if (Model.CurrentSubscription.ExpiresAtUtc.HasValue)
+                        {
+                            <div class="small mb-3">Expires: @Model.CurrentSubscription.ExpiresAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                        }
+                        else
+                        {
+                            <div class="small mb-3">No expiry.</div>
+                        }
+                        <div class="text-muted small">Your package stays active until it expires. Contact an Admin to end it early.</div>
                     }
                 </div>
             </div>
         </div>
-        <div class="col-lg-8">
+        <div class="col-lg-9">
             @if (Model.AvailablePlans.Count == 0)
             {
                 <div class="empty-state">No subscription packages are currently available.</div>
@@ -45,6 +70,7 @@
                     @foreach (var plan in Model.AvailablePlans)
                     {
                         var isCurrent = Model.CurrentSubscription?.PlanId == plan.Id;
+                        var isPending = Model.PendingRequest?.PlanId == plan.Id;
                         <div class="col-md-4">
                             <div class="card app-card h-100 subscription-plan-card">
                                 <div class="card-body d-flex flex-column">
@@ -54,20 +80,35 @@
                                         {
                                             <span class="badge text-bg-success">Current</span>
                                         }
+                                        else if (isPending)
+                                        {
+                                            <span class="badge text-bg-warning">Pending</span>
+                                        }
                                     </div>
                                     <div class="subscription-price">@plan.MonthlyPrice.ToString("N0") VND</div>
-                                    <div class="text-muted small mb-3">@(plan.DurationDays == 0 ? "No expiry" : $"{plan.DurationDays} days")</div>
+                                    <div class="text-muted small mb-3">
+                                        @(plan.DurationDays == 0 ? "No expiry" : $"{plan.DurationDays} days")
+                                        · @(plan.MessageQuota == 0 ? "Unlimited chat" : $"{plan.MessageQuota} messages")
+                                    </div>
                                     <p class="small flex-grow-1">@plan.Description</p>
-                                    <form method="post" asp-controller="Subscriptions" asp-action="Subscribe">
+                                    <form method="post" asp-controller="Subscriptions" asp-action="RequestPackage" class="subscription-request-form">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="planId" value="@plan.Id" />
                                         @if (isCurrent)
                                         {
                                             <button class="btn btn-outline-secondary w-100" type="submit" disabled>Selected</button>
                                         }
+                                        else if (isPending)
+                                        {
+                                            <button class="btn btn-outline-warning w-100" type="submit" disabled>Awaiting approval</button>
+                                        }
+                                        else if (Model.PendingRequest is not null)
+                                        {
+                                            <button class="btn btn-outline-secondary w-100" type="submit" disabled>Request pending</button>
+                                        }
                                         else
                                         {
-                                            <button class="btn btn-primary w-100" type="submit">Choose package</button>
+                                            <button class="btn btn-primary w-100" type="submit">Request package</button>
                                         }
                                     </form>
                                 </div>
@@ -79,3 +120,22 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".subscription-request-form").forEach((form) => {
+            form.addEventListener("submit", (event) => {
+                if (!confirm("Submit this package request for Admin approval?")) {
+                    event.preventDefault();
+                }
+            });
+        });
+        document.querySelectorAll(".subscription-cancel-request-form").forEach((form) => {
+            form.addEventListener("submit", (event) => {
+                if (!confirm("Cancel the pending subscription request?")) {
+                    event.preventDefault();
+                }
+            });
+        });
+    </script>
+}

@@ -4,6 +4,7 @@ using DataAccessLayer.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DataAccessLayer.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714175701_AddPendingSubscriptionApproval")]
+    partial class AddPendingSubscriptionApproval
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -245,34 +248,6 @@ namespace DataAccessLayer.Data.Migrations
                     b.HasIndex("ChatSessionId");
 
                     b.ToTable("ChatMessages");
-                });
-
-            modelBuilder.Entity("DataAccessLayer.Entities.ChatMessageUsage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Count")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PeriodKey")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<Guid>("StudentUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentUserId", "PeriodKey")
-                        .IsUnique();
-
-                    b.ToTable("ChatMessageUsages");
                 });
 
             modelBuilder.Entity("DataAccessLayer.Entities.ChatSession", b =>
@@ -532,10 +507,6 @@ namespace DataAccessLayer.Data.Migrations
                     b.Property<DateTime?>("ExpiresAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal>("PriceAtActivation")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime>("StartedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -592,9 +563,6 @@ namespace DataAccessLayer.Data.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
-
-                    b.Property<int>("MessageQuota")
-                        .HasColumnType("int");
 
                     b.Property<decimal>("MonthlyPrice")
                         .HasPrecision(18, 2)

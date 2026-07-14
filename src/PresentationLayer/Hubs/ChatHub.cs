@@ -58,12 +58,30 @@ public class ChatHub : Hub
         try
         {
             var userId = CurrentUserId();
+            if (IsStudent())
+            {
+                var quota = await _chatService.GetQuotaStatusAsync(userId, Context.ConnectionAborted);
+                if (quota.Exhausted)
+                {
+                    await Clients.Caller.SendAsync(
+                        "MessageFailed",
+                        $"You have used all {quota.Quota} messages of the {quota.PlanName} package. Please register or upgrade your package to continue.");
+                    return;
+                }
+            }
+
             var userMessage = await _chatService.SaveUserMessageAsync(
                 parsedSessionId,
                 userId,
                 parsedCourseId,
                 text,
                 Context.ConnectionAborted);
+            if (IsStudent())
+            {
+                // Meter usage once the message is persisted. This counter is never decremented,
+                // so deleting or clearing a session cannot refund quota.
+                await _chatService.RegisterMessageUsageAsync(userId, Context.ConnectionAborted);
+            }
             await Clients.Group(SessionGroup(parsedSessionId)).SendAsync("MessageReceived", userMessage);
 
             var botMessage = await _chatService.GenerateAssistantReplyAsync(
@@ -115,6 +133,11 @@ public class ChatHub : Hub
         return Guid.TryParse(value, out var userId)
             ? userId
             : throw new InvalidOperationException("Current user ID is invalid.");
+    }
+
+    private bool IsStudent()
+    {
+        return string.Equals(Context.User?.FindFirstValue(ClaimTypes.Role), "Student", StringComparison.OrdinalIgnoreCase);
     }
 
     private string SessionGroup(Guid sessionId)

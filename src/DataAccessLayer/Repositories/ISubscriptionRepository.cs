@@ -9,11 +9,21 @@ public interface ISubscriptionRepository
     Task<bool> PlanCodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
     Task AddPlanAsync(SubscriptionPlan plan, CancellationToken cancellationToken);
     Task<StudentSubscription?> GetCurrentForStudentAsync(Guid studentUserId, DateTime nowUtc, CancellationToken cancellationToken);
-    Task ReplaceCurrentSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken);
+    Task<StudentSubscription?> GetPendingForStudentAsync(Guid studentUserId, CancellationToken cancellationToken);
+    Task<StudentSubscription?> GetForDecisionAsync(Guid subscriptionId, CancellationToken cancellationToken);
+    Task AddRequestAsync(StudentSubscription subscription, CancellationToken cancellationToken);
+    Task ActivatePendingAsync(
+        StudentSubscription subscription,
+        DateTime startedAtUtc,
+        DateTime? expiresAtUtc,
+        decimal priceAtActivation,
+        CancellationToken cancellationToken);
+    Task<SubscriptionPlan?> GetPlanByCodeAsync(string code, CancellationToken cancellationToken);
     Task<int> CountStudentsAsync(CancellationToken cancellationToken);
     Task<int> CountActiveSubscriptionsAsync(DateTime nowUtc, CancellationToken cancellationToken);
-    Task<int> CountNewSubscriptionsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken);
+    Task<int> CountRequestsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken);
     Task<IReadOnlyList<SubscriptionPlanCount>> CountActiveByPlanAsync(DateTime nowUtc, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudentSubscription>> ListPendingSubscriptionsAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<StudentSubscription>> ListRecentSubscriptionsAsync(int take, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

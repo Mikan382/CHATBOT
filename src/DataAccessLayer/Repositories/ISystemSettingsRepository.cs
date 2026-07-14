@@ -2,6 +2,10 @@ namespace DataAccessLayer.Repositories;
 
 public interface ISystemSettingsRepository
 {
-    Task<string?> GetValueAsync(string key, CancellationToken cancellationToken);
-    Task SetValueAsync(string key, string value, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<string, string>> GetValuesAsync(
+        IReadOnlyCollection<string> keys,
+        CancellationToken cancellationToken);
+    Task SetValuesAsync(
+        IReadOnlyDictionary<string, string> values,
+        CancellationToken cancellationToken);
 }

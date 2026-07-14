@@ -33,6 +33,7 @@ public class SubscriptionsController : BaseController
         return View(new StudentSubscriptionViewModel
         {
             CurrentSubscription = data.CurrentSubscription,
+            PendingRequest = data.PendingRequest,
             AvailablePlans = data.AvailablePlans
         });
     }
@@ -40,12 +41,12 @@ public class SubscriptionsController : BaseController
     [Authorize(Roles = "Student")]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Subscribe(Guid planId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RequestPackage(Guid planId, CancellationToken cancellationToken)
     {
         try
         {
-            await _subscriptionService.SubscribeAsync(CurrentUserId(), planId, cancellationToken);
-            SetFlashSuccess("Subscription package was updated.");
+            await _subscriptionService.RequestSubscriptionAsync(CurrentUserId(), planId, cancellationToken);
+            SetFlashSuccess("Subscription request was submitted for admin approval.");
         }
         catch (Exception ex)
         {
@@ -58,12 +59,12 @@ public class SubscriptionsController : BaseController
     [Authorize(Roles = "Student")]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Cancel(CancellationToken cancellationToken)
+    public async Task<IActionResult> CancelRequest(CancellationToken cancellationToken)
     {
         try
         {
-            await _subscriptionService.CancelCurrentAsync(CurrentUserId(), cancellationToken);
-            SetFlashSuccess("Current subscription was cancelled.");
+            await _subscriptionService.CancelPendingRequestAsync(CurrentUserId(), cancellationToken);
+            SetFlashSuccess("Pending subscription request was cancelled.");
         }
         catch (Exception ex)
         {
@@ -74,6 +75,24 @@ public class SubscriptionsController : BaseController
     }
 
     [Authorize(Roles = "Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeSubscription(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _subscriptionService.RevokeSubscriptionAsync(id, cancellationToken);
+            SetFlashSuccess("Subscription was revoked.");
+        }
+        catch (Exception ex)
+        {
+            SetFlashError(UserFacingError(ex));
+        }
+
+        return RedirectToAction("Dashboard");
+    }
+
+    [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
     {
@@ -81,6 +100,42 @@ public class SubscriptionsController : BaseController
         {
             Dashboard = await _subscriptionService.GetDashboardAsync(cancellationToken)
         });
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveRequest(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _subscriptionService.ApproveRequestAsync(id, cancellationToken);
+            SetFlashSuccess("Subscription request was approved.");
+        }
+        catch (Exception ex)
+        {
+            SetFlashError(UserFacingError(ex));
+        }
+
+        return RedirectToAction("Dashboard");
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RejectRequest(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _subscriptionService.RejectRequestAsync(id, cancellationToken);
+            SetFlashSuccess("Subscription request was rejected.");
+        }
+        catch (Exception ex)
+        {
+            SetFlashError(UserFacingError(ex));
+        }
+
+        return RedirectToAction("Dashboard");
     }
 
     [Authorize(Roles = "Admin")]
@@ -102,6 +157,7 @@ public class SubscriptionsController : BaseController
                 input.Description,
                 input.MonthlyPrice,
                 input.DurationDays,
+                input.MessageQuota,
                 input.SortOrder,
                 input.IsActive,
                 cancellationToken);
@@ -135,6 +191,7 @@ public class SubscriptionsController : BaseController
                 input.Description,
                 input.MonthlyPrice,
                 input.DurationDays,
+                input.MessageQuota,
                 input.SortOrder,
                 input.IsActive,
                 cancellationToken);

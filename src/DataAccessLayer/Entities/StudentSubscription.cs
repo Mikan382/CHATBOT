@@ -6,6 +6,7 @@ public class StudentSubscription
     public Guid StudentUserId { get; set; }
     public Guid SubscriptionPlanId { get; set; }
     public string Status { get; set; } = "";
+    public decimal PriceAtActivation { get; set; }
     public DateTime StartedAtUtc { get; set; }
     public DateTime? ExpiresAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

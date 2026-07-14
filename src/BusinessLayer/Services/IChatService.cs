@@ -7,6 +7,8 @@ public interface IChatService
     bool GeminiConfigured { get; }
     Task<ChatSessionDto?> GetSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ChatMessageDto>> GetHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
+    Task<ChatQuotaStatusDto> GetQuotaStatusAsync(Guid userId, CancellationToken cancellationToken);
+    Task RegisterMessageUsageAsync(Guid userId, CancellationToken cancellationToken);
     Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken);
     Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken);
     Task ClearAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
