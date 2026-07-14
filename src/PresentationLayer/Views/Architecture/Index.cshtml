@@ -22,7 +22,7 @@
         <article class="architecture-workflow architecture-business">
             <span class="architecture-step">02</span>
             <h5>Business</h5>
-            <p>Services coordinate auth, courses, subscriptions, RAG, parsing, duplicate detection, chunking, and external AI clients.</p>
+            <p>Services coordinate auth, courses, subscriptions, RAG, benchmark evaluation, parsing, chunking, and external AI clients.</p>
             <code>Service call -> DTO</code>
         </article>
         <article class="architecture-workflow architecture-data">
@@ -67,6 +67,12 @@
                     <td>Users, teacher assignments, subscriptions, settings</td>
                     <td>Repositories / SQL Server</td>
                 </tr>
+                <tr>
+                    <td>RAG benchmark</td>
+                    <td>BenchmarkController</td>
+                    <td>Re-chunk -> embed corpus/query -> retrieve -> evaluate</td>
+                    <td>BenchmarkRepository / Gemini / Hugging Face</td>
+                </tr>
                 </tbody>
             </table>
         </div>
@@ -75,7 +81,7 @@
     <section class="architecture-scope">
         <div>
             <h4>Scope Boundary</h4>
-            <p>No Razor Pages endpoints, background worker, indexing queue/progress, fine-tuned model, benchmark module, payment gateway, or deployment infrastructure.</p>
+            <p>No Razor Pages endpoints, background worker, indexing queue/progress, fine-tuned model, payment gateway, or deployment infrastructure.</p>
         </div>
         <div>
             <h4>Admin Configuration</h4>

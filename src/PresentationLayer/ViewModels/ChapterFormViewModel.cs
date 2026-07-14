@@ -10,7 +10,7 @@ public class ChapterFormViewModel
     [Required]
     public Guid CourseId { get; set; }
 
-    [Range(1, 999)]
+    [Range(0, 999)]
     public int Order { get; set; } = 1;
 
     [StringLength(32)]

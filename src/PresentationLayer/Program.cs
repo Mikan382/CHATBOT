@@ -96,6 +96,7 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IUserAdminRepository, UserAdminRepository>();
 builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<IBenchmarkRepository, BenchmarkRepository>();
 
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IChapterService, ChapterService>();
@@ -106,11 +107,12 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddScoped<IChunkingSettingsService, ChunkingSettingsService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
 builder.Services.AddScoped<RetrievalService>();
 builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 
 builder.Services.AddHttpClient<IGeminiClient, GeminiClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
-builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>(client => client.Timeout = TimeSpan.FromSeconds(120));
 
 var app = builder.Build();
 

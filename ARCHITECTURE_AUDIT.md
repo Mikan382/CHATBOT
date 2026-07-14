@@ -1,6 +1,6 @@
 # Architecture Audit - Current State
 
-Date: 2026-07-13
+Date: 2026-07-14
 
 ## Target Diagram
 
@@ -29,6 +29,7 @@ User
 | DAL owns repositories, EF entities, `AppDbContext`, migrations, and SQL Server access | Pass |
 | External AI calls go through AI client abstractions | Pass |
 | Document upload/indexing is synchronous in BusinessLayer; no hosted worker/queue | Pass |
+| Benchmark re-chunks in memory and persists only completed runs/results | Pass |
 | Mutating Chat API endpoints use antiforgery validation and ownership checks | Pass |
 
 ## Current Scope Notes
@@ -36,7 +37,7 @@ User
 - Auth is custom cookie auth with `ApplicationUsers`, password hashing, and role claims.
 - Course teachers are managed through `CourseTeachers`.
 - Chat is RAG-only through Gemini and document retrieval.
-- Fine-tune and benchmark/evaluation code paths have been removed.
+- Fine-tune code paths remain removed; RAG chunking/embedding benchmark is implemented separately.
 - Admin controls the global chunking strategy through `SystemSettings`.
 - Demo seed data is initialized once and is not reapplied after administrative edits.
 - Internal subscriptions are registration/statistics only; they do not gate Chat access.
@@ -52,5 +53,5 @@ dotnet list .\src\BusinessLayer\BusinessLayer.csproj reference
 dotnet list .\src\DataAccessLayer\DataAccessLayer.csproj reference
 rg "DataAccessLayer|AppDbContext|Microsoft.EntityFrameworkCore" src/PresentationLayer -g "*.cs" -g "*.csproj"
 rg "AppDbContext|_db\." src/BusinessLayer/Services -g "*.cs"
-rg "FineTune|Benchmark|BackgroundIndexing|IIndexingQueue|DocumentIndexStatus" src/BusinessLayer src/PresentationLayer src/DataAccessLayer/Entities src/DataAccessLayer/Repositories -g "*.cs" -g "*.cshtml" -g "*.js"
+rg "FineTune|BackgroundIndexing|IIndexingQueue|DocumentIndexStatus" src/BusinessLayer src/PresentationLayer src/DataAccessLayer/Entities src/DataAccessLayer/Repositories -g "*.cs" -g "*.cshtml" -g "*.js"
 ```

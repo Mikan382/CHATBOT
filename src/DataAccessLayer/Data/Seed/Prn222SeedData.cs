@@ -8,6 +8,7 @@ public static class Prn222SeedData
 
     public static readonly IReadOnlyList<(Guid Id, int Order, string Clo, string Title, string Summary)> Chapters =
     [
+        (Guid.Parse("10000000-0000-0000-0000-000000000000"), 0, "Overview", "Course Introduction", "Course objectives, learning outcomes, assessment, learning resources, and the overall PRN222 syllabus."),
         (Guid.Parse("10000000-0000-0000-0000-000000000001"), 1, "CLO1", "Chapter 01: Networking Programming", "HTTP, sockets, networking fundamentals, and how .NET applications communicate across processes and services."),
         (Guid.Parse("10000000-0000-0000-0000-000000000002"), 2, "CLO1", "Chapter 02: Asynchronous and Parallel Programming in .NET", "Task-based async, await, parallel execution, cancellation, and thread-safety fundamentals in .NET."),
         (Guid.Parse("10000000-0000-0000-0000-000000000003"), 3, "CLO1", "Chapter 03: Dependency Injection in .NET", "Service lifetimes, IoC, constructor injection, configuration, and testable application design."),
@@ -15,7 +16,7 @@ public static class Prn222SeedData
         (Guid.Parse("10000000-0000-0000-0000-000000000005"), 5, "CLO3", "Chapter 05: Building Websites Using ASP.NET Core Razor Pages", "Page-focused programming with PageModel, handlers, routing, form binding, validation, and Razor syntax."),
         (Guid.Parse("10000000-0000-0000-0000-000000000006"), 6, "CLO4", "Chapter 06: Building a Web App with Blazor and ASP.NET Core", "Component-based UI, Razor components, binding, event handling, server/web assembly hosting concepts."),
         (Guid.Parse("10000000-0000-0000-0000-000000000007"), 7, "CLO5", "Chapter 07: Real-Time Communication", "SignalR hubs, clients, groups, connection lifetime, and real-time messaging patterns."),
-        (Guid.Parse("10000000-0000-0000-0000-000000000008"), 8, "CLO5", "Chapter 08: ASP.NET Core Application Services", "Service orchestration, dependency injection, request processing, and maintainable layered application design.")
+        (Guid.Parse("10000000-0000-0000-0000-000000000008"), 8, "CLO5", "Chapter 08: Background Tasks with Worker Service", "Worker Service projects, BackgroundService, hosted services, Windows Services, and long-running background tasks in .NET.")
     ];
 
     public static void AddTo(AppDbContext db)
