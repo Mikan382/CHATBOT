@@ -1,55 +1,104 @@
 using Microsoft.AspNetCore.Identity;
+using BusinessLayer.DTOs;
 using DataAccessLayer.Entities;
+using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Services;
 
-public class AuthService
+public class AuthService : IAuthService
 {
-    private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly IUserAdminRepository _userRepository;
+    private readonly IPasswordHasher<ApplicationUser> _passwordHasher;
 
-    public AuthService(SignInManager<ApplicationUser> signInManager)
+    public AuthService(
+        IUserAdminRepository userRepository,
+        IPasswordHasher<ApplicationUser> passwordHasher)
     {
-        _signInManager = signInManager;
+        _userRepository = userRepository;
+        _passwordHasher = passwordHasher;
     }
 
-    public async Task SignInAsync(string email, string password, bool rememberMe)
+    public async Task<AuthenticatedUserDto> AuthenticateAsync(string email, string password, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
         {
             throw new InvalidOperationException("Email and password are required.");
         }
 
-        var result = await _signInManager.PasswordSignInAsync(email.Trim(), password, rememberMe, lockoutOnFailure: true);
-        if (result.IsLockedOut)
-        {
-            throw new InvalidOperationException("This account has been locked. Please contact an administrator.");
-        }
-        if (!result.Succeeded)
+        var user = await _userRepository.GetByEmailAsync(email, cancellationToken);
+        if (user is null)
         {
             throw new InvalidOperationException("Invalid email or password.");
         }
+
+        if (user.IsLockedOut)
+        {
+            throw new InvalidOperationException("This account has been locked. Please contact an administrator.");
+        }
+
+        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+        if (result == PasswordVerificationResult.Failed)
+        {
+            throw new InvalidOperationException("Invalid email or password.");
+        }
+
+        if (result == PasswordVerificationResult.SuccessRehashNeeded)
+        {
+            user.PasswordHash = _passwordHasher.HashPassword(user, password);
+            user.UpdatedAtUtc = DateTime.UtcNow;
+            await _userRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return ToDto(user);
     }
 
-    public async Task SignOutAsync()
+    public async Task<bool> IsPrincipalCurrentAsync(
+        Guid userId,
+        string email,
+        string role,
+        long userVersion,
+        CancellationToken cancellationToken = default)
     {
-        await _signInManager.SignOutAsync();
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        return user is not null
+            && !user.IsLockedOut
+            && user.Email.Equals(email, StringComparison.OrdinalIgnoreCase)
+            && user.Role == role
+            && user.UpdatedAtUtc.Ticks == userVersion;
     }
 
-    public async Task<(bool Success, string? Error)> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    public async Task<(bool Success, string? Error)> ChangePasswordAsync(
+        Guid userId,
+        string currentPassword,
+        string newPassword,
+        CancellationToken cancellationToken = default)
     {
-        var user = await _signInManager.UserManager.FindByIdAsync(userId.ToString());
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
         if (user is null)
         {
             return (false, "User not found.");
         }
 
-        var result = await _signInManager.UserManager.ChangePasswordAsync(user, currentPassword, newPassword);
-        if (!result.Succeeded)
+        var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword);
+        if (result == PasswordVerificationResult.Failed)
         {
-            var errors = string.Join(" ", result.Errors.Select(e => e.Description));
-            return (false, errors);
+            return (false, "Current password is incorrect.");
         }
 
+        var passwordError = UserAdminService.ValidatePassword(newPassword);
+        if (passwordError is not null)
+        {
+            return (false, passwordError);
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        await _userRepository.SaveChangesAsync(cancellationToken);
         return (true, null);
+    }
+
+    private static AuthenticatedUserDto ToDto(ApplicationUser user)
+    {
+        return new AuthenticatedUserDto(user.Id, user.Email, user.Role, user.UpdatedAtUtc);
     }
 }

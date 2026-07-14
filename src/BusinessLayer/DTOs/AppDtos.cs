@@ -1,6 +1,4 @@
-using DataAccessLayer.Enums;
-
-namespace BusinessLayer.Services;
+namespace BusinessLayer.DTOs;
 
 public record CitationDto(Guid ChunkId, string SourceName, string ChapterTitle, int ChunkIndex, string Text);
 
@@ -8,83 +6,130 @@ public record SessionListDto(Guid Id, string Title, DateTime UpdatedAtUtc);
 
 public record RetrievedChunkDto(Guid ChunkId, Guid DocumentId, string SourceName, string ChapterTitle, int ChunkIndex, string Content, double Score);
 
-public record ChatMessageDto(Guid Id, string Role, string ModelType, string Content, IReadOnlyList<CitationDto> Citations, string? Error, DateTime CreatedAtUtc, double? ProcessingSeconds = null);
+public record ChatMessageDto(
+    Guid Id,
+    string Role,
+    string Content,
+    IReadOnlyList<CitationDto> Citations,
+    string? Error,
+    DateTime CreatedAtUtc,
+    double? ProcessingSeconds = null);
 
-public record ChatResponseDto(ChatMessageDto UserMessage, ChatMessageDto BotMessage);
-
-public record FineTuneHistoryMessage(string Role, string Content);
-
-public record FineTuneRequest(string SessionId, string CourseCode, string Question, IReadOnlyList<FineTuneHistoryMessage> History);
-
-public record FineTuneResponse(string Answer, string? ModelName, int? LatencyMs);
-
-public record EvaluationScore(decimal Faithfulness, decimal AnswerRelevance, decimal RetrievalRecall, decimal CitationAccuracy);
+public record ChatHistoryMessage(string Role, string Content);
 
 public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Summary);
 
 public record CourseDto(Guid Id, string Code, string Name, string Description, string Tools, IReadOnlyList<ChapterDto> Chapters);
 
-public record CourseListDto(Guid Id, string Code, string Name, string Description, string Tools, int ChaptersCount);
+public record CourseListDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string Description,
+    string Tools,
+    int ChaptersCount,
+    IReadOnlyList<string> TeacherNames);
 
-public record UserListDto(Guid Id, string Email, string FullName, string Role, bool IsLockedOut);
+public record TeacherOptionDto(Guid Id, string Email, string DisplayName);
 
-public record DocumentApiDto(
+public record UserListDto(Guid Id, string Email, string DisplayName, string Role, bool IsLockedOut);
+
+public record AuthenticatedUserDto(
+    Guid Id,
+    string Email,
+    string Role,
+    DateTime UpdatedAtUtc);
+
+public record DocumentIndexDto(
     Guid Id,
     string OriginalFileName,
     string FileType,
     long FileSizeBytes,
-    string IndexStatus,
-    int IndexProgressPercent,
-    string IndexStage,
-    string? IndexError,
     DateTime UploadedAtUtc,
-    ChapterDto? Chapter,
+    string? CourseCode,
+    string? ChapterTitle,
     int ChunksCount);
 
-public record DocumentChunkApiDto(Guid Id, Guid DocumentId, int ChunkIndex, string SourceName, string Content, DateTime CreatedAtUtc);
+public record DocumentChunkViewDto(int ChunkIndex, string Content, IReadOnlyList<string> EmbeddingModels);
 
-public record EvaluationResultApiDto(
+public record DocumentDetailsDto(
     Guid Id,
-    string Question,
+    string OriginalFileName,
+    string FileType,
+    long FileSizeBytes,
+    DateTime UploadedAtUtc,
+    string? CourseCode,
+    string? CourseName,
+    string? ChapterTitle,
+    string? UploadedByEmail,
+    string ContentText,
+    string ContentHash,
+    IReadOnlyList<DocumentChunkViewDto> Chunks);
+
+public record ChapterSelectDto(Guid Id, Guid CourseId, int Order, string Title);
+
+public record DocumentIndexPageDto(
+    IReadOnlyList<CourseDto> Courses,
+    IReadOnlyList<ChapterSelectDto> Chapters,
+    IReadOnlyList<DocumentIndexDto> Documents);
+
+public record CourseFormDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string Description,
+    string Tools,
+    IReadOnlyList<Guid> TeacherIds);
+
+public record ChapterFormDto(Guid Id, Guid CourseId, int Order, string Clo, string Title, string Summary);
+
+public record ChatSessionDto(Guid Id, Guid? CourseId);
+
+public record ChunkingSettingsDto(string CurrentStrategy, IReadOnlyList<string> AvailableStrategies);
+
+public record SubscriptionPlanDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string Description,
+    decimal MonthlyPrice,
+    int DurationDays,
+    int SortOrder,
+    bool IsActive);
+
+public record StudentSubscriptionDto(
+    Guid Id,
+    Guid PlanId,
+    string PlanName,
+    string PlanCode,
     string Status,
-    decimal Faithfulness,
-    decimal AnswerRelevance,
-    decimal RetrievalRecall,
-    decimal CitationAccuracy,
-    string? ErrorMessage,
-    DateTime CreatedAtUtc,
-    string ChunkingStrategy,
-    string EmbeddingModelName,
-    int RagLatencyMs,
-    int FineTunedLatencyMs,
-    string RagAnswer,
-    string? FineTunedAnswer,
-    decimal FtFaithfulness,
-    decimal FtAnswerRelevance);
+    DateTime StartedAtUtc,
+    DateTime? ExpiresAtUtc);
 
-public static class ModelTypeParser
-{
-    public static bool TryParse(string? input, out ModelType modelType)
-    {
-        modelType = input switch
-        {
-            "rag_standard" => ModelType.RagStandard,
-            "fine_tuned_only" => ModelType.FineTunedOnly,
-            "rag_hybrid" => ModelType.RagHybrid,
-            _ => default
-        };
+public record StudentSubscriptionPageDto(
+    StudentSubscriptionDto? CurrentSubscription,
+    IReadOnlyList<SubscriptionPlanDto> AvailablePlans);
 
-        return modelType != default;
-    }
+public record SubscriptionPlanStatsDto(
+    Guid PlanId,
+    string PlanName,
+    string PlanCode,
+    bool IsActive,
+    int ActiveSubscriptions);
 
-    public static string ToClientValue(this ModelType modelType)
-    {
-        return modelType switch
-        {
-            ModelType.RagStandard => "rag_standard",
-            ModelType.FineTunedOnly => "fine_tuned_only",
-            ModelType.RagHybrid => "rag_hybrid",
-            _ => "rag_standard"
-        };
-    }
-}
+public record RecentSubscriptionDto(
+    Guid Id,
+    string StudentEmail,
+    string StudentDisplayName,
+    string PlanName,
+    string Status,
+    DateTime StartedAtUtc,
+    DateTime? ExpiresAtUtc);
+
+public record SubscriptionDashboardDto(
+    int TotalStudents,
+    int ActiveSubscriptions,
+    int RegistrationsThisMonth,
+    IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
+    IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
+    IReadOnlyList<SubscriptionPlanDto> Plans);

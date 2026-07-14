@@ -1,0 +1,56 @@
+@model ChapterFormViewModel
+@{
+    ViewData["Title"] = "Edit Chapter";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-8 col-lg-10">
+        <div class="card app-card">
+            <div class="card-body">
+                <h4 class="card-title">@ViewData["Title"]</h4>
+                @if (!string.IsNullOrWhiteSpace(Model.Error))
+                {
+                    <div class="alert alert-danger small">@Model.Error</div>
+                }
+                <form method="post" asp-controller="Chapters" asp-action="Edit" asp-route-id="@Model.Id">
+                    @Html.AntiForgeryToken()
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label" asp-for="CourseId">Course</label>
+                            <select class="form-select" asp-for="CourseId">
+                                @foreach (var course in Model.Courses)
+                                {
+                                    <option value="@course.Id">@course.Code - @course.Name</option>
+                                }
+                            </select>
+                            <span class="text-danger small" asp-validation-for="CourseId"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" asp-for="Order"></label>
+                            <input class="form-control" asp-for="Order" />
+                            <span class="text-danger small" asp-validation-for="Order"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" asp-for="Clo"></label>
+                            <input class="form-control" asp-for="Clo" />
+                            <span class="text-danger small" asp-validation-for="Clo"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" asp-for="Title"></label>
+                            <input class="form-control" asp-for="Title" />
+                            <span class="text-danger small" asp-validation-for="Title"></span>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" asp-for="Summary"></label>
+                            <textarea class="form-control" asp-for="Summary" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button class="btn btn-primary" type="submit">Save</button>
+                        <a class="btn btn-outline-secondary" asp-controller="Courses" asp-action="Chapters" asp-route-id="@Model.CourseId">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

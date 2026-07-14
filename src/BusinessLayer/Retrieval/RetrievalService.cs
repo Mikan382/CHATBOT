@@ -1,29 +1,29 @@
 using System.Text.Json;
-using DataAccessLayer.Repositories;
-using BusinessLayer.Services;
+using Microsoft.Extensions.Logging;
 using BusinessLayer.AI;
+using BusinessLayer.DTOs;
+using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Retrieval;
 
 public class RetrievalService
 {
+    private const double MinEmbeddingScore = 0.36;
+    private const double MinLexicalScore = 0.02;
     private readonly IDocumentRepository _documentRepository;
     private readonly IDocumentEmbeddingRepository _embeddingRepository;
     private readonly IEmbeddingClient _embeddingClient;
-    private readonly EmbeddingClientFactory _embeddingClientFactory;
     private readonly ILogger<RetrievalService> _logger;
 
     public RetrievalService(
         IDocumentRepository documentRepository,
         IDocumentEmbeddingRepository embeddingRepository,
         IEmbeddingClient embeddingClient,
-        EmbeddingClientFactory embeddingClientFactory,
         ILogger<RetrievalService> logger)
     {
         _documentRepository = documentRepository;
         _embeddingRepository = embeddingRepository;
         _embeddingClient = embeddingClient;
-        _embeddingClientFactory = embeddingClientFactory;
         _logger = logger;
     }
 
@@ -33,7 +33,7 @@ public class RetrievalService
         {
             try
             {
-                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, _embeddingClient, cancellationToken);
+                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, cancellationToken);
                 if (embeddedResults.Count > 0)
                 {
                     return embeddedResults;
@@ -48,58 +48,22 @@ public class RetrievalService
         return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
     }
 
-    /// <summary>
-    /// Retrieve using a specific embedding model by name (for benchmarking).
-    /// Falls back to lexical retrieval if the model is unavailable.
-    /// </summary>
-    public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithModelAsync(string query, Guid? courseId, int topK, string modelName, CancellationToken cancellationToken)
-    {
-        var client = _embeddingClientFactory.GetByName(modelName);
-        if (client is not null && client.IsConfigured)
-        {
-            try
-            {
-                var results = await RetrieveWithEmbeddingsAsync(query, courseId, topK, client, cancellationToken);
-                if (results.Count > 0)
-                {
-                    return results;
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Embedding retrieval with model {Model} failed. Falling back to lexical.", modelName);
-            }
-        }
-
-        // Fall back to default embedding client
-        if (_embeddingClient.IsConfigured)
-        {
-            try
-            {
-                var results = await RetrieveWithEmbeddingsAsync(query, courseId, topK, _embeddingClient, cancellationToken);
-                if (results.Count > 0)
-                {
-                    return results;
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Default embedding retrieval also failed. Falling back to lexical.");
-            }
-        }
-
-        return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
-    }
-
-    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(string query, Guid? courseId, int topK, IEmbeddingClient client, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(
+        string query,
+        Guid? courseId,
+        int topK,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
             return [];
         }
 
-        var queryVector = await client.EmbedQueryAsync(query, cancellationToken);
-        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(client.ModelName, courseId, cancellationToken);
+        var queryVector = await _embeddingClient.EmbedQueryAsync(query, cancellationToken);
+        var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(
+            _embeddingClient.ModelName,
+            courseId,
+            cancellationToken);
         if (embeddings.Count == 0)
         {
             return [];
@@ -114,9 +78,9 @@ public class RetrievalService
             .Select(x => new
             {
                 x.Embedding,
-                Score = Cosine(queryVector, x.Vector)
+                Score = CosineSimilarity.Cosine(queryVector.AsSpan(), x.Vector.AsSpan())
             })
-            .Where(x => x.Score > 0)
+            .Where(x => x.Score >= MinEmbeddingScore)
             .OrderByDescending(x => x.Score)
             .Take(topK)
             .Select(x =>
@@ -126,7 +90,7 @@ public class RetrievalService
                     chunk.Id,
                     chunk.DocumentId,
                     chunk.SourceName,
-                    chunk.Document?.Chapter?.Title ?? "PRN222",
+                    chunk.Document?.Chapter?.Title ?? "Unknown",
                     chunk.ChunkIndex,
                     chunk.Content,
                     x.Score);
@@ -143,55 +107,26 @@ public class RetrievalService
         }
 
         var chunks = await _documentRepository.ListIndexedChunksAsync(courseId, cancellationToken);
-        // Cap at 200 candidates before in-memory scoring to bound memory usage (S11)
-        const int CandidateLimit = 200;
         var scored = chunks
-            .Take(CandidateLimit)
             .Select(chunk => new
             {
                 Chunk = chunk,
                 Score = Score(terms, chunk.NormalizedContent)
             })
-            .Where(x => x.Score > 0)
+            .Where(x => x.Score >= MinLexicalScore)
             .OrderByDescending(x => x.Score)
             .Take(topK)
             .Select(x => new RetrievedChunkDto(
                 x.Chunk.Id,
                 x.Chunk.DocumentId,
                 x.Chunk.SourceName,
-                x.Chunk.Document?.Chapter?.Title ?? "PRN222",
+                x.Chunk.Document?.Chapter?.Title ?? "Unknown",
                 x.Chunk.ChunkIndex,
                 x.Chunk.Content,
                 x.Score))
             .ToList();
 
         return scored;
-    }
-
-    private static double Cosine(IReadOnlyList<float> left, IReadOnlyList<float> right)
-    {
-        var dimensions = Math.Min(left.Count, right.Count);
-        if (dimensions == 0)
-        {
-            return 0;
-        }
-
-        var dot = 0d;
-        var leftMagnitude = 0d;
-        var rightMagnitude = 0d;
-        for (var i = 0; i < dimensions; i++)
-        {
-            dot += left[i] * right[i];
-            leftMagnitude += left[i] * left[i];
-            rightMagnitude += right[i] * right[i];
-        }
-
-        if (leftMagnitude <= 0 || rightMagnitude <= 0)
-        {
-            return 0;
-        }
-
-        return dot / (Math.Sqrt(leftMagnitude) * Math.Sqrt(rightMagnitude));
     }
 
     private static double Score(IReadOnlyList<string> terms, string normalizedContent)

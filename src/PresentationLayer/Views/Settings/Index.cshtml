@@ -1,0 +1,33 @@
+@model ChunkingSettingsViewModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="row justify-content-center">
+    <div class="col-xl-7 col-lg-9">
+        <div class="card app-card">
+            <div class="card-body">
+                <h4 class="card-title">Settings</h4>
+                <div class="text-muted small mb-3">Chunking strategy applies to new document uploads only.</div>
+                @if (!string.IsNullOrWhiteSpace(Model.Error))
+                {
+                    <div class="alert alert-danger small">@Model.Error</div>
+                }
+                <form method="post" asp-controller="Settings" asp-action="Index">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label" asp-for="CurrentStrategy">Chunking strategy</label>
+                        <select class="form-select" asp-for="CurrentStrategy">
+                            @foreach (var strategy in Model.AvailableStrategies)
+                            {
+                                <option value="@strategy" selected="@(strategy == Model.CurrentStrategy)">@strategy</option>
+                            }
+                        </select>
+                        <span class="text-danger small" asp-validation-for="CurrentStrategy"></span>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

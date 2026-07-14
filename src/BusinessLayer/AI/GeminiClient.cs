@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace BusinessLayer.AI;
 
@@ -20,7 +22,7 @@ public class GeminiClient : IGeminiClient
 
     private string? ApiKey => _configuration["Gemini:ApiKey"];
 
-    private string Model => _configuration["Gemini:Model"] ?? "gemini-1.5-flash";
+    private string Model => _configuration["Gemini:Model"] ?? "gemini-2.5-flash";
 
     public async Task<string> GenerateAsync(string systemInstruction, string prompt, CancellationToken cancellationToken)
     {
@@ -29,7 +31,7 @@ public class GeminiClient : IGeminiClient
             throw new InvalidOperationException("Gemini API key is not configured.");
         }
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{Model}:generateContent?key={Uri.EscapeDataString(ApiKey!)}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{Model}:generateContent";
         var payload = new
         {
             systemInstruction = new
@@ -51,63 +53,84 @@ public class GeminiClient : IGeminiClient
             }
         };
 
-        using var response = await _httpClient.PostAsJsonAsync(url, payload, cancellationToken);
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
-            _logger.LogWarning("Gemini returned {StatusCode}: {Body}", response.StatusCode, json);
-            throw new InvalidOperationException($"Gemini API returned status {(int)response.StatusCode}.");
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Add("x-goog-api-key", ApiKey);
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.SendAsync(request, cancellationToken);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new InvalidOperationException("Gemini API request timed out.", ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException("Gemini API is unavailable.", ex);
         }
 
-        using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
-
-        if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+        using (response)
         {
-            // Gemini may return promptFeedback with blockReason instead of candidates
-            var blockReason = "";
-            if (root.TryGetProperty("promptFeedback", out var feedback) &&
-                feedback.TryGetProperty("blockReason", out var reason))
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
             {
-                blockReason = $" (blocked: {reason.GetString()})";
+                _logger.LogWarning("Gemini returned status {StatusCode}.", response.StatusCode);
+                throw new InvalidOperationException($"Gemini API returned status {(int)response.StatusCode}.");
             }
 
-            throw new InvalidOperationException($"Gemini did not return any candidates{blockReason}.");
-        }
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
 
-        var candidate = candidates[0];
-        if (!candidate.TryGetProperty("content", out var content) ||
-            !content.TryGetProperty("parts", out var parts) ||
-            parts.GetArrayLength() == 0)
-        {
-            var finishReason = "";
-            if (candidate.TryGetProperty("finishReason", out var fr))
+            if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
             {
-                finishReason = $" (finishReason: {fr.GetString()})";
-            }
-
-            throw new InvalidOperationException($"Gemini candidate has no content{finishReason}.");
-        }
-
-        // Find the first text part (skip thinking parts)
-        string? text = null;
-        foreach (var part in parts.EnumerateArray())
-        {
-            if (part.TryGetProperty("text", out var t))
-            {
-                text = t.GetString();
-                if (!string.IsNullOrWhiteSpace(text))
+                // Gemini may return promptFeedback with blockReason instead of candidates
+                var blockReason = "";
+                if (root.TryGetProperty("promptFeedback", out var feedback) &&
+                    feedback.TryGetProperty("blockReason", out var reason))
                 {
-                    break;
+                    blockReason = $" (blocked: {reason.GetString()})";
+                }
+
+                throw new InvalidOperationException($"Gemini did not return any candidates{blockReason}.");
+            }
+
+            var candidate = candidates[0];
+            if (!candidate.TryGetProperty("content", out var content) ||
+                !content.TryGetProperty("parts", out var parts) ||
+                parts.GetArrayLength() == 0)
+            {
+                var finishReason = "";
+                if (candidate.TryGetProperty("finishReason", out var fr))
+                {
+                    finishReason = $" (finishReason: {fr.GetString()})";
+                }
+
+                throw new InvalidOperationException($"Gemini candidate has no content{finishReason}.");
+            }
+
+            // Find the first text part (skip thinking parts)
+            string? text = null;
+            foreach (var part in parts.EnumerateArray())
+            {
+                if (part.TryGetProperty("text", out var t))
+                {
+                    text = t.GetString();
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        break;
+                    }
                 }
             }
-        }
 
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            throw new InvalidOperationException("Gemini did not return any text content.");
-        }
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                throw new InvalidOperationException("Gemini did not return any text content.");
+            }
 
-        return text.Trim();
+            return text.Trim();
+        }
     }
 }

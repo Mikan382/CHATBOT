@@ -1,121 +1,193 @@
+using System.Net.Mail;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using DataAccessLayer.Data;
+using BusinessLayer.DTOs;
+using BusinessLayer.Helpers;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
+using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Services;
 
-public class UserAdminService
+public class UserAdminService : IUserAdminService
 {
     private static readonly string[] AllowedRoles = [UserRoleNames.Student, UserRoleNames.Teacher, UserRoleNames.Admin];
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly AppDbContext _db;
+    private readonly IUserAdminRepository _userRepository;
+    private readonly IPasswordHasher<ApplicationUser> _passwordHasher;
 
-    public UserAdminService(UserManager<ApplicationUser> userManager, AppDbContext db)
+    public UserAdminService(IUserAdminRepository userRepository, IPasswordHasher<ApplicationUser> passwordHasher)
     {
-        _userManager = userManager;
-        _db = db;
+        _userRepository = userRepository;
+        _passwordHasher = passwordHasher;
     }
 
-    public async Task<IReadOnlyList<UserListDto>> ListAsync()
+    public async Task<IReadOnlyList<UserListDto>> ListAsync(
+        string? searchTerm,
+        string? role,
+        CancellationToken cancellationToken)
     {
-        // 2 queries instead of N+1: load users, then batch load role names
-        var users = await _userManager.Users
-            .OrderBy(x => x.Email)
-            .AsNoTracking()
-            .ToListAsync();
-
-        var userIds = users.Select(u => u.Id).ToList();
-
-        // Single join query for all user roles
-        var userRoles = await (
-            from ur in _db.UserRoles
-            join r in _db.Roles on ur.RoleId equals r.Id
-            where userIds.Contains(ur.UserId)
-            select new { ur.UserId, r.Name }
-        ).ToListAsync();
-
-        var roleLookup = userRoles
-            .GroupBy(x => x.UserId)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.Name).ToList());
-
-        return users.Select(u => new UserListDto(
-            u.Id,
-            u.Email ?? "",
-            u.FullName,
-            roleLookup.TryGetValue(u.Id, out var roles) ? roles.FirstOrDefault() ?? "" : "",
-            u.LockoutEnd.HasValue && u.LockoutEnd.Value > DateTimeOffset.UtcNow))
-        .ToList();
+        var normalizedRole = string.IsNullOrWhiteSpace(role) || !AllowedRoles.Contains(role) ? null : role;
+        var users = await _userRepository.ListUsersAsync(searchTerm, normalizedRole, cancellationToken);
+        return users.Select(u => new UserListDto(u.Id, u.Email, u.DisplayName, u.Role, u.IsLockedOut)).ToList();
     }
 
-    public async Task CreateAsync(string email, string fullName, string role, string password)
+    public async Task CreateAsync(
+        string email,
+        string fullName,
+        string role,
+        string password,
+        CancellationToken cancellationToken)
     {
         role = ValidateRole(role);
-        email = NormalizeRequired(email, "Email");
-        fullName = fullName?.Trim() ?? "";
+        email = NormalizeEmail(email);
+        var displayName = StringHelper.NormalizeRequired(fullName, "Display name");
+        var passwordError = ValidatePassword(password);
+        if (passwordError is not null)
+        {
+            throw new InvalidOperationException(passwordError);
+        }
 
+        if (await _userRepository.EmailExistsAsync(email, null, cancellationToken))
+        {
+            throw new InvalidOperationException("Email already exists.");
+        }
+
+        var now = DateTime.UtcNow;
         var user = new ApplicationUser
         {
             Id = Guid.NewGuid(),
-            UserName = email,
             Email = email,
-            EmailConfirmed = true,
-            FullName = fullName
+            DisplayName = displayName,
+            Role = role,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
         };
-
-        var result = await _userManager.CreateAsync(user, password);
-        EnsureSuccess(result);
-        result = await _userManager.AddToRoleAsync(user, role);
-        EnsureSuccess(result);
+        user.PasswordHash = _passwordHasher.HashPassword(user, password);
+        await _userRepository.AddAsync(user, cancellationToken);
     }
 
-    public async Task ChangeRoleAsync(Guid userId, string role)
+    public async Task<bool> UpdateAsync(
+        Guid actorUserId,
+        Guid userId,
+        string email,
+        string fullName,
+        string role,
+        CancellationToken cancellationToken)
     {
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("User was not found.");
         role = ValidateRole(role);
-        var user = await _userManager.FindByIdAsync(userId.ToString())
-            ?? throw new InvalidOperationException("User was not found.");
+        email = NormalizeEmail(email);
+        var displayName = StringHelper.NormalizeRequired(fullName, "Display name");
 
-        var currentRoles = await _userManager.GetRolesAsync(user);
-        if (currentRoles.Count > 0)
+        if (userId == actorUserId && role != UserRoleNames.Admin)
         {
-            EnsureSuccess(await _userManager.RemoveFromRolesAsync(user, currentRoles));
+            throw new InvalidOperationException("You cannot remove your own Admin role.");
         }
 
-        EnsureSuccess(await _userManager.AddToRoleAsync(user, role));
-    }
-
-    public async Task SetLockoutAsync(Guid userId, bool locked)
-    {
-        var user = await _userManager.FindByIdAsync(userId.ToString())
-            ?? throw new InvalidOperationException("User was not found.");
-
-        EnsureSuccess(await _userManager.SetLockoutEnabledAsync(user, true));
-        EnsureSuccess(await _userManager.SetLockoutEndDateAsync(
-            user,
-            locked ? DateTimeOffset.UtcNow.AddYears(100) : null));
-    }
-
-    public async Task DeleteAsync(Guid userId)
-    {
-        var user = await _userManager.FindByIdAsync(userId.ToString())
-            ?? throw new InvalidOperationException("User was not found.");
-
-        EnsureSuccess(await _userManager.DeleteAsync(user));
-    }
-
-    public async Task ResetPasswordAsync(Guid userId, string newPassword)
-    {
-        if (string.IsNullOrWhiteSpace(newPassword))
+        await EnsureActiveAdminRemainsAsync(user, role != UserRoleNames.Admin, cancellationToken);
+        if (await _userRepository.EmailExistsAsync(email, userId, cancellationToken))
         {
-            throw new InvalidOperationException("New password is required.");
+            throw new InvalidOperationException("Email already exists.");
         }
 
-        var user = await _userManager.FindByIdAsync(userId.ToString())
-            ?? throw new InvalidOperationException("User was not found.");
+        var changed = user.Email != email || user.DisplayName != displayName || user.Role != role;
+        if (!changed)
+        {
+            return false;
+        }
 
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        EnsureSuccess(await _userManager.ResetPasswordAsync(user, token, newPassword));
+        var removeTeachingAssignments = user.Role == UserRoleNames.Teacher && role != UserRoleNames.Teacher;
+        user.Email = email;
+        user.DisplayName = displayName;
+        user.Role = role;
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        await _userRepository.SaveUserAsync(user, removeTeachingAssignments, cancellationToken);
+        return userId == actorUserId;
+    }
+
+    public async Task SetLockoutAsync(
+        Guid actorUserId,
+        Guid userId,
+        bool locked,
+        CancellationToken cancellationToken)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("User was not found.");
+        if (locked && userId == actorUserId)
+        {
+            throw new InvalidOperationException("You cannot lock your own account.");
+        }
+
+        await EnsureActiveAdminRemainsAsync(user, locked, cancellationToken);
+        if (user.IsLockedOut == locked)
+        {
+            return;
+        }
+
+        user.IsLockedOut = locked;
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        await _userRepository.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(Guid actorUserId, Guid userId, CancellationToken cancellationToken)
+    {
+        if (userId == actorUserId)
+        {
+            throw new InvalidOperationException("You cannot delete your own account.");
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("User was not found.");
+        await EnsureActiveAdminRemainsAsync(user, true, cancellationToken);
+        await _userRepository.DeleteAsync(user, cancellationToken);
+    }
+
+    public async Task ResetPasswordAsync(
+        Guid actorUserId,
+        Guid userId,
+        string newPassword,
+        CancellationToken cancellationToken)
+    {
+        if (userId == actorUserId)
+        {
+            throw new InvalidOperationException("Use Change Password for your own account.");
+        }
+
+        var passwordError = ValidatePassword(newPassword);
+        if (passwordError is not null)
+        {
+            throw new InvalidOperationException(passwordError);
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("User was not found.");
+        user.PasswordHash = _passwordHasher.HashPassword(user, newPassword);
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        await _userRepository.SaveChangesAsync(cancellationToken);
+    }
+
+    public static string? ValidatePassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password)) return "Password is required.";
+        if (password.Length < 8) return "Password must be at least 8 characters.";
+        if (!password.Any(char.IsDigit)) return "Password must contain at least one digit.";
+        if (!password.Any(char.IsLower)) return "Password must contain at least one lowercase letter.";
+        if (!password.Any(char.IsUpper)) return "Password must contain at least one uppercase letter.";
+        return null;
+    }
+
+    private async Task EnsureActiveAdminRemainsAsync(
+        ApplicationUser user,
+        bool removesActiveAdmin,
+        CancellationToken cancellationToken)
+    {
+        if (removesActiveAdmin
+            && user.Role == UserRoleNames.Admin
+            && !user.IsLockedOut
+            && await _userRepository.CountActiveAdminsAsync(cancellationToken) <= 1)
+        {
+            throw new InvalidOperationException("At least one active Admin account is required.");
+        }
     }
 
     private static string ValidateRole(string role)
@@ -128,21 +200,14 @@ public class UserAdminService
         return role;
     }
 
-    private static string NormalizeRequired(string value, string label)
+    private static string NormalizeEmail(string email)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var normalized = StringHelper.NormalizeRequired(email, "Email").ToLowerInvariant();
+        if (!MailAddress.TryCreate(normalized, out _))
         {
-            throw new InvalidOperationException($"{label} is required.");
+            throw new InvalidOperationException("Email is invalid.");
         }
 
-        return value.Trim();
-    }
-
-    private static void EnsureSuccess(IdentityResult result)
-    {
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException(string.Join(" ", result.Errors.Select(x => x.Description)));
-        }
+        return normalized;
     }
 }

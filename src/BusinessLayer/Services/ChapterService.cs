@@ -1,9 +1,11 @@
+using BusinessLayer.DTOs;
+using BusinessLayer.Helpers;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Services;
 
-public class ChapterService
+public class ChapterService : IChapterService
 {
     private readonly ICourseRepository _courseRepository;
     private readonly IChapterRepository _chapterRepository;
@@ -14,23 +16,29 @@ public class ChapterService
         _chapterRepository = chapterRepository;
     }
 
-    public async Task<IReadOnlyList<ChapterDto>> ListByCourseAsync(Guid courseId, CancellationToken cancellationToken)
+    public async Task<ChapterFormDto?> GetEditableAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
-        var chapters = await _chapterRepository.ListByCourseAsync(courseId, cancellationToken);
-        return chapters.Select(ToDto).ToList();
+        var chapter = await _chapterRepository.GetByIdAsync(id, cancellationToken);
+        if (chapter is null) return null;
+        await EnsureCanManageCourseAsync(chapter.CourseId, userId, isAdmin, cancellationToken);
+        return new ChapterFormDto(chapter.Id, chapter.CourseId, chapter.Order, chapter.Clo, chapter.Title, chapter.Summary);
     }
 
-    public async Task<Chapter?> GetEditableAsync(Guid id, CancellationToken cancellationToken)
-    {
-        return await _chapterRepository.GetByIdAsync(id, cancellationToken);
-    }
-
-    public async Task<Chapter> CreateAsync(Guid courseId, int order, string? clo, string title, string? summary, CancellationToken cancellationToken)
+    public async Task<(Guid Id, Guid CourseId)> CreateAsync(
+        Guid courseId,
+        int order,
+        string? clo,
+        string title,
+        string? summary,
+        Guid userId,
+        bool isAdmin,
+        CancellationToken cancellationToken)
     {
         _ = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
+        await EnsureCanManageCourseAsync(courseId, userId, isAdmin, cancellationToken);
 
-        title = NormalizeRequired(title, "Chapter title");
+        title = StringHelper.NormalizeRequired(title, "Chapter title");
         ValidateOrder(order);
 
         if (await _chapterRepository.OrderExistsAsync(courseId, order, null, cancellationToken))
@@ -49,10 +57,19 @@ public class ChapterService
         };
 
         await _chapterRepository.AddAsync(chapter, cancellationToken);
-        return chapter;
+        return (chapter.Id, chapter.CourseId);
     }
 
-    public async Task UpdateAsync(Guid id, Guid courseId, int order, string? clo, string title, string? summary, CancellationToken cancellationToken)
+    public async Task UpdateAsync(
+        Guid id,
+        Guid courseId,
+        int order,
+        string? clo,
+        string title,
+        string? summary,
+        Guid userId,
+        bool isAdmin,
+        CancellationToken cancellationToken)
     {
         var chapter = await _chapterRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException("Chapter was not found.");
@@ -60,7 +77,10 @@ public class ChapterService
         _ = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
 
-        title = NormalizeRequired(title, "Chapter title");
+        await EnsureCanManageCourseAsync(chapter.CourseId, userId, isAdmin, cancellationToken);
+        await EnsureCanManageCourseAsync(courseId, userId, isAdmin, cancellationToken);
+
+        title = StringHelper.NormalizeRequired(title, "Chapter title");
         ValidateOrder(order);
 
         if (await _chapterRepository.OrderExistsAsync(courseId, order, id, cancellationToken))
@@ -76,8 +96,17 @@ public class ChapterService
         await _chapterRepository.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
+        var chapter = await _chapterRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException("Chapter was not found.");
+        await EnsureCanManageCourseAsync(chapter.CourseId, userId, isAdmin, cancellationToken);
+
+        if (await _chapterRepository.HasDependenciesAsync(id, cancellationToken))
+        {
+            throw new InvalidOperationException("Cannot delete a chapter that still has documents.");
+        }
+
         var deleted = await _chapterRepository.DeleteAsync(id, cancellationToken);
         if (!deleted)
         {
@@ -85,9 +114,12 @@ public class ChapterService
         }
     }
 
-    private static ChapterDto ToDto(Chapter chapter)
+    private async Task EnsureCanManageCourseAsync(Guid courseId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
-        return new ChapterDto(chapter.Id, chapter.Order, chapter.Clo, chapter.Title, chapter.Summary);
+        if (!isAdmin && !await _courseRepository.TeacherCanManageCourseAsync(courseId, userId, cancellationToken))
+        {
+            throw new InvalidOperationException("You are not assigned to this course.");
+        }
     }
 
     private static void ValidateOrder(int order)
@@ -96,15 +128,5 @@ public class ChapterService
         {
             throw new InvalidOperationException("Chapter order must be greater than zero.");
         }
-    }
-
-    private static string NormalizeRequired(string value, string label)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidOperationException($"{label} is required.");
-        }
-
-        return value.Trim();
     }
 }

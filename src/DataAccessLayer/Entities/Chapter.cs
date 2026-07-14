@@ -10,5 +10,4 @@ public class Chapter
     public string Title { get; set; } = "";
     public string Summary { get; set; } = "";
     public ICollection<Document> Documents { get; set; } = new List<Document>();
-    public ICollection<EvaluationQuestion> EvaluationQuestions { get; set; } = new List<EvaluationQuestion>();
 }

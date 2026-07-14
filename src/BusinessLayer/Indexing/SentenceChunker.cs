@@ -18,6 +18,13 @@ public class SentenceChunker : ITextChunker
 
         foreach (var sentence in sentences)
         {
+            if (sentence.Length > TargetMaxChars)
+            {
+                FlushCurrent(chunks, current);
+                chunks.AddRange(SplitLongSentence(sentence));
+                continue;
+            }
+
             if (current.Length > 0 && current.Length + sentence.Length + 1 > TargetMaxChars)
             {
                 FlushCurrent(chunks, current);
@@ -51,6 +58,30 @@ public class SentenceChunker : ITextChunker
             .ToList();
 
         return parts;
+    }
+
+    private static IEnumerable<string> SplitLongSentence(string sentence)
+    {
+        var start = 0;
+        while (start < sentence.Length)
+        {
+            var length = Math.Min(TargetMaxChars, sentence.Length - start);
+            if (start + length < sentence.Length)
+            {
+                var lastSpace = sentence.LastIndexOf(' ', start + length - 1, length);
+                if (lastSpace > start)
+                {
+                    length = lastSpace - start;
+                }
+            }
+
+            yield return sentence.Substring(start, length).Trim();
+            start += length;
+            while (start < sentence.Length && sentence[start] == ' ')
+            {
+                start++;
+            }
+        }
     }
 
     private static void FlushCurrent(List<string> chunks, StringBuilder current)

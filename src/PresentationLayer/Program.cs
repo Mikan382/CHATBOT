@@ -1,110 +1,149 @@
-using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
-using DataAccessLayer.Data;
-using DataAccessLayer.Entities;
-using PresentationLayer.Hubs;
-using DataAccessLayer.Repositories;
-using BusinessLayer.Services;
+using Microsoft.EntityFrameworkCore;
 using BusinessLayer.AI;
 using BusinessLayer.Indexing;
 using BusinessLayer.Parsing;
 using BusinessLayer.Retrieval;
-using DataAccessLayer.Enums;
+using BusinessLayer.Services;
+using DataAccessLayer.Data;
+using DataAccessLayer.Entities;
+using DataAccessLayer.Repositories;
+using PresentationLayer.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Missing ConnectionStrings:DefaultConnection in appsettings.json.");
+    ?? throw new InvalidOperationException("Missing ConnectionStrings:DefaultConnection.");
 
-builder.Services.AddControllers();
-builder.Services.AddRazorPages();
+builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
-builder.Services.AddSession();
-builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
-builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
-{
-    options.Password.RequiredLength = 8;
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.User.RequireUniqueEmail = true;
-})
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
-builder.Services.ConfigureApplicationCookie(options =>
-{
-    options.LoginPath = "/account/login";
-    options.AccessDeniedPath = "/account/login";
-    options.Events.OnRedirectToAccessDenied = context =>
+builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
     {
-        if (HttpMethods.IsPost(context.Request.Method) || context.Request.Path.StartsWithSegments("/api"))
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.LoginPath = "/Account/Login";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.ExpireTimeSpan = TimeSpan.FromDays(14);
+        options.SlidingExpiration = true;
+        options.Events.OnValidatePrincipal = async context =>
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Task.CompletedTask;
-        }
+            var idValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var email = context.Principal?.FindFirstValue(ClaimTypes.Email);
+            var role = context.Principal?.FindFirstValue(ClaimTypes.Role);
+            var versionValue = context.Principal?.FindFirstValue("user_version");
+            var userId = Guid.Empty;
+            var userVersion = 0L;
+            var validClaims = Guid.TryParse(idValue, out userId)
+                && long.TryParse(versionValue, out userVersion)
+                && !string.IsNullOrWhiteSpace(email)
+                && !string.IsNullOrWhiteSpace(role);
 
-        context.Response.Redirect(context.RedirectUri);
-        return Task.CompletedTask;
-    };
-});
-builder.Services.AddSingleton<IIndexingQueue, IndexingQueue>();
-builder.Services.AddSingleton<TextChunker>();
-// Chunkers enumerable for benchmark (resolved by StrategyName)
-builder.Services.AddSingleton<ITextChunker, TextChunker>();
+            var authService = context.HttpContext.RequestServices.GetRequiredService<IAuthService>();
+            if (!validClaims || !await authService.IsPrincipalCurrentAsync(
+                    userId,
+                    email!,
+                    role!,
+                    userVersion,
+                    context.HttpContext.RequestAborted))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
+        options.Events.OnRedirectToLogin = context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api")
+                || context.Request.Path.StartsWithSegments("/chatHub"))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            }
+
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api")
+                || context.Request.Path.StartsWithSegments("/chatHub")
+                || HttpMethods.IsPost(context.Request.Method))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            }
+
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddScoped<IPasswordHasher<ApplicationUser>, PasswordHasher<ApplicationUser>>();
+
+builder.Services.AddSingleton<ITextChunker, ParagraphChunker>();
 builder.Services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker(1000, 150));
 builder.Services.AddSingleton<ITextChunker, SentenceChunker>();
-builder.Services.AddScoped<BenchmarkRetrievalService>();
-builder.Services.AddSingleton<BenchmarkJobRunner>();
+
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IChapterRepository, ChapterRepository>();
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 builder.Services.AddScoped<IDocumentEmbeddingRepository, DocumentEmbeddingRepository>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
-builder.Services.AddScoped<IEvaluationRepository, EvaluationRepository>();
-builder.Services.AddScoped<CourseService>();
-builder.Services.AddScoped<ChapterService>();
+builder.Services.AddScoped<IUserAdminRepository, UserAdminRepository>();
+builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
+builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+
+builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IChapterService, ChapterService>();
 builder.Services.AddScoped<DocumentIndexingService>();
-builder.Services.AddScoped<DocumentService>();
-builder.Services.AddScoped<ChatService>();
-builder.Services.AddScoped<EvaluationService>();
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<UserAdminService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<IChunkingSettingsService, ChunkingSettingsService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<RetrievalService>();
 builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
-builder.Services.AddHttpClient<IGeminiClient, GeminiClient>();
-builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>();
-builder.Services.AddHttpClient<IFineTuneClient, FineTuneClient>();
-builder.Services.AddHostedService<BackgroundIndexingService>();
-builder.Services.AddHostedService<PendingDocumentQueueHostedService>();
 
-// Research module services
-builder.Services.AddSingleton<EmbeddingClientFactory>();
-builder.Services.AddScoped<RagasScorer>();
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<IGeminiClient, GeminiClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHttpClient<IEmbeddingClient, HuggingFaceEmbeddingClient>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
-app.UseSession();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-app.MapRazorPages();
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Chat}/{action=Index}/{id?}");
 app.MapHub<ChatHub>("/chatHub");
 
-await DatabaseBootstrapper.InitializeAsync(app.Services);
+await InitializeApplicationDatabaseAsync(app.Services);
 
 app.Run();
+
+static async Task InitializeApplicationDatabaseAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<ApplicationUser>>();
+    await DatabaseBootstrapper.InitializeAsync(
+        scope.ServiceProvider,
+        (user, password) => passwordHasher.HashPassword(user, password),
+        DocumentContentHasher.Compute);
+}

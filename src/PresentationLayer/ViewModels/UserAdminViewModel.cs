@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using BusinessLayer.Services;
-using DataAccessLayer.Enums;
+using BusinessLayer.DTOs;
 
 namespace PresentationLayer.ViewModels;
 
@@ -8,9 +7,10 @@ public class UserAdminIndexViewModel
 {
     public IReadOnlyList<UserListDto> Users { get; set; } = [];
     public CreateUserInput CreateUser { get; set; } = new();
-    public IReadOnlyList<string> Roles { get; set; } = [UserRoleNames.Student, UserRoleNames.Teacher, UserRoleNames.Admin];
-    public string? Message { get; set; }
-    public string? Error { get; set; }
+    public IReadOnlyList<string> Roles { get; set; } = ["Student", "Teacher", "Admin"];
+    public string? SearchTerm { get; set; }
+    public string? SelectedRole { get; set; }
+    public Guid CurrentUserId { get; set; }
 }
 
 public class CreateUserInput
@@ -19,13 +19,31 @@ public class CreateUserInput
     [EmailAddress]
     public string Email { get; set; } = "";
 
+    [Required]
     [StringLength(160)]
     public string FullName { get; set; } = "";
 
     [Required]
-    public string Role { get; set; } = UserRoleNames.Student;
+    public string Role { get; set; } = "Student";
 
     [Required]
     [DataType(DataType.Password)]
     public string Password { get; set; } = "";
+}
+
+public class UpdateUserInput
+{
+    [Required]
+    public Guid Id { get; set; }
+
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = "";
+
+    [Required]
+    [StringLength(160)]
+    public string FullName { get; set; } = "";
+
+    [Required]
+    public string Role { get; set; } = "Student";
 }

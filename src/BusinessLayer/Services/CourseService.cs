@@ -1,94 +1,125 @@
+using BusinessLayer.DTOs;
+using BusinessLayer.Helpers;
 using DataAccessLayer.Entities;
+using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Services;
 
-public class CourseService
+public class CourseService : ICourseService
 {
     private readonly ICourseRepository _courseRepository;
-    private readonly IChapterRepository _chapterRepository;
+    private readonly IUserAdminRepository _userRepository;
 
-    public CourseService(ICourseRepository courseRepository, IChapterRepository chapterRepository)
+    public CourseService(
+        ICourseRepository courseRepository,
+        IUserAdminRepository userRepository)
     {
         _courseRepository = courseRepository;
-        _chapterRepository = chapterRepository;
+        _userRepository = userRepository;
     }
 
-    public async Task<CourseDto> GetCurrentAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CourseDto>> ListDtosAsync(CancellationToken cancellationToken)
     {
-        var course = await _courseRepository.GetCurrentWithChaptersAsync(cancellationToken);
-        return new CourseDto(
+        var courses = await _courseRepository.ListAsync(null, null, cancellationToken);
+        return courses.Select(ToDto).ToList();
+    }
+
+    public async Task<IReadOnlyList<CourseDto>> ListManageDtosAsync(Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    {
+        var courses = await _courseRepository.ListAsync(null, TeacherFilter(userId, isAdmin), cancellationToken);
+        return courses.Select(ToDto).ToList();
+    }
+
+    public async Task<IReadOnlyList<CourseListDto>> ListManageAsync(string? searchTerm, Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    {
+        var courses = await _courseRepository.ListAsync(searchTerm, TeacherFilter(userId, isAdmin), cancellationToken);
+        return courses.Select(ToListDto).ToList();
+    }
+
+    public async Task<IReadOnlyList<TeacherOptionDto>> ListTeacherOptionsAsync(CancellationToken cancellationToken)
+    {
+        var teachers = await _userRepository.ListUsersByRoleAsync(UserRoleNames.Teacher, cancellationToken);
+        return teachers
+            .Select(x => new TeacherOptionDto(x.Id, x.Email, x.DisplayName))
+            .ToList();
+    }
+
+    public async Task<CourseFormDto?> GetEditableAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var course = await _courseRepository.GetByIdAsync(id, cancellationToken);
+        if (course is null) return null;
+        return new CourseFormDto(
             course.Id,
             course.Code,
             course.Name,
             course.Description,
             course.Tools,
-            course.Chapters
-                .OrderBy(x => x.Order)
-                .Select(ToDto)
-                .ToList());
+            course.TeacherAssignments.Select(x => x.TeacherUserId).ToList());
     }
 
-    public async Task<IReadOnlyList<CourseDto>> ListDtosAsync(CancellationToken cancellationToken)
+    public async Task<CourseDto?> GetDetailsAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
-        var courses = await _courseRepository.ListWithChaptersAsync(cancellationToken);
-        return courses.Select(ToDto).ToList();
-    }
+        if (!await CanManageCourseAsync(id, userId, isAdmin, cancellationToken))
+        {
+            return null;
+        }
 
-    public async Task<IReadOnlyList<CourseListDto>> ListAsync(string? searchTerm, CancellationToken cancellationToken)
-    {
-        var courses = await _courseRepository.ListAsync(searchTerm, cancellationToken);
-        return courses.Select(x => new CourseListDto(
-            x.Id,
-            x.Code,
-            x.Name,
-            x.Description,
-            x.Tools,
-            x.Chapters.Count)).ToList();
-    }
-
-    public async Task<Course?> GetEditableAsync(Guid id, CancellationToken cancellationToken)
-    {
-        return await _courseRepository.GetByIdAsync(id, cancellationToken);
-    }
-
-    public async Task<CourseDto> GetDetailsAsync(Guid id, CancellationToken cancellationToken)
-    {
-        var course = await _courseRepository.GetByIdAsync(id, cancellationToken)
-            ?? throw new InvalidOperationException("Course was not found.");
+        var course = await _courseRepository.GetByIdAsync(id, cancellationToken);
+        if (course is null) return null;
         return ToDto(course);
     }
 
-    public async Task<Course> CreateAsync(string code, string name, string? description, string? tools, CancellationToken cancellationToken)
+    public async Task<Guid> CreateAsync(
+        string code,
+        string name,
+        string? description,
+        string? tools,
+        IReadOnlyList<Guid> teacherIds,
+        CancellationToken cancellationToken)
     {
-        code = NormalizeRequired(code, "Course code");
-        name = NormalizeRequired(name, "Course name");
+        code = StringHelper.NormalizeRequired(code, "Course code");
+        name = StringHelper.NormalizeRequired(name, "Course name");
 
         if (await _courseRepository.CodeExistsAsync(code, null, cancellationToken))
         {
             throw new InvalidOperationException("Course code already exists.");
         }
 
+        var validTeacherIds = await ValidateTeacherIdsAsync(teacherIds, cancellationToken);
         var course = new Course
         {
             Id = Guid.NewGuid(),
             Code = code,
             Name = name,
             Description = description?.Trim() ?? "",
-            Tools = tools?.Trim() ?? ""
+            Tools = tools?.Trim() ?? "",
+            TeacherAssignments = validTeacherIds.Select(teacherId => new CourseTeacher
+            {
+                TeacherUserId = teacherId,
+                AssignedAtUtc = DateTime.UtcNow
+            }).ToList()
         };
 
         await _courseRepository.AddAsync(course, cancellationToken);
-        return course;
+        return course.Id;
     }
 
-    public async Task UpdateAsync(Guid id, string code, string name, string? description, string? tools, CancellationToken cancellationToken)
+    public async Task UpdateAsync(
+        Guid id,
+        string code,
+        string name,
+        string? description,
+        string? tools,
+        IReadOnlyList<Guid> teacherIds,
+        CancellationToken cancellationToken)
     {
+        var validTeacherIds = await ValidateTeacherIdsAsync(teacherIds, cancellationToken);
         var course = await _courseRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
 
-        code = NormalizeRequired(code, "Course code");
-        name = NormalizeRequired(name, "Course name");
+        code = StringHelper.NormalizeRequired(code, "Course code");
+        name = StringHelper.NormalizeRequired(name, "Course name");
 
         if (await _courseRepository.CodeExistsAsync(code, id, cancellationToken))
         {
@@ -99,11 +130,16 @@ public class CourseService
         course.Name = name;
         course.Description = description?.Trim() ?? "";
         course.Tools = tools?.Trim() ?? "";
-        await _courseRepository.SaveChangesAsync(cancellationToken);
+        await _courseRepository.SaveWithTeacherAssignmentsAsync(course, validTeacherIds, cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
+        if (await _courseRepository.HasChaptersAsync(id, cancellationToken))
+        {
+            throw new InvalidOperationException("Cannot delete a course that still has chapters.");
+        }
+
         var deleted = await _courseRepository.DeleteAsync(id, cancellationToken);
         if (!deleted)
         {
@@ -111,10 +147,35 @@ public class CourseService
         }
     }
 
-    public async Task<IReadOnlyList<ChapterDto>> ListChaptersAsync(Guid courseId, CancellationToken cancellationToken)
+    private async Task<bool> CanManageCourseAsync(Guid courseId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
     {
-        var chapters = await _chapterRepository.ListByCourseAsync(courseId, cancellationToken);
-        return chapters.Select(ToDto).ToList();
+        return isAdmin || await _courseRepository.TeacherCanManageCourseAsync(courseId, userId, cancellationToken);
+    }
+
+    private static Guid? TeacherFilter(Guid userId, bool isAdmin)
+    {
+        return isAdmin ? null : userId;
+    }
+
+    private async Task<IReadOnlyList<Guid>> ValidateTeacherIdsAsync(
+        IReadOnlyList<Guid> teacherIds,
+        CancellationToken cancellationToken)
+    {
+        var selectedIds = teacherIds.Distinct().ToList();
+        if (selectedIds.Count == 0)
+        {
+            return selectedIds;
+        }
+
+        var activeTeacherIds = (await _userRepository.ListUsersByRoleAsync(UserRoleNames.Teacher, cancellationToken))
+            .Select(x => x.Id)
+            .ToHashSet();
+        if (selectedIds.Any(x => !activeTeacherIds.Contains(x)))
+        {
+            throw new InvalidOperationException("One or more selected users are not active teachers.");
+        }
+
+        return selectedIds;
     }
 
     private static ChapterDto ToDto(Chapter chapter)
@@ -136,13 +197,19 @@ public class CourseService
                 .ToList());
     }
 
-    private static string NormalizeRequired(string value, string label)
+    private static CourseListDto ToListDto(Course course)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidOperationException($"{label} is required.");
-        }
-
-        return value.Trim();
+        return new CourseListDto(
+            course.Id,
+            course.Code,
+            course.Name,
+            course.Description,
+            course.Tools,
+            course.Chapters.Count,
+            course.TeacherAssignments
+                .Select(x => x.Teacher?.DisplayName ?? x.Teacher?.Email ?? "")
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .OrderBy(x => x)
+                .ToList());
     }
 }

@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using BusinessLayer.Services;
+using BusinessLayer.DTOs;
 
 namespace PresentationLayer.ViewModels;
 
@@ -22,13 +22,5 @@ public class ChapterFormViewModel
 
     public string? Summary { get; set; }
     public IReadOnlyList<CourseDto> Courses { get; set; } = [];
-    public string? Error { get; set; }
-}
-
-public class CourseChaptersViewModel
-{
-    public CourseDto Course { get; set; } = new(Guid.Empty, "", "", "", "", []);
-    public IReadOnlyList<ChapterDto> Chapters { get; set; } = [];
-    public string? Message { get; set; }
     public string? Error { get; set; }
 }

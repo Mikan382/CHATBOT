@@ -1,0 +1,75 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    string Active(params string[] controllers) => controllers.Any(c => currentController.Equals(c, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="request-verification-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
+    <title>@ViewData["Title"] - PRN222 Course Assistant</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom box-shadow">
+            <div class="container-fluid px-4">
+                <a class="navbar-brand fw-bold" asp-controller="Chat" asp-action="Index">PRN222 Course Assistant</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-lg-inline-flex justify-content-between">
+                    <ul class="navbar-nav ms-auto gap-2 align-items-lg-center">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item"><a class="nav-link @Active("Chat")" asp-controller="Chat" asp-action="Index">Chat</a></li>
+                            <li class="nav-item"><a class="nav-link @Active("Documents")" asp-controller="Documents" asp-action="Index">Documents</a></li>
+                            @if (User.IsInRole("Student"))
+                            {
+                                <li class="nav-item"><a class="nav-link @Active("Subscriptions")" asp-controller="Subscriptions" asp-action="Index">Subscription</a></li>
+                            }
+                            @if (User.IsInRole("Teacher") || User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item"><a class="nav-link @Active("Courses", "Chapters")" asp-controller="Courses" asp-action="Index">Courses</a></li>
+                                <li class="nav-item"><a class="nav-link @Active("Architecture")" asp-controller="Architecture" asp-action="Index">Architecture</a></li>
+                            }
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item"><a class="nav-link @Active("Subscriptions")" asp-controller="Subscriptions" asp-action="Dashboard">Subscriptions</a></li>
+                                <li class="nav-item"><a class="nav-link @Active("AdminUsers")" asp-controller="AdminUsers" asp-action="Index">Users</a></li>
+                                <li class="nav-item"><a class="nav-link @Active("Settings")" asp-controller="Settings" asp-action="Index">Settings</a></li>
+                            }
+                            <li class="nav-item user-menu">
+                                <a class="nav-link d-inline px-2" asp-controller="Account" asp-action="ChangePassword" style="font-size:0.85rem">@User.Identity.Name</a>
+                                <form method="post" asp-controller="Account" asp-action="Logout" style="display:inline">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-logout" type="submit">Sign out</button>
+                                </form>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="app-main">
+        <main role="main" class="app-content">
+            <partial name="_FlashMessages" />
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top app-footer text-muted">
+        <div class="container-fluid px-4">
+            &copy; 2026 - PRN222 Learning Assistant
+        </div>
+    </footer>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
