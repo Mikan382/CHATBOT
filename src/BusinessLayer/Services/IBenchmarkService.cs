@@ -35,6 +35,7 @@ public interface IBenchmarkService
         CancellationToken cancellationToken);
 
     Task DeleteQuestionAsync(Guid id, CancellationToken cancellationToken);
+    Task SetQuestionActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken);
     Task<Guid> RunAsync(Guid courseId, string chunkingStrategy, string embeddingModel, int topK, CancellationToken cancellationToken);
     Task<BenchmarkRunDetailsDto?> GetRunAsync(Guid id, CancellationToken cancellationToken);
 }

@@ -79,7 +79,19 @@
                             </td>
                             <td>@question.CourseCode</td>
                             <td>@question.ExpectedSourceName</td>
-                            <td><span class="badge @(question.IsActive ? "text-bg-success" : "text-bg-secondary")">@(question.IsActive ? "Active" : "Inactive")</span></td>
+                            <td>
+                                <form method="post" asp-action="SetQuestionActive" asp-route-id="@question.Id"
+                                      asp-route-courseId="@questionPage.SelectedCourseId"
+                                      asp-route-searchTerm="@questionPage.SearchTerm"
+                                      asp-route-isActive="@(questionPage.IsActive?.ToString().ToLowerInvariant())"
+                                      class="benchmark-active-toggle form-check form-switch mb-0">
+                                    @Html.AntiForgeryToken()
+                                    <input class="form-check-input" type="checkbox" role="switch" name="active" value="true"
+                                           @(question.IsActive ? "checked" : "") onchange="this.form.submit()" />
+                                    <input type="hidden" name="active" value="false" />
+                                    <span class="badge @(question.IsActive ? "text-bg-success" : "text-bg-secondary")">@(question.IsActive ? "Active" : "Inactive")</span>
+                                </form>
+                            </td>
                             <td>
                                 <div class="action-cell justify-content-end">
                                     <a class="btn btn-sm btn-outline-primary" asp-action="EditQuestion" asp-route-id="@question.Id">Edit</a>

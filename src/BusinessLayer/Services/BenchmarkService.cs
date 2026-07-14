@@ -195,6 +195,15 @@ public class BenchmarkService : IBenchmarkService
         }
     }
 
+    public async Task SetQuestionActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken)
+    {
+        var entity = await _benchmarkRepository.GetQuestionAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException("Evaluation question was not found.");
+        entity.IsActive = isActive;
+        entity.UpdatedAtUtc = DateTime.UtcNow;
+        await _benchmarkRepository.SaveQuestionAsync(cancellationToken);
+    }
+
     public async Task<Guid> RunAsync(
         Guid courseId,
         string chunkingStrategy,
