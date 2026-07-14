@@ -40,7 +40,7 @@ User
 - Fine-tune code paths remain removed; RAG chunking/embedding benchmark is implemented separately.
 - Admin controls the global chunking strategy through `SystemSettings`.
 - Demo seed data is initialized once and is not reapplied after administrative edits.
-- Internal subscriptions are registration/statistics only; they do not gate Chat access.
+- Internal subscriptions use manual Admin approval and statistics only; they do not gate Chat access.
 - Chat groups and history queries are scoped to the authenticated user.
 - SQL Server still stores embeddings as JSON for assignment/demo scope.
 

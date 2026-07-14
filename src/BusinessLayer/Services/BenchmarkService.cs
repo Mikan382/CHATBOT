@@ -18,6 +18,7 @@ public class BenchmarkService : IBenchmarkService
     private readonly ICourseRepository _courseRepository;
     private readonly IEmbeddingClient _embeddingClient;
     private readonly IGeminiClient _geminiClient;
+    private readonly IChunkingSettingsService _chunkingSettingsService;
     private readonly IReadOnlyDictionary<string, ITextChunker> _chunkers;
 
     public BenchmarkService(
@@ -25,12 +26,14 @@ public class BenchmarkService : IBenchmarkService
         ICourseRepository courseRepository,
         IEmbeddingClient embeddingClient,
         IGeminiClient geminiClient,
+        IChunkingSettingsService chunkingSettingsService,
         IEnumerable<ITextChunker> chunkers)
     {
         _benchmarkRepository = benchmarkRepository;
         _courseRepository = courseRepository;
         _embeddingClient = embeddingClient;
         _geminiClient = geminiClient;
+        _chunkingSettingsService = chunkingSettingsService;
         _chunkers = chunkers
             .GroupBy(x => x.StrategyName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
@@ -192,6 +195,15 @@ public class BenchmarkService : IBenchmarkService
         }
     }
 
+    public async Task SetQuestionActiveAsync(Guid id, bool isActive, CancellationToken cancellationToken)
+    {
+        var entity = await _benchmarkRepository.GetQuestionAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException("Evaluation question was not found.");
+        entity.IsActive = isActive;
+        entity.UpdatedAtUtc = DateTime.UtcNow;
+        await _benchmarkRepository.SaveQuestionAsync(cancellationToken);
+    }
+
     public async Task<Guid> RunAsync(
         Guid courseId,
         string chunkingStrategy,
@@ -201,7 +213,19 @@ public class BenchmarkService : IBenchmarkService
     {
         var course = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
-        if (!_chunkers.TryGetValue(chunkingStrategy?.Trim() ?? "", out var chunker))
+        var normalizedStrategy = chunkingStrategy?.Trim() ?? "";
+        ITextChunker? chunker;
+        if (normalizedStrategy.Equals("fixed", StringComparison.OrdinalIgnoreCase))
+        {
+            var settings = await _chunkingSettingsService.GetAsync(cancellationToken);
+            chunker = new FixedSizeChunker(settings.FixedChunkSize, settings.FixedChunkOverlap);
+        }
+        else
+        {
+            _chunkers.TryGetValue(normalizedStrategy, out chunker);
+        }
+
+        if (chunker is null)
         {
             throw new InvalidOperationException("Chunking strategy is invalid.");
         }
@@ -262,7 +286,7 @@ public class BenchmarkService : IBenchmarkService
             CourseId = course.Id,
             CourseCode = course.Code,
             CourseName = course.Name,
-            ChunkingStrategy = chunker.StrategyName,
+            ChunkingStrategy = DescribeChunker(chunker),
             EmbeddingModelName = normalizedModel,
             TopK = topK,
             QuestionCount = questions.Count,
@@ -542,6 +566,13 @@ public class BenchmarkService : IBenchmarkService
         var precision = matches / (double)actualTerms.Count;
         var recall = matches / (double)expectedTerms.Count;
         return precision + recall <= 0 ? 0 : 2 * precision * recall / (precision + recall);
+    }
+
+    private static string DescribeChunker(ITextChunker chunker)
+    {
+        return chunker is FixedSizeChunker fixedSizeChunker
+            ? fixedSizeChunker.ConfigurationName
+            : chunker.StrategyName;
     }
 
     private static string NormalizeQuestion(string value)

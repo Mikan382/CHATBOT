@@ -77,6 +77,11 @@ public class DocumentsController : BaseController
             SetFlashError(UserFacingError(ex));
         }
 
+        if (Request.Headers.XRequestedWith == "XMLHttpRequest")
+        {
+            return Json(new { redirectUrl = Url.Action(nameof(Index), "Documents") });
+        }
+
         return RedirectToAction("Index");
     }
 

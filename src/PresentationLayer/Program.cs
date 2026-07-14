@@ -85,7 +85,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(conn
 builder.Services.AddScoped<IPasswordHasher<ApplicationUser>, PasswordHasher<ApplicationUser>>();
 
 builder.Services.AddSingleton<ITextChunker, ParagraphChunker>();
-builder.Services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker(1000, 150));
+builder.Services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker());
 builder.Services.AddSingleton<ITextChunker, SentenceChunker>();
 
 builder.Services.AddScoped<ICourseRepository, CourseRepository>();

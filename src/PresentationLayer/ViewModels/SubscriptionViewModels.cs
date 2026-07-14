@@ -6,6 +6,7 @@ namespace PresentationLayer.ViewModels;
 public class StudentSubscriptionViewModel
 {
     public StudentSubscriptionDto? CurrentSubscription { get; set; }
+    public SubscriptionRequestDto? PendingRequest { get; set; }
     public IReadOnlyList<SubscriptionPlanDto> AvailablePlans { get; set; } = [];
 }
 
@@ -15,6 +16,8 @@ public class SubscriptionDashboardViewModel
         0,
         0,
         0,
+        0,
+        [],
         [],
         [],
         []);
@@ -40,6 +43,9 @@ public class SubscriptionPlanInput
 
     [Range(0, 3650)]
     public int DurationDays { get; set; } = 30;
+
+    [Range(0, 1000000)]
+    public int MessageQuota { get; set; }
 
     [Range(0, 10000)]
     public int SortOrder { get; set; } = 100;

@@ -1,6 +1,8 @@
 @model ChatIndexViewModel
 @{
     ViewData["Title"] = "Chat";
+    var quotaExhausted = Model.Quota is not null && Model.Quota.Exhausted;
+    var canSend = Model.GeminiConfigured && !quotaExhausted;
 }
 
 <div class="chat-page row g-4">
@@ -40,18 +42,31 @@
                     <span class="assistant-status @(Model.GeminiConfigured ? "assistant-status-ready" : "assistant-status-warning")">
                         Assistant: @(Model.GeminiConfigured ? "ready" : "not available")
                     </span>
+                    @if (Model.Quota is not null && !Model.Quota.Unlimited)
+                    {
+                        <span class="assistant-status @(quotaExhausted ? "assistant-status-warning" : "assistant-status-ready")">
+                            Messages left: @Model.Quota.Remaining / @Model.Quota.Quota
+                        </span>
+                    }
                     <button id="clearButton" class="btn btn-sm btn-outline-danger" type="button">Clear</button>
                 </div>
             </div>
             <div id="messages" class="chat-log">
                 <div class="chat-empty-hint" id="chatEmptyHint">Ask a question to start the conversation.</div>
             </div>
+            @if (quotaExhausted)
+            {
+                <div class="chat-quota-alert">
+                    You have used all @Model.Quota!.Quota messages of the @Model.Quota!.PlanName package.
+                    <a asp-controller="Subscriptions" asp-action="Index">Register or upgrade a package</a> to continue.
+                </div>
+            }
             <form id="chatForm" class="chat-form">
                 <input id="messageInput" class="form-control" autocomplete="off" maxlength="4000"
                        placeholder="Ask a question about the selected course..."
-                       @(Model.GeminiConfigured ? "" : "disabled") />
+                       @(canSend ? "" : "disabled") />
                 <button class="btn btn-primary" type="submit" id="sendButton"
-                        @(Model.GeminiConfigured ? "" : "disabled")>Send</button>
+                        @(canSend ? "" : "disabled")>Send</button>
             </form>
         </div>
     </div>

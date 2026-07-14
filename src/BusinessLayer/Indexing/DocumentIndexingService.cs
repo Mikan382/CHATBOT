@@ -26,8 +26,11 @@ public class DocumentIndexingService
 
     public async Task PopulateChunksAsync(Document document, CancellationToken cancellationToken)
     {
-        var strategy = await _chunkingSettingsService.GetCurrentStrategyAsync(cancellationToken);
-        if (!_chunkers.TryGetValue(strategy, out var chunker))
+        var settings = await _chunkingSettingsService.GetAsync(cancellationToken);
+        var chunker = settings.CurrentStrategy == "fixed"
+            ? new FixedSizeChunker(settings.FixedChunkSize, settings.FixedChunkOverlap)
+            : _chunkers.GetValueOrDefault(settings.CurrentStrategy);
+        if (chunker is null)
         {
             throw new InvalidOperationException("Configured chunking strategy is unavailable.");
         }

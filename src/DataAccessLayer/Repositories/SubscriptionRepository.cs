@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
@@ -63,27 +64,84 @@ public class SubscriptionRepository : ISubscriptionRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task ReplaceCurrentSubscriptionAsync(StudentSubscription subscription, CancellationToken cancellationToken)
+    public async Task<SubscriptionPlan?> GetPlanByCodeAsync(string code, CancellationToken cancellationToken)
     {
-        var current = await _db.StudentSubscriptions
-            .Where(x => x.StudentUserId == subscription.StudentUserId && x.Status == SubscriptionStatusNames.Active)
-            .OrderByDescending(x => x.StartedAtUtc)
+        var normalizedCode = code.Trim().ToUpperInvariant();
+        return await _db.SubscriptionPlans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Code == normalizedCode, cancellationToken);
+    }
+
+    public async Task<StudentSubscription?> GetPendingForStudentAsync(
+        Guid studentUserId,
+        CancellationToken cancellationToken)
+    {
+        return await _db.StudentSubscriptions
+            .Include(x => x.Plan)
+            .Where(x => x.StudentUserId == studentUserId && x.Status == SubscriptionStatusNames.Pending)
+            .OrderByDescending(x => x.CreatedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
+    }
 
-        if (current is not null)
+    public async Task<StudentSubscription?> GetForDecisionAsync(
+        Guid subscriptionId,
+        CancellationToken cancellationToken)
+    {
+        return await _db.StudentSubscriptions
+            .Include(x => x.Student)
+            .Include(x => x.Plan)
+            .FirstOrDefaultAsync(x => x.Id == subscriptionId, cancellationToken);
+    }
+
+    public async Task AddRequestAsync(StudentSubscription subscription, CancellationToken cancellationToken)
+    {
+        _db.StudentSubscriptions.Add(subscription);
+        try
         {
-            if (current.SubscriptionPlanId == subscription.SubscriptionPlanId
-                && (!current.ExpiresAtUtc.HasValue || current.ExpiresAtUtc > subscription.CreatedAtUtc))
-            {
-                throw new InvalidOperationException("You are already registered for this package.");
-            }
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            throw new InvalidOperationException("You already have a subscription request awaiting approval.", ex);
+        }
+    }
 
-            current.Status = SubscriptionStatusNames.Replaced;
-            current.UpdatedAtUtc = subscription.CreatedAtUtc;
+    public async Task ActivatePendingAsync(
+        StudentSubscription subscription,
+        DateTime startedAtUtc,
+        DateTime? expiresAtUtc,
+        decimal priceAtActivation,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await _db.Entry(subscription).ReloadAsync(cancellationToken);
+        if (subscription.Status != SubscriptionStatusNames.Pending)
+        {
+            throw new InvalidOperationException("This subscription request is no longer pending.");
         }
 
-        _db.StudentSubscriptions.Add(subscription);
+        var activeSubscriptions = await _db.StudentSubscriptions
+            .Where(x => x.StudentUserId == subscription.StudentUserId
+                && x.Status == SubscriptionStatusNames.Active)
+            .ToListAsync(cancellationToken);
+        foreach (var activeSubscription in activeSubscriptions)
+        {
+            activeSubscription.Status = SubscriptionStatusNames.Replaced;
+            activeSubscription.UpdatedAtUtc = startedAtUtc;
+        }
+
+        if (activeSubscriptions.Count > 0)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        subscription.Status = SubscriptionStatusNames.Active;
+        subscription.StartedAtUtc = startedAtUtc;
+        subscription.ExpiresAtUtc = expiresAtUtc;
+        subscription.PriceAtActivation = priceAtActivation;
+        subscription.UpdatedAtUtc = startedAtUtc;
         await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<int> CountStudentsAsync(CancellationToken cancellationToken)
@@ -96,7 +154,7 @@ public class SubscriptionRepository : ISubscriptionRepository
         return await ActiveSubscriptions(nowUtc).CountAsync(cancellationToken);
     }
 
-    public async Task<int> CountNewSubscriptionsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken)
+    public async Task<int> CountRequestsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken)
     {
         return await _db.StudentSubscriptions.CountAsync(x => x.CreatedAtUtc >= sinceUtc, cancellationToken);
     }
@@ -105,7 +163,18 @@ public class SubscriptionRepository : ISubscriptionRepository
     {
         return await ActiveSubscriptions(nowUtc)
             .GroupBy(x => x.SubscriptionPlanId)
-            .Select(x => new SubscriptionPlanCount(x.Key, x.Count()))
+            .Select(x => new SubscriptionPlanCount(x.Key, x.Count(), x.Sum(s => s.PriceAtActivation)))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<StudentSubscription>> ListPendingSubscriptionsAsync(CancellationToken cancellationToken)
+    {
+        return await _db.StudentSubscriptions
+            .Include(x => x.Student)
+            .Include(x => x.Plan)
+            .Where(x => x.Status == SubscriptionStatusNames.Pending)
+            .OrderBy(x => x.CreatedAtUtc)
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
     }
 

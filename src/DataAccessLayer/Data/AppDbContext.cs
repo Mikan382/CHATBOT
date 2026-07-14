@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<DocumentChunkEmbedding> DocumentChunkEmbeddings => Set<DocumentChunkEmbedding>();
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatMessageUsage> ChatMessageUsages => Set<ChatMessageUsage>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<StudentSubscription> StudentSubscriptions => Set<StudentSubscription>();
@@ -113,6 +114,12 @@ public class AppDbContext : DbContext
             entity.Property(x => x.Role).HasConversion<string>().HasMaxLength(32);
         });
 
+        modelBuilder.Entity<ChatMessageUsage>(entity =>
+        {
+            entity.HasIndex(x => new { x.StudentUserId, x.PeriodKey }).IsUnique();
+            entity.Property(x => x.PeriodKey).HasMaxLength(64);
+        });
+
         modelBuilder.Entity<SystemSetting>(entity =>
         {
             entity.HasKey(x => x.Key);
@@ -131,11 +138,15 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<StudentSubscription>(entity =>
         {
-            entity.HasIndex(x => x.StudentUserId)
+            entity.HasIndex(x => x.StudentUserId, "IX_StudentSubscriptions_StudentUserId")
                 .HasFilter("[Status] = 'Active'")
+                .IsUnique();
+            entity.HasIndex(x => x.StudentUserId, "IX_StudentSubscriptions_StudentUserId_Pending")
+                .HasFilter("[Status] = 'Pending'")
                 .IsUnique();
             entity.HasIndex(x => new { x.SubscriptionPlanId, x.Status });
             entity.Property(x => x.Status).HasMaxLength(32);
+            entity.Property(x => x.PriceAtActivation).HasPrecision(18, 2);
             entity.HasOne(x => x.Student)
                 .WithMany()
                 .HasForeignKey(x => x.StudentUserId)

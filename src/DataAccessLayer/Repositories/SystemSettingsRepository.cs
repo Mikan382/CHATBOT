@@ -13,30 +13,42 @@ public class SystemSettingsRepository : ISystemSettingsRepository
         _db = db;
     }
 
-    public async Task<string?> GetValueAsync(string key, CancellationToken cancellationToken)
+    public async Task<IReadOnlyDictionary<string, string>> GetValuesAsync(
+        IReadOnlyCollection<string> keys,
+        CancellationToken cancellationToken)
     {
         return await _db.SystemSettings
-            .Where(x => x.Key == key)
-            .Select(x => x.Value)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Where(x => keys.Contains(x.Key))
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Key, x => x.Value, cancellationToken);
     }
 
-    public async Task SetValueAsync(string key, string value, CancellationToken cancellationToken)
+    public async Task SetValuesAsync(
+        IReadOnlyDictionary<string, string> values,
+        CancellationToken cancellationToken)
     {
-        var setting = await _db.SystemSettings.FirstOrDefaultAsync(x => x.Key == key, cancellationToken);
-        if (setting is null)
+        var keys = values.Keys.ToList();
+        var existing = await _db.SystemSettings
+            .Where(x => keys.Contains(x.Key))
+            .ToDictionaryAsync(x => x.Key, cancellationToken);
+        var now = DateTime.UtcNow;
+
+        foreach (var item in values)
         {
-            _db.SystemSettings.Add(new SystemSetting
+            if (existing.TryGetValue(item.Key, out var setting))
             {
-                Key = key,
-                Value = value,
-                UpdatedAtUtc = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            setting.Value = value;
-            setting.UpdatedAtUtc = DateTime.UtcNow;
+                setting.Value = item.Value;
+                setting.UpdatedAtUtc = now;
+            }
+            else
+            {
+                _db.SystemSettings.Add(new SystemSetting
+                {
+                    Key = item.Key,
+                    Value = item.Value,
+                    UpdatedAtUtc = now
+                });
+            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);

@@ -10,6 +10,11 @@ namespace DataAccessLayer.Data;
 public static class DatabaseBootstrapper
 {
     private const string DefaultChunkingStrategy = "paragraph";
+    private const string ChunkingStrategyKey = "ChunkingStrategy";
+    private const string FixedChunkSizeKey = "FixedChunkSize";
+    private const string FixedChunkOverlapKey = "FixedChunkOverlap";
+    private const int DefaultFixedChunkSize = 1000;
+    private const int DefaultFixedChunkOverlap = 150;
     private const string DemoSeedVersionKey = "DemoSeedVersion";
     private const string DemoSeedVersion = "1";
     private const string DocumentHashVersionKey = "DocumentHashVersion";
@@ -151,6 +156,7 @@ public static class DatabaseBootstrapper
             StudentUserId = student.Id,
             SubscriptionPlanId = FreePlanId,
             Status = SubscriptionStatusNames.Active,
+            PriceAtActivation = 0,
             StartedAtUtc = now,
             ExpiresAtUtc = now.AddDays(30),
             CreatedAtUtc = now,
@@ -201,6 +207,7 @@ public static class DatabaseBootstrapper
                 Description = "Internal demo access for basic course chat and document lookup.",
                 MonthlyPrice = 0,
                 DurationDays = 30,
+                MessageQuota = 20,
                 SortOrder = 1,
                 IsActive = true,
                 CreatedAtUtc = now,
@@ -214,6 +221,7 @@ public static class DatabaseBootstrapper
                 Description = "Demo package for regular students who use course support during the semester.",
                 MonthlyPrice = 49000,
                 DurationDays = 30,
+                MessageQuota = 200,
                 SortOrder = 2,
                 IsActive = true,
                 CreatedAtUtc = now,
@@ -227,6 +235,7 @@ public static class DatabaseBootstrapper
                 Description = "Demo package for students who need extended AI course assistance.",
                 MonthlyPrice = 99000,
                 DurationDays = 30,
+                MessageQuota = 0,
                 SortOrder = 3,
                 IsActive = true,
                 CreatedAtUtc = now,
@@ -237,17 +246,63 @@ public static class DatabaseBootstrapper
 
     private static async Task SeedSettingsAsync(AppDbContext db)
     {
-        if (await db.SystemSettings.AnyAsync(x => x.Key == "ChunkingStrategy"))
+        var keys = new[] { ChunkingStrategyKey, FixedChunkSizeKey, FixedChunkOverlapKey };
+        var settings = await db.SystemSettings
+            .Where(x => keys.Contains(x.Key))
+            .ToDictionaryAsync(x => x.Key);
+        var now = DateTime.UtcNow;
+        var changed = false;
+        var legacyFixedChunkSize = DefaultFixedChunkSize;
+
+        if (!settings.TryGetValue(ChunkingStrategyKey, out var strategySetting))
         {
-            return;
+            db.SystemSettings.Add(new SystemSetting
+            {
+                Key = ChunkingStrategyKey,
+                Value = DefaultChunkingStrategy,
+                UpdatedAtUtc = now
+            });
+            changed = true;
+        }
+        else if (strategySetting.Value.StartsWith("fixed_", StringComparison.OrdinalIgnoreCase))
+        {
+            var sizePart = strategySetting.Value["fixed_".Length..].Split('_')[0];
+            _ = int.TryParse(sizePart, out legacyFixedChunkSize);
+            if (legacyFixedChunkSize <= 0)
+            {
+                legacyFixedChunkSize = DefaultFixedChunkSize;
+            }
+
+            strategySetting.Value = "fixed";
+            strategySetting.UpdatedAtUtc = now;
+            changed = true;
         }
 
-        db.SystemSettings.Add(new SystemSetting
+        if (!settings.ContainsKey(FixedChunkSizeKey))
         {
-            Key = "ChunkingStrategy",
-            Value = DefaultChunkingStrategy,
-            UpdatedAtUtc = DateTime.UtcNow
-        });
-        await db.SaveChangesAsync();
+            db.SystemSettings.Add(new SystemSetting
+            {
+                Key = FixedChunkSizeKey,
+                Value = legacyFixedChunkSize.ToString(),
+                UpdatedAtUtc = now
+            });
+            changed = true;
+        }
+
+        if (!settings.ContainsKey(FixedChunkOverlapKey))
+        {
+            db.SystemSettings.Add(new SystemSetting
+            {
+                Key = FixedChunkOverlapKey,
+                Value = DefaultFixedChunkOverlap.ToString(),
+                UpdatedAtUtc = now
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync();
+        }
     }
 }

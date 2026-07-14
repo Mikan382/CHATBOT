@@ -8,9 +8,9 @@ Internal/demo ASP.NET Core MVC application for managing PRN222 course materials 
 - Course/chapter CRUD and teacher-course assignment.
 - Synchronous document extraction, duplicate detection, chunking, and optional embeddings.
 - SignalR chat with citations and searchable, renameable, clearable session history.
-- Admin-managed chunking strategy: `paragraph`, `fixed_1000`, or `sentence`.
+- Admin-managed chunking strategy: `paragraph`, configurable `fixed`, or `sentence`.
 - RAG benchmark for comparing chunking strategies and Hugging Face embedding models against curated ground truth.
-- Internal subscription registration, package management, and dashboard statistics.
+- Internal subscription requests with Admin approval, package management, dashboard counts, and estimated monthly value for active, unexpired packages. No payment is processed.
 
 Payment, subscription entitlements, deployment, background workers, and fine-tuned models are outside this assignment.
 
@@ -76,8 +76,8 @@ They also seed the PRN222 course with `Course Introduction` at order `0` and Cha
 | `/settings` | Admin | Global chunking strategy |
 | `/benchmark` | Admin | Run experiments and compare RAG metrics |
 | `/benchmark/questions` | Admin | Ground-truth question CRUD |
-| `/subscriptions` | Student | Register, switch, or cancel a demo package |
-| `/subscriptions/dashboard` | Admin | Packages and registration statistics |
+| `/subscriptions` | Student | Request or cancel a demo package subscription |
+| `/subscriptions/dashboard` | Admin | Approve/reject requests, manage packages, and view statistics |
 | `/architecture` | Teacher/Admin | Current architecture overview |
 
 ## Project Layout

@@ -180,6 +180,49 @@ public class ChatRepository : IChatRepository
         return true;
     }
 
+    public async Task<int> GetUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken)
+    {
+        return await _db.ChatMessageUsages
+            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
+            .Select(x => x.Count)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task IncrementUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken)
+    {
+        // Atomic increment at the DB level so concurrent sends can't lose a count.
+        var updated = await _db.ChatMessageUsages
+            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
+                .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
+        if (updated > 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _db.ChatMessageUsages.Add(new ChatMessageUsage
+            {
+                Id = Guid.NewGuid(),
+                StudentUserId = studentUserId,
+                PeriodKey = periodKey,
+                Count = 1,
+                UpdatedAtUtc = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent request inserted the row first; drop our failed insert and increment instead.
+            _db.ChangeTracker.Clear();
+            await _db.ChatMessageUsages
+                .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
+                    .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
+        }
+    }
+
     private static string TruncateSessionTitle(string text)
     {
         var clean = text.Trim().Replace('\n', ' ').Replace('\r', ' ');

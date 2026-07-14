@@ -22,6 +22,8 @@ public class SettingsController : BaseController
         return View(new ChunkingSettingsViewModel
         {
             CurrentStrategy = settings.CurrentStrategy,
+            FixedChunkSize = settings.FixedChunkSize,
+            FixedChunkOverlap = settings.FixedChunkOverlap,
             AvailableStrategies = settings.AvailableStrategies
         });
     }
@@ -38,8 +40,12 @@ public class SettingsController : BaseController
 
         try
         {
-            await _chunkingSettingsService.UpdateAsync(model.CurrentStrategy, cancellationToken);
-            SetFlashSuccess("Chunking strategy was updated.");
+            await _chunkingSettingsService.UpdateAsync(
+                model.CurrentStrategy,
+                model.FixedChunkSize,
+                model.FixedChunkOverlap,
+                cancellationToken);
+            SetFlashSuccess("Chunking settings were updated.");
             return RedirectToAction("Index");
         }
         catch (Exception ex)

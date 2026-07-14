@@ -199,6 +199,28 @@ public class BenchmarkController : BaseController
         return RedirectToAction("Questions", new { courseId });
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetQuestionActive(
+        Guid id,
+        bool active,
+        Guid? courseId,
+        string? searchTerm,
+        bool? isActive,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _benchmarkService.SetQuestionActiveAsync(id, active, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            SetFlashError(UserFacingError(ex));
+        }
+
+        return RedirectToAction("Questions", new { courseId, searchTerm, isActive });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
     {
