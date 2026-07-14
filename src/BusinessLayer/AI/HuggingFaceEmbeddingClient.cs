@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -8,108 +9,245 @@ namespace BusinessLayer.AI;
 
 public class HuggingFaceEmbeddingClient : IEmbeddingClient
 {
+    private const int MaxAttempts = 4;
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
     private readonly ILogger<HuggingFaceEmbeddingClient> _logger;
+    private readonly string? _apiKey;
+    private readonly IReadOnlyDictionary<string, EmbeddingModelConfiguration> _models;
 
     public HuggingFaceEmbeddingClient(HttpClient httpClient, IConfiguration configuration, ILogger<HuggingFaceEmbeddingClient> logger)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
         _logger = logger;
+        _apiKey = configuration["HuggingFace:ApiKey"];
+
+        var configurations = LoadModelConfigurations(configuration);
+        _models = configurations.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+        AvailableModels = configurations.Select(x => x.Name).ToList();
+
+        var configuredDefault = configuration["HuggingFace:ModelName"];
+        ModelName = !string.IsNullOrWhiteSpace(configuredDefault) && _models.ContainsKey(configuredDefault)
+            ? configuredDefault
+            : AvailableModels.FirstOrDefault() ?? "huggingface-embedding";
     }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(ModelUrl);
+    public bool IsConfigured => IsModelConfigured(ModelName);
 
-    public string ModelName => _configuration["HuggingFace:ModelName"] ?? ModelNameFromUrl;
+    public string ModelName { get; }
 
-    private string? ApiKey => _configuration["HuggingFace:ApiKey"];
+    public IReadOnlyList<string> AvailableModels { get; }
 
-    private string? ModelUrl => _configuration["HuggingFace:ModelUrl"];
-
-    private string ModelNameFromUrl
+    public bool IsModelConfigured(string modelName)
     {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(ModelUrl))
-            {
-                return "huggingface-embedding";
-            }
-
-            var marker = "/models/";
-            var index = ModelUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-            return index >= 0 ? ModelUrl[(index + marker.Length)..].Trim('/') : ModelUrl.TrimEnd('/').Split('/').Last();
-        }
+        return !string.IsNullOrWhiteSpace(_apiKey) && _models.ContainsKey(modelName);
     }
 
     public Task<float[]> EmbedQueryAsync(string text, CancellationToken cancellationToken)
     {
-        return EmbedAsync($"query: {text}", cancellationToken);
+        return EmbedQueryAsync(ModelName, text, cancellationToken);
     }
 
     public Task<float[]> EmbedPassageAsync(string text, CancellationToken cancellationToken)
     {
-        return EmbedAsync($"passage: {text}", cancellationToken);
+        return EmbedPassageAsync(ModelName, text, cancellationToken);
     }
 
-    private async Task<float[]> EmbedAsync(string input, CancellationToken cancellationToken)
+    public Task<float[]> EmbedQueryAsync(string modelName, string text, CancellationToken cancellationToken)
     {
-        if (!IsConfigured)
+        return EmbedAsync(modelName, text, isQuery: true, cancellationToken);
+    }
+
+    public Task<float[]> EmbedPassageAsync(string modelName, string text, CancellationToken cancellationToken)
+    {
+        return EmbedAsync(modelName, text, isQuery: false, cancellationToken);
+    }
+
+    private async Task<float[]> EmbedAsync(
+        string modelName,
+        string text,
+        bool isQuery,
+        CancellationToken cancellationToken)
+    {
+        if (!IsModelConfigured(modelName) || !_models.TryGetValue(modelName, out var model))
         {
-            throw new InvalidOperationException("Hugging Face embedding API is not configured.");
+            throw new InvalidOperationException($"Hugging Face embedding model '{modelName}' is not configured.");
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, ModelUrl)
+        var prefix = isQuery ? model.QueryPrefix : model.PassagePrefix;
+        var input = $"{prefix}{text}";
+
+        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            Content = JsonContent.Create(new
+            using var request = new HttpRequestMessage(HttpMethod.Post, model.ModelUrl)
             {
-                inputs = input,
-                options = new
+                Content = JsonContent.Create(new
                 {
-                    wait_for_model = true
+                    inputs = input,
+                    options = new
+                    {
+                        wait_for_model = true
+                    }
+                })
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.SendAsync(request, cancellationToken);
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                if (attempt < MaxAttempts)
+                {
+                    var delay = GetBackoffDelay(attempt);
+                    _logger.LogWarning(
+                        ex,
+                        "Hugging Face embedding request timed out; retrying in {DelaySeconds:F1} seconds ({Attempt}/{MaxAttempts}).",
+                        delay.TotalSeconds,
+                        attempt,
+                        MaxAttempts);
+                    await Task.Delay(delay, cancellationToken);
+                    continue;
                 }
-            })
-        };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-        HttpResponseMessage response;
-        try
-        {
-            response = await _httpClient.SendAsync(request, cancellationToken);
-        }
-        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new InvalidOperationException("Hugging Face embedding API request timed out.", ex);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new InvalidOperationException("Hugging Face embedding API is unavailable.", ex);
-        }
-
-        using (response)
-        {
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException("Hugging Face embedding API request timed out.", ex);
+            }
+            catch (HttpRequestException ex)
             {
-                _logger.LogWarning("Hugging Face embedding API returned status {StatusCode}.", response.StatusCode);
-                throw new InvalidOperationException($"Hugging Face embedding API returned status {(int)response.StatusCode}.");
+                if (attempt < MaxAttempts)
+                {
+                    var delay = GetBackoffDelay(attempt);
+                    _logger.LogWarning(
+                        ex,
+                        "Hugging Face embedding request failed at the network layer; retrying in {DelaySeconds:F1} seconds ({Attempt}/{MaxAttempts}).",
+                        delay.TotalSeconds,
+                        attempt,
+                        MaxAttempts);
+                    await Task.Delay(delay, cancellationToken);
+                    continue;
+                }
+
+                throw new InvalidOperationException("Hugging Face embedding API is unavailable.", ex);
             }
 
-            using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error))
+            using (response)
             {
-                throw new InvalidOperationException($"Hugging Face embedding API returned an error: {error.GetString()}");
-            }
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (attempt < MaxAttempts && IsTransient(response.StatusCode))
+                    {
+                        var delay = GetRetryDelay(response, attempt);
+                        _logger.LogWarning(
+                            "Hugging Face model {ModelName} returned transient status {StatusCode}; retrying in {DelaySeconds:F1} seconds ({Attempt}/{MaxAttempts}).",
+                            modelName,
+                            response.StatusCode,
+                            delay.TotalSeconds,
+                            attempt,
+                            MaxAttempts);
+                        await Task.Delay(delay, cancellationToken);
+                        continue;
+                    }
 
-            var vector = ReadVector(root);
-            if (vector.Length == 0)
-            {
-                throw new InvalidOperationException("Hugging Face embedding API did not return a vector.");
-            }
+                    _logger.LogWarning("Hugging Face embedding API returned status {StatusCode}.", response.StatusCode);
+                    throw new InvalidOperationException(
+                        $"Hugging Face model '{modelName}' returned status {(int)response.StatusCode}.");
+                }
 
-            return vector;
+                using var document = JsonDocument.Parse(json);
+                var root = document.RootElement;
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var error))
+                {
+                    throw new InvalidOperationException($"Hugging Face embedding API returned an error: {error.GetString()}");
+                }
+
+                var vector = ReadVector(root);
+                if (vector.Length == 0)
+                {
+                    throw new InvalidOperationException("Hugging Face embedding API did not return a vector.");
+                }
+
+                return vector;
+            }
         }
+
+        throw new InvalidOperationException($"Hugging Face model '{modelName}' failed after retrying.");
+    }
+
+    private static bool IsTransient(HttpStatusCode statusCode)
+    {
+        var code = (int)statusCode;
+        return statusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || code >= 500;
+    }
+
+    private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
+    {
+        var delay = response.Headers.RetryAfter?.Delta;
+        if (!delay.HasValue)
+        {
+            return GetBackoffDelay(attempt);
+        }
+
+        var cappedSeconds = Math.Min(60, Math.Max(1, delay.Value.TotalSeconds));
+        return TimeSpan.FromSeconds(cappedSeconds) + TimeSpan.FromMilliseconds(Random.Shared.Next(100, 501));
+    }
+
+    private static TimeSpan GetBackoffDelay(int attempt)
+    {
+        var seconds = Math.Min(60, Math.Pow(2, attempt));
+        return TimeSpan.FromSeconds(seconds) + TimeSpan.FromMilliseconds(Random.Shared.Next(100, 501));
+    }
+
+    private static IReadOnlyList<EmbeddingModelConfiguration> LoadModelConfigurations(IConfiguration configuration)
+    {
+        var models = new List<EmbeddingModelConfiguration>();
+        foreach (var section in configuration.GetSection("HuggingFace:Models").GetChildren())
+        {
+            var name = section["Name"]?.Trim();
+            var modelUrl = section["ModelUrl"]?.Trim();
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(modelUrl))
+            {
+                continue;
+            }
+
+            models.Add(new EmbeddingModelConfiguration(
+                name,
+                modelUrl,
+                section["QueryPrefix"] ?? "",
+                section["PassagePrefix"] ?? ""));
+        }
+
+        var defaultUrl = configuration["HuggingFace:ModelUrl"]?.Trim();
+        if (!string.IsNullOrWhiteSpace(defaultUrl))
+        {
+            var defaultName = configuration["HuggingFace:ModelName"]?.Trim();
+            defaultName = string.IsNullOrWhiteSpace(defaultName) ? ModelNameFromUrl(defaultUrl) : defaultName;
+            if (!models.Any(x => x.Name.Equals(defaultName, StringComparison.OrdinalIgnoreCase)))
+            {
+                models.Insert(0, new EmbeddingModelConfiguration(defaultName, defaultUrl, "query: ", "passage: "));
+            }
+        }
+
+        return models
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.First())
+            .ToList();
+    }
+
+    private static string ModelNameFromUrl(string modelUrl)
+    {
+        var marker = "/models/";
+        var index = modelUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (index < 0)
+        {
+            return modelUrl.TrimEnd('/').Split('/').Last();
+        }
+
+        var name = modelUrl[(index + marker.Length)..];
+        var pipelineMarker = "/pipeline/";
+        var pipelineIndex = name.IndexOf(pipelineMarker, StringComparison.OrdinalIgnoreCase);
+        return (pipelineIndex >= 0 ? name[..pipelineIndex] : name).Trim('/');
     }
 
     private static float[] ReadVector(JsonElement element)
@@ -206,4 +344,10 @@ public class HuggingFaceEmbeddingClient : IEmbeddingClient
 
         return vector;
     }
+
+    private sealed record EmbeddingModelConfiguration(
+        string Name,
+        string ModelUrl,
+        string QueryPrefix,
+        string PassagePrefix);
 }

@@ -124,9 +124,9 @@ public class ChapterService : IChapterService
 
     private static void ValidateOrder(int order)
     {
-        if (order <= 0)
+        if (order < 0)
         {
-            throw new InvalidOperationException("Chapter order must be greater than zero.");
+            throw new InvalidOperationException("Chapter order cannot be negative.");
         }
     }
 }

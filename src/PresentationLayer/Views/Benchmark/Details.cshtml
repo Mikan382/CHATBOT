@@ -1,0 +1,97 @@
+@model BenchmarkRunDetailsViewModel
+@{
+    ViewData["Title"] = "Benchmark Result";
+    var details = Model.Details;
+    var run = details.Run;
+}
+
+<div class="benchmark-page">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="mb-1">Benchmark Result</h2>
+            <div class="text-muted">@run.CourseCode · @run.ChunkingStrategy · @run.EmbeddingModelName</div>
+        </div>
+        <a class="btn btn-outline-secondary" asp-action="Index" asp-route-courseId="@run.CourseId">Dashboard</a>
+    </div>
+
+    <div class="benchmark-stat-grid">
+        <div class="benchmark-stat benchmark-stat-success">
+            <span>Hit@@@run.TopK</span>
+            <strong>@run.HitRate.ToString("P1")</strong>
+        </div>
+        <div class="benchmark-stat">
+            <span>MRR</span>
+            <strong>@run.MeanReciprocalRank.ToString("F3")</strong>
+        </div>
+        <div class="benchmark-stat benchmark-stat-accent">
+            <span>Token F1</span>
+            <strong>@run.AverageAnswerTokenF1.ToString("P1")</strong>
+        </div>
+        <div class="benchmark-stat">
+            <span>Average latency</span>
+            <strong>@run.AverageLatencyMilliseconds.ToString("F0") ms</strong>
+        </div>
+    </div>
+
+    <div class="benchmark-run-meta">
+        <span>@run.QuestionCount questions</span>
+        <span>@run.ChunkCount chunks</span>
+        <span>Top K: @run.TopK</span>
+        <span>Total: @TimeSpan.FromMilliseconds(run.DurationMilliseconds).ToString(@"mm\:ss")</span>
+        <span>@run.CompletedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</span>
+    </div>
+
+    <div class="benchmark-result-list">
+        @foreach (var result in details.Results)
+        {
+            <details class="benchmark-result-item">
+                <summary>
+                    <span class="benchmark-result-order">#@result.DisplayOrder</span>
+                    <span class="benchmark-result-question">@result.Question</span>
+                    <span class="badge @(result.HitAtK ? "text-bg-success" : "text-bg-danger")">@(result.HitAtK ? "Hit" : "Miss")</span>
+                    <span>MRR @result.ReciprocalRank.ToString("F3")</span>
+                    <span>F1 @result.AnswerTokenF1.ToString("P1")</span>
+                    <span>@result.LatencyMilliseconds ms</span>
+                </summary>
+                <div class="benchmark-result-body">
+                    <div class="benchmark-answer-grid">
+                        <section>
+                            <h6>Expected Answer</h6>
+                            <div class="benchmark-answer-text">@result.ExpectedAnswer</div>
+                            <div class="text-muted small mt-2">Expected source: @result.ExpectedSourceName</div>
+                        </section>
+                        <section>
+                            <h6>Generated Answer</h6>
+                            <div class="benchmark-answer-text">@result.GeneratedAnswer</div>
+                        </section>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Retrieved source</th>
+                                <th>Chapter</th>
+                                <th>Chunk</th>
+                                <th class="text-end">Score</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var source in result.RetrievedSources)
+                            {
+                                <tr>
+                                    <td>@source.Rank</td>
+                                    <td>@source.SourceName</td>
+                                    <td>@source.ChapterTitle</td>
+                                    <td>#@source.ChunkIndex</td>
+                                    <td class="text-end">@source.Score.ToString("F4")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+        }
+    </div>
+</div>

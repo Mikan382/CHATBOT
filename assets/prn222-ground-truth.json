@@ -1,0 +1,402 @@
+[
+  {
+    "order": 1,
+    "chapterOrder": 0,
+    "sourceFile": "PRN222-Course Introduction.pptx",
+    "question": "Which prerequisite course should students complete before taking PRN222?",
+    "expectedAnswer": "Students should complete PRN211 - Basic Cross-Platform Application Programming With .NET before taking PRN222.",
+    "isActive": true
+  },
+  {
+    "order": 2,
+    "chapterOrder": 0,
+    "sourceFile": "PRN222-Course Introduction.pptx",
+    "question": "Which main software tools are required for the PRN222 learning environment?",
+    "expectedAnswer": "The course requires .NET 8 or later, Visual Studio 2022 or later, and Microsoft SQL Server 2016 or later.",
+    "isActive": true
+  },
+  {
+    "order": 3,
+    "chapterOrder": 1,
+    "sourceFile": "Chapter 01 - Networking Programming.pptx",
+    "question": "What is a network protocol?",
+    "expectedAnswer": "A network protocol is a set of rules for packaging data during network communication so clients and servers on different platforms can communicate.",
+    "isActive": true
+  },
+  {
+    "order": 4,
+    "chapterOrder": 1,
+    "sourceFile": "Chapter 01 - Networking Programming.pptx",
+    "question": "How is a URL related to a URI?",
+    "expectedAnswer": "A URL is a subset of URI that describes the network address or location where a resource is available, usually beginning with the protocol name.",
+    "isActive": true
+  },
+  {
+    "order": 5,
+    "chapterOrder": 1,
+    "sourceFile": "Chapter 01 - Networking Programming.pptx",
+    "question": "What does the Domain Name System do?",
+    "expectedAnswer": "DNS converts an Internet address in mnemonic form into its equivalent numeric IP address and maintains mappings between host names and IP addresses.",
+    "isActive": true
+  },
+  {
+    "order": 6,
+    "chapterOrder": 1,
+    "sourceFile": "Chapter 01 - Networking Programming.pptx",
+    "question": "Why is HttpClient suitable for HTTP web APIs and REST services?",
+    "expectedAnswer": "HttpClient is a newer HTTP API designed for web APIs, REST services, and custom authentication schemes. It also supports extensible headers, content, and custom message handlers.",
+    "isActive": true
+  },
+  {
+    "order": 7,
+    "chapterOrder": 1,
+    "sourceFile": "Chapter 01 - Networking Programming.pptx",
+    "question": "What is the purpose of the TcpListener class?",
+    "expectedAnswer": "TcpListener provides methods to listen for and accept incoming TCP connection requests. A TcpClient or Socket can connect to that listener.",
+    "isActive": true
+  },
+  {
+    "order": 8,
+    "chapterOrder": 1,
+    "sourceFile": "Chapter 01 - Networking Programming.pptx",
+    "question": "What delivery guarantees does UDP provide?",
+    "expectedAnswer": "UDP is connectionless and makes a best effort, so datagrams are not guaranteed to arrive or to arrive in order. Applications must handle missing, duplicate, and out-of-sequence datagrams.",
+    "isActive": true
+  },
+  {
+    "order": 9,
+    "chapterOrder": 2,
+    "sourceFile": "Chapter 02 - Asynchronous and Parallel Programming in .NET.pptx",
+    "question": "What is Intel Hyper-Threading?",
+    "expectedAnswer": "Hyper-Threading is an Intel technology that improves parallelization on x86 processors by exposing logical cores, or hardware threads, that the operating system can schedule separately.",
+    "isActive": true
+  },
+  {
+    "order": 10,
+    "chapterOrder": 2,
+    "sourceFile": "Chapter 02 - Asynchronous and Parallel Programming in .NET.pptx",
+    "question": "What are the four categories in Flynn's taxonomy?",
+    "expectedAnswer": "Flynn's taxonomy contains SISD, SIMD, MISD, and MIMD, classified by the number of concurrent instruction streams and data streams.",
+    "isActive": true
+  },
+  {
+    "order": 11,
+    "chapterOrder": 2,
+    "sourceFile": "Chapter 02 - Asynchronous and Parallel Programming in .NET.pptx",
+    "question": "How does parallel computing differ from serial computing?",
+    "expectedAnswer": "Serial computing executes a series of instructions sequentially, while parallel computing divides a problem into parts that can execute simultaneously on multiple compute resources.",
+    "isActive": true
+  },
+  {
+    "order": 12,
+    "chapterOrder": 2,
+    "sourceFile": "Chapter 02 - Asynchronous and Parallel Programming in .NET.pptx",
+    "question": "What is the purpose of the Task Parallel Library?",
+    "expectedAnswer": "The Task Parallel Library is a set of types and APIs in System.Threading and System.Threading.Tasks that simplifies concurrent, asynchronous, and parallel programming.",
+    "isActive": true
+  },
+  {
+    "order": 13,
+    "chapterOrder": 2,
+    "sourceFile": "Chapter 02 - Asynchronous and Parallel Programming in .NET.pptx",
+    "question": "What is the difference between Task and Task<TResult>?",
+    "expectedAnswer": "Task represents an asynchronous operation that does not return a result, while Task<TResult> represents an asynchronous operation that returns a value of TResult.",
+    "isActive": true
+  },
+  {
+    "order": 14,
+    "chapterOrder": 2,
+    "sourceFile": "Chapter 02 - Asynchronous and Parallel Programming in .NET.pptx",
+    "question": "What do the async and await keywords provide in C#?",
+    "expectedAnswer": "async and await are the core C# keywords for writing asynchronous methods with a structure that is nearly as straightforward as synchronous code.",
+    "isActive": true
+  },
+  {
+    "order": 15,
+    "chapterOrder": 3,
+    "sourceFile": "Chapter 03 - Dependency Injection in .NET.pptx",
+    "question": "What is Inversion of Control?",
+    "expectedAnswer": "Inversion of Control is a design principle that inverts control in object-oriented design to achieve loose coupling, directing dependencies toward abstractions instead of implementation details.",
+    "isActive": true
+  },
+  {
+    "order": 16,
+    "chapterOrder": 3,
+    "sourceFile": "Chapter 03 - Dependency Injection in .NET.pptx",
+    "question": "How does Dependency Injection implement IoC?",
+    "expectedAnswer": "Dependency Injection supplies a concrete implementation to a class that depends on an abstraction, such as an interface, instead of letting the class construct the dependency itself.",
+    "isActive": true
+  },
+  {
+    "order": 17,
+    "chapterOrder": 3,
+    "sourceFile": "Chapter 03 - Dependency Injection in .NET.pptx",
+    "question": "Which three service lifetimes are provided by the .NET dependency injection container?",
+    "expectedAnswer": "The three service lifetimes are Singleton, Scoped, and Transient.",
+    "isActive": true
+  },
+  {
+    "order": 18,
+    "chapterOrder": 3,
+    "sourceFile": "Chapter 03 - Dependency Injection in .NET.pptx",
+    "question": "Why is constructor injection generally preferred?",
+    "expectedAnswer": "Constructor injection makes required dependencies explicit and guarantees that they are available when the object is created. It is also the pattern most DI containers target.",
+    "isActive": true
+  },
+  {
+    "order": 19,
+    "chapterOrder": 3,
+    "sourceFile": "Chapter 03 - Dependency Injection in .NET.pptx",
+    "question": "When is property injection useful?",
+    "expectedAnswer": "Property injection is useful when a dependency is optional and callers should be able to override default behavior through a writable property.",
+    "isActive": true
+  },
+  {
+    "order": 20,
+    "chapterOrder": 3,
+    "sourceFile": "Chapter 03 - Dependency Injection in .NET.pptx",
+    "question": "When should method injection be used?",
+    "expectedAnswer": "Method injection should be used when the dependency can differ for each operation, so the caller supplies it as a method parameter.",
+    "isActive": true
+  },
+  {
+    "order": 21,
+    "chapterOrder": 4,
+    "sourceFile": "Chapter 04 - Building Web Application using ASP.NET Core MVC.pptx",
+    "question": "What is ASP.NET Core?",
+    "expectedAnswer": "ASP.NET Core is a free, open-source, cross-platform framework for building modern web applications and services that can run on Windows, Linux, or macOS.",
+    "isActive": true
+  },
+  {
+    "order": 22,
+    "chapterOrder": 4,
+    "sourceFile": "Chapter 04 - Building Web Application using ASP.NET Core MVC.pptx",
+    "question": "How are requests commonly hosted and forwarded to an ASP.NET Core application?",
+    "expectedAnswer": "A reverse proxy such as IIS or another web server receives requests and forwards them to the Kestrel web server that hosts the ASP.NET Core application.",
+    "isActive": true
+  },
+  {
+    "order": 23,
+    "chapterOrder": 4,
+    "sourceFile": "Chapter 04 - Building Web Application using ASP.NET Core MVC.pptx",
+    "question": "What is routing in ASP.NET Core and how can routes be configured?",
+    "expectedAnswer": "Routing inspects incoming URLs and maps them to controller actions. Routes can be configured with convention-based routing in Program.cs or with attribute routing.",
+    "isActive": true
+  },
+  {
+    "order": 24,
+    "chapterOrder": 4,
+    "sourceFile": "Chapter 04 - Building Web Application using ASP.NET Core MVC.pptx",
+    "question": "What are the responsibilities of Model, View, and Controller in MVC?",
+    "expectedAnswer": "The Model represents application state and business logic, the View renders the user interface, and the Controller handles requests and user interaction, coordinates processing, and returns a response.",
+    "isActive": true
+  },
+  {
+    "order": 25,
+    "chapterOrder": 4,
+    "sourceFile": "Chapter 04 - Building Web Application using ASP.NET Core MVC.pptx",
+    "question": "What is model binding in ASP.NET Core MVC?",
+    "expectedAnswer": "Model binding maps data from an HTTP request to action method parameters or model properties, converting request values into the expected .NET types.",
+    "isActive": true
+  },
+  {
+    "order": 26,
+    "chapterOrder": 4,
+    "sourceFile": "Chapter 04 - Building Web Application using ASP.NET Core MVC.pptx",
+    "question": "How do Session state and cookies differ in ASP.NET Core?",
+    "expectedAnswer": "Session state stores user data across requests in a store maintained by the application. Cookies are sent with every request, so they should remain small and ideally contain only an identifier for server-side data.",
+    "isActive": true
+  },
+  {
+    "order": 27,
+    "chapterOrder": 5,
+    "sourceFile": "Chapter 05 - Building Websites Using ASP.NET Core Razor Pages.pptx",
+    "question": "What is ASP.NET Core Razor Pages?",
+    "expectedAnswer": "Razor Pages is a server-side, page-focused ASP.NET Core framework for building dynamic, data-driven websites with separation between page markup and processing logic.",
+    "isActive": true
+  },
+  {
+    "order": 28,
+    "chapterOrder": 5,
+    "sourceFile": "Chapter 05 - Building Websites Using ASP.NET Core Razor Pages.pptx",
+    "question": "What is the main purpose of a Razor Pages PageModel class?",
+    "expectedAnswer": "A PageModel separates the .cshtml user interface from the page's processing logic and contains the data and behavior required by that page.",
+    "isActive": true
+  },
+  {
+    "order": 29,
+    "chapterOrder": 5,
+    "sourceFile": "Chapter 05 - Building Websites Using ASP.NET Core Razor Pages.pptx",
+    "question": "What are handler methods in Razor Pages?",
+    "expectedAnswer": "Handler methods are PageModel methods automatically selected and executed for a request according to Razor Pages naming conventions, such as handlers for GET or POST.",
+    "isActive": true
+  },
+  {
+    "order": 30,
+    "chapterOrder": 5,
+    "sourceFile": "Chapter 05 - Building Websites Using ASP.NET Core Razor Pages.pptx",
+    "question": "What do Tag Helpers do in Razor Pages?",
+    "expectedAnswer": "Tag Helpers are reusable server-side components that target HTML elements and automate the generation of HTML, attributes, links, forms, and validation markup.",
+    "isActive": true
+  },
+  {
+    "order": 31,
+    "chapterOrder": 5,
+    "sourceFile": "Chapter 05 - Building Websites Using ASP.NET Core Razor Pages.pptx",
+    "question": "When should a View Component be preferred over a partial page or Tag Helper?",
+    "expectedAnswer": "A View Component is preferred when logic is required to obtain or prepare the data before rendering reusable UI because it combines a class containing logic with a .cshtml view.",
+    "isActive": true
+  },
+  {
+    "order": 32,
+    "chapterOrder": 5,
+    "sourceFile": "Chapter 05 - Building Websites Using ASP.NET Core Razor Pages.pptx",
+    "question": "Why is server-side validation still required when client-side validation is enabled?",
+    "expectedAnswer": "Client-side validation can be bypassed, so the server must validate bound values again using the ASP.NET Core validation framework and ModelState.",
+    "isActive": true
+  },
+  {
+    "order": 33,
+    "chapterOrder": 6,
+    "sourceFile": "Chapter 06 - Building a Web App with Blazor and ASP .Net Core.pptx",
+    "question": "What is Blazor?",
+    "expectedAnswer": "Blazor is an ASP.NET Core framework for building interactive web user interfaces with C# and HTML instead of relying primarily on JavaScript.",
+    "isActive": true
+  },
+  {
+    "order": 34,
+    "chapterOrder": 6,
+    "sourceFile": "Chapter 06 - Building a Web App with Blazor and ASP .Net Core.pptx",
+    "question": "Where does code execute in Blazor Server and Blazor WebAssembly?",
+    "expectedAnswer": "Blazor Server executes C# code on the server and uses a persistent connection, while Blazor WebAssembly downloads and executes the application in the browser through WebAssembly.",
+    "isActive": true
+  },
+  {
+    "order": 35,
+    "chapterOrder": 6,
+    "sourceFile": "Chapter 06 - Building a Web App with Blazor and ASP .Net Core.pptx",
+    "question": "What are two key benefits of Blazor for .NET developers?",
+    "expectedAnswer": "Blazor lets developers use C# across client and server code and build reusable UI components while sharing .NET libraries, models, and validation logic.",
+    "isActive": true
+  },
+  {
+    "order": 36,
+    "chapterOrder": 6,
+    "sourceFile": "Chapter 06 - Building a Web App with Blazor and ASP .Net Core.pptx",
+    "question": "What is a Blazor component?",
+    "expectedAnswer": "A Blazor component is a reusable, self-contained unit of user interface written with Razor syntax that encapsulates rendering logic and behavior.",
+    "isActive": true
+  },
+  {
+    "order": 37,
+    "chapterOrder": 6,
+    "sourceFile": "Chapter 06 - Building a Web App with Blazor and ASP .Net Core.pptx",
+    "question": "What are the roles of the Pages, Shared, and wwwroot folders in a typical Blazor app?",
+    "expectedAnswer": "Pages contains Razor components used as pages, Shared contains reusable shared components, and wwwroot contains static assets such as CSS, JavaScript, and images.",
+    "isActive": true
+  },
+  {
+    "order": 38,
+    "chapterOrder": 6,
+    "sourceFile": "Chapter 06 - Building a Web App with Blazor and ASP .Net Core.pptx",
+    "question": "How can a Blazor button call a C# method when clicked?",
+    "expectedAnswer": "Register the C# method as the button's event handler with the @onclick attribute; Blazor calls that method when the button is selected.",
+    "isActive": true
+  },
+  {
+    "order": 39,
+    "chapterOrder": 7,
+    "sourceFile": "Chapter 07 - Real-Time Communication.pptx",
+    "question": "How does real-time push communication differ from the traditional pull approach?",
+    "expectedAnswer": "With push communication, the server sends an immediate update to the client without waiting for the client to poll repeatedly, unlike the traditional request-driven pull approach.",
+    "isActive": true
+  },
+  {
+    "order": 40,
+    "chapterOrder": 7,
+    "sourceFile": "Chapter 07 - Real-Time Communication.pptx",
+    "question": "Which transports does SignalR support in graceful fallback order?",
+    "expectedAnswer": "SignalR supports WebSockets first, then Server-Sent Events, and then Long Polling, automatically selecting the best available transport.",
+    "isActive": true
+  },
+  {
+    "order": 41,
+    "chapterOrder": 7,
+    "sourceFile": "Chapter 07 - Real-Time Communication.pptx",
+    "question": "What is a SignalR hub?",
+    "expectedAnswer": "A SignalR hub is a high-level pipeline that lets clients and servers call methods on each other while SignalR handles connection management and dispatch across machine boundaries.",
+    "isActive": true
+  },
+  {
+    "order": 42,
+    "chapterOrder": 7,
+    "sourceFile": "Chapter 07 - Real-Time Communication.pptx",
+    "question": "How is SignalR registered and mapped in an ASP.NET Core application?",
+    "expectedAnswer": "Register SignalR services by calling AddSignalR and map a hub endpoint in the application's endpoint routing with MapHub.",
+    "isActive": true
+  },
+  {
+    "order": 43,
+    "chapterOrder": 7,
+    "sourceFile": "Chapter 07 - Real-Time Communication.pptx",
+    "question": "Which recipients can a SignalR hub target through its Clients property?",
+    "expectedAnswer": "A hub can target all clients, the caller, a specific client or user, a group, multiple clients, or all clients except selected connections.",
+    "isActive": true
+  },
+  {
+    "order": 44,
+    "chapterOrder": 7,
+    "sourceFile": "Chapter 07 - Real-Time Communication.pptx",
+    "question": "What problem do strongly typed SignalR hubs solve?",
+    "expectedAnswer": "Strongly typed hubs replace SendAsync magic strings with a compile-time client interface, reducing runtime errors caused by misspelled or missing client method names.",
+    "isActive": true
+  },
+  {
+    "order": 45,
+    "chapterOrder": 8,
+    "sourceFile": "Chapter 08 - Background Tasks with Worker Service.pptx",
+    "question": "What is a .NET Worker Service?",
+    "expectedAnswer": "A Worker Service is a .NET project template that turns a console application into a hosted process suitable for long-running background work.",
+    "isActive": true
+  },
+  {
+    "order": 46,
+    "chapterOrder": 8,
+    "sourceFile": "Chapter 08 - Background Tasks with Worker Service.pptx",
+    "question": "Can a Worker Service be used for both continuous and scheduled batch workloads?",
+    "expectedAnswer": "Yes. A Worker Service can run continuously, or it can perform a process from start to finish and shut down; paired with a scheduler, that supports periodic batch workloads.",
+    "isActive": true
+  },
+  {
+    "order": 47,
+    "chapterOrder": 8,
+    "sourceFile": "Chapter 08 - Background Tasks with Worker Service.pptx",
+    "question": "What does the .NET host provide to a Worker Service?",
+    "expectedAnswer": "The host maintains the application's lifetime until shutdown and provides common features such as dependency injection, logging, configuration, and graceful startup and shutdown.",
+    "isActive": true
+  },
+  {
+    "order": 48,
+    "chapterOrder": 8,
+    "sourceFile": "Chapter 08 - Background Tasks with Worker Service.pptx",
+    "question": "What is the BackgroundService class?",
+    "expectedAnswer": "BackgroundService is an abstract base class for implementing a long-running IHostedService with less boilerplate code than implementing IHostedService directly.",
+    "isActive": true
+  },
+  {
+    "order": 49,
+    "chapterOrder": 8,
+    "sourceFile": "Chapter 08 - Background Tasks with Worker Service.pptx",
+    "question": "Which foundational components are included by the Worker Service template?",
+    "expectedAnswer": "The template includes a host, dependency injection, configuration through sources such as appsettings.json, and the Worker background service structure.",
+    "isActive": true
+  },
+  {
+    "order": 50,
+    "chapterOrder": 8,
+    "sourceFile": "Chapter 08 - Background Tasks with Worker Service.pptx",
+    "question": "What does the Worker Service and Web API demonstration do?",
+    "expectedAnswer": "It creates a background task that uses HttpClient to call a Web API, retrieve current currency exchange rates, and print the result.",
+    "isActive": true
+  }
+]

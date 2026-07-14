@@ -1,0 +1,99 @@
+@model BenchmarkQuestionPageViewModel
+@{
+    ViewData["Title"] = "Ground Truth Questions";
+    var questionPage = Model.Page;
+}
+
+<div>
+    <div class="page-toolbar">
+        <div>
+            <h2 class="mb-1">Ground Truth Questions</h2>
+            <div class="text-muted">Curated questions, expected answers, and expected sources.</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" asp-action="Index" asp-route-courseId="@questionPage.SelectedCourseId">Dashboard</a>
+            <a class="btn btn-primary" asp-action="CreateQuestion" asp-route-courseId="@questionPage.SelectedCourseId">Add question</a>
+        </div>
+    </div>
+
+    <div class="card app-card mb-3">
+        <div class="card-body">
+            <form method="get" asp-action="Questions" class="benchmark-question-filter">
+                <div>
+                    <label class="form-label" for="courseId">Course</label>
+                    <select class="form-select" id="courseId" name="courseId">
+                        <option value="">All courses</option>
+                        @foreach (var course in questionPage.Courses)
+                        {
+                            <option value="@course.Id" selected="@(course.Id == questionPage.SelectedCourseId)">@course.Code - @course.Name</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="searchTerm">Search</label>
+                    <input class="form-control" id="searchTerm" name="searchTerm" value="@questionPage.SearchTerm" maxlength="100" />
+                </div>
+                <div>
+                    <label class="form-label" for="isActive">Status</label>
+                    <select class="form-select" id="isActive" name="isActive">
+                        <option value="" selected="@(!questionPage.IsActive.HasValue)">All</option>
+                        <option value="true" selected="@(questionPage.IsActive == true)">Active</option>
+                        <option value="false" selected="@(questionPage.IsActive == false)">Inactive</option>
+                    </select>
+                </div>
+                <div class="benchmark-filter-actions">
+                    <button class="btn btn-primary" type="submit">Filter</button>
+                    <a class="btn btn-outline-secondary" asp-action="Questions">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card app-card table-card">
+        <div class="table-responsive">
+            <table class="table align-middle benchmark-question-table">
+                <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Question</th>
+                    <th>Course</th>
+                    <th>Expected source</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                @if (questionPage.Questions.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-muted text-center py-4">No ground-truth questions match the filter.</td></tr>
+                }
+                else
+                {
+                    @foreach (var question in questionPage.Questions)
+                    {
+                        <tr>
+                            <td>@question.DisplayOrder</td>
+                            <td>
+                                <div class="fw-semibold">@question.Question</div>
+                                <div class="text-muted benchmark-answer-preview">@question.ExpectedAnswer</div>
+                            </td>
+                            <td>@question.CourseCode</td>
+                            <td>@question.ExpectedSourceName</td>
+                            <td><span class="badge @(question.IsActive ? "text-bg-success" : "text-bg-secondary")">@(question.IsActive ? "Active" : "Inactive")</span></td>
+                            <td>
+                                <div class="action-cell justify-content-end">
+                                    <a class="btn btn-sm btn-outline-primary" asp-action="EditQuestion" asp-route-id="@question.Id">Edit</a>
+                                    <form method="post" asp-action="DeleteQuestion" asp-route-id="@question.Id" asp-route-courseId="@questionPage.SelectedCourseId" onsubmit="return confirm('Delete this ground-truth question?');">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

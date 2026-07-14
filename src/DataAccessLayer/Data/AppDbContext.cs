@@ -21,6 +21,9 @@ public class AppDbContext : DbContext
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<StudentSubscription> StudentSubscriptions => Set<StudentSubscription>();
+    public DbSet<EvaluationQuestion> EvaluationQuestions => Set<EvaluationQuestion>();
+    public DbSet<BenchmarkRun> BenchmarkRuns => Set<BenchmarkRun>();
+    public DbSet<BenchmarkResult> BenchmarkResults => Set<BenchmarkResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -141,6 +144,42 @@ public class AppDbContext : DbContext
                 .WithMany(x => x.Subscriptions)
                 .HasForeignKey(x => x.SubscriptionPlanId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<EvaluationQuestion>(entity =>
+        {
+            // Source IDs are validated by BenchmarkService; the source label is snapshotted so question history survives document changes.
+            entity.HasIndex(x => new { x.CourseId, x.IsActive, x.DisplayOrder });
+            entity.HasIndex(x => x.ExpectedDocumentId);
+            entity.Property(x => x.ExpectedSourceName).HasMaxLength(520);
+            entity.Property(x => x.Question).HasMaxLength(2000);
+            entity.HasOne(x => x.Course)
+                .WithMany()
+                .HasForeignKey(x => x.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BenchmarkRun>(entity =>
+        {
+            entity.HasIndex(x => new { x.CourseId, x.CompletedAtUtc });
+            entity.HasIndex(x => new { x.ChunkingStrategy, x.EmbeddingModelName, x.CompletedAtUtc });
+            entity.Property(x => x.CourseCode).HasMaxLength(32);
+            entity.Property(x => x.CourseName).HasMaxLength(256);
+            entity.Property(x => x.ChunkingStrategy).HasMaxLength(64);
+            entity.Property(x => x.EmbeddingModelName).HasMaxLength(160);
+            entity.HasMany(x => x.Results)
+                .WithOne(x => x.BenchmarkRun)
+                .HasForeignKey(x => x.BenchmarkRunId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BenchmarkResult>(entity =>
+        {
+            // Question/source IDs are historical references, not cascading foreign keys.
+            entity.HasIndex(x => new { x.BenchmarkRunId, x.DisplayOrder });
+            entity.HasIndex(x => x.EvaluationQuestionId);
+            entity.Property(x => x.ExpectedSourceName).HasMaxLength(520);
+            entity.Property(x => x.Question).HasMaxLength(2000);
         });
     }
 }
