@@ -209,12 +209,22 @@ public class BenchmarkController : BaseController
         bool? isActive,
         CancellationToken cancellationToken)
     {
+        var isAjax = Request.Headers.XRequestedWith == "XMLHttpRequest";
         try
         {
             await _benchmarkService.SetQuestionActiveAsync(id, active, cancellationToken);
+            if (isAjax)
+            {
+                return Json(new { ok = true, active });
+            }
         }
         catch (Exception ex)
         {
+            if (isAjax)
+            {
+                return BadRequest(new { ok = false, message = UserFacingError(ex) });
+            }
+
             SetFlashError(UserFacingError(ex));
         }
 

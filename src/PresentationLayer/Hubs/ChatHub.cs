@@ -70,17 +70,24 @@ public class ChatHub : Hub
                 }
             }
 
+            // Once the send is accepted, persist the user message, quota, and assistant reply
+            // independently of the connection. If the client navigates away or refreshes, the
+            // SignalR connection aborts; tying persistence to it would cancel generation mid-way
+            // and lose the reply (while quota was already spent). CancellationToken.None keeps
+            // the work running so the reply is saved and shows up after a reload.
+            var persistToken = CancellationToken.None;
+
             var userMessage = await _chatService.SaveUserMessageAsync(
                 parsedSessionId,
                 userId,
                 parsedCourseId,
                 text,
-                Context.ConnectionAborted);
+                persistToken);
             if (IsStudent())
             {
                 // Meter usage once the message is persisted. This counter is never decremented,
                 // so deleting or clearing a session cannot refund quota.
-                await _chatService.RegisterMessageUsageAsync(userId, Context.ConnectionAborted);
+                await _chatService.RegisterMessageUsageAsync(userId, persistToken);
             }
             await Clients.Group(SessionGroup(parsedSessionId)).SendAsync("MessageReceived", userMessage);
 
@@ -89,7 +96,7 @@ public class ChatHub : Hub
                 userId,
                 parsedCourseId,
                 text,
-                Context.ConnectionAborted);
+                persistToken);
             await Clients.Group(SessionGroup(parsedSessionId)).SendAsync("MessageReceived", botMessage);
         }
         catch (InvalidOperationException ex)

@@ -92,6 +92,7 @@
                             <th>Course</th>
                             <th>Chapter</th>
                             <th>Sections</th>
+                            <th>Chunking</th>
                             <th>Uploaded</th>
                             <th>Actions</th>
                         </tr>
@@ -100,7 +101,7 @@
                         @if (Model.Documents.Count == 0)
                         {
                             <tr>
-                                <td colspan="6" class="text-muted small">No documents match the current filters.</td>
+                                <td colspan="7" class="text-muted small">No documents match the current filters.</td>
                             </tr>
                         }
                         else
@@ -112,6 +113,7 @@
                                     <td>@doc.CourseCode</td>
                                     <td class="chapter-cell">@doc.ChapterTitle</td>
                                     <td>@doc.ChunksCount</td>
+                                    <td><span class="badge text-bg-light">@doc.ChunkingStrategy</span></td>
                                     <td class="small">@doc.UploadedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
                                     <td>
                                         <div class="action-cell">
@@ -261,11 +263,14 @@
                     return;
                 }
 
+                // Build FormData BEFORE disabling inputs: disabled controls are excluded
+                // from FormData, which would drop the file and cause "Please select a file".
+                const uploadData = new FormData(uploadForm);
                 setUploadBusy(true);
                 try {
                     const response = await fetch(uploadForm.action, {
                         method: "POST",
-                        body: new FormData(uploadForm),
+                        body: uploadData,
                         credentials: "same-origin",
                         headers: { "X-Requested-With": "XMLHttpRequest" }
                     });

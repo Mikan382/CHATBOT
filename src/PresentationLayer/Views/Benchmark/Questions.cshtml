@@ -5,6 +5,7 @@
 }
 
 <div>
+    @Html.AntiForgeryToken()
     <div class="page-toolbar">
         <div>
             <h2 class="mb-1">Ground Truth Questions</h2>
@@ -80,17 +81,11 @@
                             <td>@question.CourseCode</td>
                             <td>@question.ExpectedSourceName</td>
                             <td>
-                                <form method="post" asp-action="SetQuestionActive" asp-route-id="@question.Id"
-                                      asp-route-courseId="@questionPage.SelectedCourseId"
-                                      asp-route-searchTerm="@questionPage.SearchTerm"
-                                      asp-route-isActive="@(questionPage.IsActive?.ToString().ToLowerInvariant())"
-                                      class="benchmark-active-toggle form-check form-switch mb-0">
-                                    @Html.AntiForgeryToken()
-                                    <input class="form-check-input" type="checkbox" role="switch" name="active" value="true"
-                                           @(question.IsActive ? "checked" : "") onchange="this.form.submit()" />
-                                    <input type="hidden" name="active" value="false" />
-                                    <span class="badge @(question.IsActive ? "text-bg-success" : "text-bg-secondary")">@(question.IsActive ? "Active" : "Inactive")</span>
-                                </form>
+                                <label class="benchmark-active-toggle form-check form-switch mb-0">
+                                    <input class="form-check-input benchmark-active-switch" type="checkbox" role="switch"
+                                           data-question-id="@question.Id" @(question.IsActive ? "checked" : "") />
+                                    <span class="badge benchmark-active-label @(question.IsActive ? "text-bg-success" : "text-bg-secondary")">@(question.IsActive ? "Active" : "Inactive")</span>
+                                </label>
                             </td>
                             <td>
                                 <div class="action-cell justify-content-end">
@@ -109,3 +104,45 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            const token = tokenInput ? tokenInput.value : "";
+            const endpoint = '@Url.Action("SetQuestionActive", "Benchmark")';
+
+            document.querySelectorAll(".benchmark-active-switch").forEach((sw) => {
+                sw.addEventListener("change", async () => {
+                    const id = sw.dataset.questionId;
+                    const active = sw.checked;
+                    const label = sw.closest(".benchmark-active-toggle").querySelector(".benchmark-active-label");
+                    sw.disabled = true;
+                    try {
+                        const response = await fetch(endpoint, {
+                            method: "POST",
+                            credentials: "same-origin",
+                            headers: {
+                                "X-Requested-With": "XMLHttpRequest",
+                                "Content-Type": "application/x-www-form-urlencoded"
+                            },
+                            body: new URLSearchParams({ id, active, __RequestVerificationToken: token })
+                        });
+                        if (!response.ok) {
+                            throw new Error("Request failed");
+                        }
+
+                        label.textContent = active ? "Active" : "Inactive";
+                        label.classList.toggle("text-bg-success", active);
+                        label.classList.toggle("text-bg-secondary", !active);
+                    } catch {
+                        sw.checked = !active;
+                        alert("Could not update the question status. Please try again.");
+                    } finally {
+                        sw.disabled = false;
+                    }
+                });
+            });
+        })();
+    </script>
+}

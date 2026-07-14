@@ -35,6 +35,8 @@ public class DocumentIndexingService
             throw new InvalidOperationException("Configured chunking strategy is unavailable.");
         }
 
+        document.ChunkingStrategy = settings.CurrentStrategy;
+
         var chunks = chunker.Chunk(document.ContentText)
             .Select((content, index) => new DocumentChunk
             {
