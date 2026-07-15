@@ -119,16 +119,8 @@ public record StudentSubscriptionDto(
     DateTime StartedAtUtc,
     DateTime? ExpiresAtUtc);
 
-public record SubscriptionRequestDto(
-    Guid Id,
-    Guid PlanId,
-    string PlanName,
-    string PlanCode,
-    DateTime RequestedAtUtc);
-
 public record StudentSubscriptionPageDto(
     StudentSubscriptionDto? CurrentSubscription,
-    SubscriptionRequestDto? PendingRequest,
     IReadOnlyList<SubscriptionPlanDto> AvailablePlans);
 
 public record SubscriptionPlanStatsDto(
@@ -153,7 +145,6 @@ public record SubscriptionDashboardDto(
     int ActiveSubscriptions,
     int RequestsThisMonth,
     decimal EstimatedMonthlyRevenue,
-    IReadOnlyList<RecentSubscriptionDto> PendingSubscriptions,
     IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
     IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
     IReadOnlyList<SubscriptionPlanDto> Plans);

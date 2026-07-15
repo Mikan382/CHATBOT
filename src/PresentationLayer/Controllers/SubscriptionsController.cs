@@ -33,45 +33,8 @@ public class SubscriptionsController : BaseController
         return View(new StudentSubscriptionViewModel
         {
             CurrentSubscription = data.CurrentSubscription,
-            PendingRequest = data.PendingRequest,
             AvailablePlans = data.AvailablePlans
         });
-    }
-
-    [Authorize(Roles = "Student")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RequestPackage(Guid planId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.RequestSubscriptionAsync(CurrentUserId(), planId, cancellationToken);
-            SetFlashSuccess("Subscription request was submitted for admin approval.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Index");
-    }
-
-    [Authorize(Roles = "Student")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CancelRequest(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.CancelPendingRequestAsync(CurrentUserId(), cancellationToken);
-            SetFlashSuccess("Pending subscription request was cancelled.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Index");
     }
 
     [Authorize(Roles = "Admin")]
@@ -100,42 +63,6 @@ public class SubscriptionsController : BaseController
         {
             Dashboard = await _subscriptionService.GetDashboardAsync(cancellationToken)
         });
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ApproveRequest(Guid id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.ApproveRequestAsync(id, cancellationToken);
-            SetFlashSuccess("Subscription request was approved.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Dashboard");
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RejectRequest(Guid id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.RejectRequestAsync(id, cancellationToken);
-            SetFlashSuccess("Subscription request was rejected.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Dashboard");
     }
 
     [Authorize(Roles = "Admin")]

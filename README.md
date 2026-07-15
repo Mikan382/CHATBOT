@@ -4,7 +4,7 @@ An ASP.NET Core MVC application for managing PRN222 course materials and answeri
 student questions with retrieval-augmented generation (RAG). Built as a three-layer
 (Presentation / Business / Data Access) solution on .NET 8 and SQL Server.
 
-> Internal / educational project. No real payment is processed and it is not intended for production deployment.
+> Internal / educational project. Payments run against the **VNPay sandbox** (no real money) and it is not intended for production deployment.
 
 ## Table of Contents
 
@@ -28,7 +28,7 @@ student questions with retrieval-augmented generation (RAG). Built as a three-la
 - **RAG chat** — SignalR-based chat with citations and searchable, renameable, clearable session history.
 - **Configurable chunking** — admin-selectable global strategy: `paragraph`, configurable `fixed`, or `sentence`.
 - **RAG benchmark** — compare chunking strategies and Hugging Face embedding models against a curated ground-truth set; toggle questions active/inactive to control which run.
-- **Subscriptions** — students request packages for admin approval; each package sets a **monthly chat-message quota** that is enforced in chat. Admins approve/reject/revoke, manage packages, and see an estimated monthly value (price is snapshotted at activation, so later price edits do not rewrite existing subscriptions).
+- **Subscriptions & payment** — students buy packages through the **VNPay sandbox**; a paid package auto-activates on a verified payment callback (no admin approval step). Each package sets a **monthly chat-message quota** enforced in chat. Payment confirmation is idempotent (return + IPN), and the price is snapshotted at activation so later price edits do not rewrite existing subscriptions. Admins manage packages, revoke active subscriptions, and see an estimated monthly value.
 
 ## Tech Stack
 
@@ -78,7 +78,11 @@ Keep secrets out of tracked configuration with User Secrets:
 dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\PresentationLayer
 dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\PresentationLayer
 dotnet user-secrets set "SeedUsers:Admin:Password" "YOUR_ADMIN_PASSWORD" --project .\src\PresentationLayer
+dotnet user-secrets set "VnPay:TmnCode" "YOUR_VNPAY_TMNCODE" --project .\src\PresentationLayer
+dotnet user-secrets set "VnPay:HashSecret" "YOUR_VNPAY_HASHSECRET" --project .\src\PresentationLayer
 ```
+
+Register a sandbox merchant at <https://sandbox.vnpayment.vn/devreguser/> to obtain `TmnCode` and `HashSecret`. Without them, chat and the rest of the app still work; only the **Buy with VNPay** action is disabled.
 
 ### 3. Run
 
@@ -100,6 +104,8 @@ On startup the app applies pending EF Core migrations and seeds required setting
 | `HuggingFace:ApiKey` | Hugging Face key used for embeddings and benchmarks |
 | `HuggingFace:Models` | Benchmark embedding models — each needs its model URL and any query/passage prefixes |
 | `SeedUsers:{Role}:Password` | Optional seed password per demo role |
+| `VnPay:TmnCode` / `VnPay:HashSecret` | VNPay sandbox merchant code and HMAC secret (keep in User Secrets) |
+| `VnPay:ReturnUrl` | Browser return URL after payment (default `http://localhost:5096/Payment/VnpayReturn`) |
 
 Retrieval falls back to lexical search when Hugging Face is not configured, so normal chat works with Gemini alone. Benchmarks re-embed a temporary corpus on every run, so provider usage limits apply. The default benchmark compares `intfloat/multilingual-e5-base` and `intfloat/multilingual-e5-small`.
 
@@ -124,8 +130,9 @@ Fresh databases seed the PRN222 course (`Course Introduction` at order `0` and C
 | `/settings` | Admin | Global chunking strategy |
 | `/benchmark` | Admin | Run experiments and compare RAG metrics |
 | `/benchmark/questions` | Admin | Ground-truth question CRUD and active/inactive toggle |
-| `/subscriptions` | Student | View packages and request a subscription |
-| `/subscriptions/dashboard` | Admin | Approve/reject/revoke requests, manage packages, view statistics |
+| `/subscriptions` | Student | Browse packages and buy one via VNPay |
+| `/payment` | Student / callback | `Checkout` starts a VNPay payment; `VnpayReturn` (browser) and `VnpayIpn` (server) confirm it |
+| `/subscriptions/dashboard` | Admin | Manage packages, revoke subscriptions, view statistics |
 
 ## Project Structure
 
@@ -156,4 +163,4 @@ Notes:
 
 ## Scope
 
-Payment processing, deployment, background workers, and fine-tuned models are out of scope. Subscriptions gate chat usage through message quotas but do not represent real billing.
+Deployment, background workers, and fine-tuned models are out of scope. Payment is integrated against the **VNPay sandbox** — the flow, signing, and idempotent confirmation are real, but no real money moves and it does not represent production billing. Subscriptions gate chat usage through message quotas.

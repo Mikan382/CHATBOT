@@ -6,7 +6,6 @@ namespace PresentationLayer.ViewModels;
 public class StudentSubscriptionViewModel
 {
     public StudentSubscriptionDto? CurrentSubscription { get; set; }
-    public SubscriptionRequestDto? PendingRequest { get; set; }
     public IReadOnlyList<SubscriptionPlanDto> AvailablePlans { get; set; } = [];
 }
 
@@ -17,7 +16,6 @@ public class SubscriptionDashboardViewModel
         0,
         0,
         0,
-        [],
         [],
         [],
         []);

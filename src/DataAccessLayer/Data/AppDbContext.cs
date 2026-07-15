@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<StudentSubscription> StudentSubscriptions => Set<StudentSubscription>();
+    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<EvaluationQuestion> EvaluationQuestions => Set<EvaluationQuestion>();
     public DbSet<BenchmarkRun> BenchmarkRuns => Set<BenchmarkRun>();
     public DbSet<BenchmarkResult> BenchmarkResults => Set<BenchmarkResult>();
@@ -154,6 +155,28 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.Plan)
                 .WithMany(x => x.Subscriptions)
+                .HasForeignKey(x => x.SubscriptionPlanId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PaymentTransaction>(entity =>
+        {
+            // ProviderTxnRef is the idempotency anchor: the gateway can fire the return + IPN
+            // callbacks more than once, and the unique index guarantees a single Paid row per ref.
+            entity.HasIndex(x => x.ProviderTxnRef).IsUnique();
+            entity.HasIndex(x => x.StudentUserId);
+            entity.Property(x => x.Provider).HasMaxLength(32);
+            entity.Property(x => x.ProviderTxnRef).HasMaxLength(64);
+            entity.Property(x => x.Status).HasMaxLength(32);
+            entity.Property(x => x.ProviderTransactionNo).HasMaxLength(64);
+            entity.Property(x => x.ResponseCode).HasMaxLength(16);
+            entity.Property(x => x.Amount).HasPrecision(18, 2);
+            entity.HasOne(x => x.Student)
+                .WithMany()
+                .HasForeignKey(x => x.StudentUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Plan)
+                .WithMany()
                 .HasForeignKey(x => x.SubscriptionPlanId)
                 .OnDelete(DeleteBehavior.Restrict);
         });

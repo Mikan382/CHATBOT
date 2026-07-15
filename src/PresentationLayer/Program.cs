@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using BusinessLayer.AI;
 using BusinessLayer.Indexing;
 using BusinessLayer.Parsing;
+using BusinessLayer.Payment;
 using BusinessLayer.Retrieval;
 using BusinessLayer.Services;
 using DataAccessLayer.Data;
@@ -83,6 +84,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
 builder.Services.AddScoped<IPasswordHasher<ApplicationUser>, PasswordHasher<ApplicationUser>>();
+builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
 
 builder.Services.AddSingleton<ITextChunker, ParagraphChunker>();
 builder.Services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker());
@@ -96,6 +98,7 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IUserAdminRepository, UserAdminRepository>();
 builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IBenchmarkRepository, BenchmarkRepository>();
 
 builder.Services.AddScoped<ICourseService, CourseService>();
@@ -107,6 +110,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddScoped<IChunkingSettingsService, ChunkingSettingsService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddSingleton<IPaymentGateway, VnPayGateway>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IBenchmarkService, BenchmarkService>();
 builder.Services.AddScoped<RetrievalService>();
 builder.Services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
