@@ -6,10 +6,9 @@ namespace BusinessLayer.Services;
 
 public class ChunkingSettingsService : IChunkingSettingsService
 {
-    public const string StrategySettingKey = "ChunkingStrategy";
-    public const string FixedChunkSizeSettingKey = "FixedChunkSize";
-    public const string FixedChunkOverlapSettingKey = "FixedChunkOverlap";
-    public const string DefaultStrategy = "paragraph";
+    private const string StrategySettingKey = "ChunkingStrategy";
+    private const string FixedChunkSizeSettingKey = "FixedChunkSize";
+    private const string FixedChunkOverlapSettingKey = "FixedChunkOverlap";
 
     private readonly ISystemSettingsRepository _settingsRepository;
     private readonly IReadOnlyList<string> _availableStrategies;
@@ -31,27 +30,28 @@ public class ChunkingSettingsService : IChunkingSettingsService
         var values = await _settingsRepository.GetValuesAsync(
             [StrategySettingKey, FixedChunkSizeSettingKey, FixedChunkOverlapSettingKey],
             cancellationToken);
-        values.TryGetValue(StrategySettingKey, out var storedStrategy);
-        values.TryGetValue(FixedChunkSizeSettingKey, out var storedChunkSize);
-        values.TryGetValue(FixedChunkOverlapSettingKey, out var storedOverlap);
-
-        var chunkSize = ParseSetting(storedChunkSize, FixedSizeChunker.DefaultChunkSize);
-        if (TryParseLegacyFixedSize(storedStrategy, out var legacyChunkSize)
-            && string.IsNullOrWhiteSpace(storedChunkSize))
+        if (!values.TryGetValue(StrategySettingKey, out var storedStrategy)
+            || !values.TryGetValue(FixedChunkSizeSettingKey, out var storedChunkSize)
+            || !values.TryGetValue(FixedChunkOverlapSettingKey, out var storedOverlap))
         {
-            chunkSize = legacyChunkSize;
+            throw new InvalidOperationException("Chunking settings are incomplete.");
         }
 
-        var overlap = ParseSetting(storedOverlap, FixedSizeChunker.DefaultOverlap);
-        if (!IsValidFixedConfiguration(chunkSize, overlap))
+        if (!int.TryParse(storedChunkSize, out var chunkSize)
+            || !int.TryParse(storedOverlap, out var overlap)
+            || !IsValidFixedConfiguration(chunkSize, overlap))
         {
-            chunkSize = FixedSizeChunker.DefaultChunkSize;
-            overlap = FixedSizeChunker.DefaultOverlap;
+            throw new InvalidOperationException("Stored fixed-size chunking settings are invalid.");
         }
 
         var strategy = NormalizeStrategy(storedStrategy);
+        if (!IsAllowed(strategy))
+        {
+            throw new InvalidOperationException("Stored chunking strategy is invalid.");
+        }
+
         return new ChunkingSettingsDto(
-            IsAllowed(strategy) ? strategy : DefaultStrategy,
+            strategy,
             chunkSize,
             overlap,
             _availableStrategies);
@@ -97,26 +97,8 @@ public class ChunkingSettingsService : IChunkingSettingsService
             && overlap < chunkSize;
     }
 
-    private static int ParseSetting(string? value, int fallback)
-    {
-        return int.TryParse(value, out var parsed) ? parsed : fallback;
-    }
-
     private static string NormalizeStrategy(string? strategyName)
     {
-        var normalized = strategyName?.Trim().ToLowerInvariant() ?? "";
-        return normalized.StartsWith("fixed_", StringComparison.Ordinal) ? "fixed" : normalized;
-    }
-
-    private static bool TryParseLegacyFixedSize(string? strategyName, out int chunkSize)
-    {
-        chunkSize = 0;
-        if (string.IsNullOrWhiteSpace(strategyName)
-            || !strategyName.StartsWith("fixed_", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return int.TryParse(strategyName["fixed_".Length..], out chunkSize);
+        return strategyName?.Trim().ToLowerInvariant() ?? "";
     }
 }

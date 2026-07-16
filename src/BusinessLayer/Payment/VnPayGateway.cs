@@ -20,9 +20,16 @@ public class VnPayGateway : IPaymentGateway
     }
 
     public string ProviderName => PaymentProviderNames.VnPay;
+    public TimeSpan CheckoutLifetime => TimeSpan.FromMinutes(_options.PaymentTimeoutMinutes);
 
     public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(_options.TmnCode) && !string.IsNullOrWhiteSpace(_options.HashSecret);
+        !string.IsNullOrWhiteSpace(_options.TmnCode)
+        && !string.IsNullOrWhiteSpace(_options.HashSecret)
+        && Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out _)
+        && !string.IsNullOrWhiteSpace(_options.Version)
+        && !string.IsNullOrWhiteSpace(_options.Locale)
+        && !string.IsNullOrWhiteSpace(_options.CurrCode)
+        && _options.PaymentTimeoutMinutes is >= 1 and <= 60;
 
     public string BuildCheckoutUrl(PaymentCheckoutRequest request)
     {
@@ -31,7 +38,8 @@ public class VnPayGateway : IPaymentGateway
             throw new InvalidOperationException("VNPay is not configured. Set VnPay:TmnCode and VnPay:HashSecret.");
         }
 
-        var createDate = VietnamNow();
+        var createDate = VietnamTime(request.CreatedAtUtc);
+        var expireDate = VietnamTime(request.ExpiresAtUtc);
         var fields = new SortedDictionary<string, string>(StringComparer.Ordinal)
         {
             ["vnp_Version"] = _options.Version,
@@ -41,12 +49,12 @@ public class VnPayGateway : IPaymentGateway
             ["vnp_Amount"] = (request.AmountVnd * 100).ToString(CultureInfo.InvariantCulture),
             ["vnp_CreateDate"] = createDate.ToString("yyyyMMddHHmmss"),
             ["vnp_CurrCode"] = _options.CurrCode,
-            ["vnp_IpAddr"] = string.IsNullOrWhiteSpace(request.IpAddress) ? "127.0.0.1" : request.IpAddress,
+            ["vnp_IpAddr"] = request.IpAddress,
             ["vnp_Locale"] = _options.Locale,
             ["vnp_OrderInfo"] = request.OrderInfo,
             ["vnp_OrderType"] = "other",
-            ["vnp_ReturnUrl"] = _options.ReturnUrl,
-            ["vnp_ExpireDate"] = createDate.AddMinutes(15).ToString("yyyyMMddHHmmss"),
+            ["vnp_ReturnUrl"] = request.ReturnUrl,
+            ["vnp_ExpireDate"] = expireDate.ToString("yyyyMMddHHmmss"),
             ["vnp_TxnRef"] = request.TxnRef
         };
 
@@ -84,7 +92,7 @@ public class VnPayGateway : IPaymentGateway
         var computed = HmacSha512(_options.HashSecret, hashData.ToString());
         var signatureValid = IsConfigured
             && !string.IsNullOrEmpty(receivedHash)
-            && string.Equals(computed, receivedHash, StringComparison.OrdinalIgnoreCase);
+            && FixedTimeEqualsHex(computed, receivedHash);
 
         _ = long.TryParse(
             fields.GetValueOrDefault("vnp_Amount"),
@@ -108,17 +116,25 @@ public class VnPayGateway : IPaymentGateway
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    private static DateTime VietnamNow()
+    private static bool FixedTimeEqualsHex(string expectedHex, string actualHex)
     {
         try
         {
-            var tz = TimeZoneInfo.FindSystemTimeZoneById(
-                OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Ho_Chi_Minh");
-            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            var expected = Convert.FromHexString(expectedHex);
+            var actual = Convert.FromHexString(actualHex);
+            return expected.Length == actual.Length
+                && CryptographicOperations.FixedTimeEquals(expected, actual);
         }
-        catch (TimeZoneNotFoundException)
+        catch (FormatException)
         {
-            return DateTime.UtcNow.AddHours(7);
+            return false;
         }
+    }
+
+    private static DateTime VietnamTime(DateTime utc)
+    {
+        var timeZoneId = OperatingSystem.IsWindows() ? "SE Asia Standard Time" : "Asia/Ho_Chi_Minh";
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), timeZone);
     }
 }

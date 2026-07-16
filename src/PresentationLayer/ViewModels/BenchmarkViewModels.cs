@@ -16,6 +16,8 @@ public class BenchmarkDashboardViewModel
         false,
         [],
         []);
+    public BenchmarkRunInput Input { get; set; } = new();
+    public string? Error { get; set; }
 }
 
 public class BenchmarkRunInput

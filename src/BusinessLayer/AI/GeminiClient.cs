@@ -15,21 +15,23 @@ public class GeminiClient : IGeminiClient
         @"^(?<seconds>\d+(?:\.\d+)?)s$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
     private readonly ILogger<GeminiClient> _logger;
+    private readonly string? _apiKey;
+    private readonly string _model;
 
     public GeminiClient(HttpClient httpClient, IConfiguration configuration, ILogger<GeminiClient> logger)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
         _logger = logger;
+        _apiKey = configuration["Gemini:ApiKey"];
+        _model = configuration["Gemini:Model"]?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(_model))
+        {
+            throw new InvalidOperationException("Missing Gemini:Model configuration.");
+        }
     }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
-
-    private string? ApiKey => _configuration["Gemini:ApiKey"];
-
-    private string Model => _configuration["Gemini:Model"] ?? "gemini-2.5-flash";
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
 
     public async Task<string> GenerateAsync(string systemInstruction, string prompt, CancellationToken cancellationToken)
     {
@@ -38,7 +40,7 @@ public class GeminiClient : IGeminiClient
             throw new InvalidOperationException("Gemini API key is not configured.");
         }
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{Model}:generateContent";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent";
         var payload = new
         {
             systemInstruction = new
@@ -66,7 +68,7 @@ public class GeminiClient : IGeminiClient
             {
                 Content = JsonContent.Create(payload)
             };
-            request.Headers.Add("x-goog-api-key", ApiKey);
+            request.Headers.Add("x-goog-api-key", _apiKey);
 
             HttpResponseMessage response;
             try

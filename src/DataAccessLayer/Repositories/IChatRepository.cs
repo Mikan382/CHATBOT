@@ -16,5 +16,5 @@ public interface IChatRepository
     Task<bool> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken);
     Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<int> GetUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken);
-    Task IncrementUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken);
+    Task<bool> TryConsumeUsageAsync(Guid studentUserId, string periodKey, int quota, CancellationToken cancellationToken);
 }

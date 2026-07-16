@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Chat";
     var quotaExhausted = Model.Quota is not null && Model.Quota.Exhausted;
-    var canSend = Model.GeminiConfigured && !quotaExhausted;
+    var canSend = Model.AssistantConfigured && !quotaExhausted;
 }
 
 <div class="chat-page row g-4">
@@ -39,13 +39,24 @@
                             }
                         </select>
                     </div>
-                    <span class="assistant-status @(Model.GeminiConfigured ? "assistant-status-ready" : "assistant-status-warning")">
-                        Assistant: @(Model.GeminiConfigured ? "ready" : "not available")
+                    <span class="assistant-status @(Model.AssistantConfigured ? "assistant-status-ready" : "assistant-status-warning")">
+                        Assistant: @(Model.AssistantConfigured ? "ready" : "not available")
                     </span>
-                    @if (Model.Quota is not null && !Model.Quota.Unlimited)
+                    @if (Model.Quota is not null)
                     {
-                        <span class="assistant-status @(quotaExhausted ? "assistant-status-warning" : "assistant-status-ready")">
-                            Messages left: @Model.Quota.Remaining / @Model.Quota.Quota
+                        <span id="chatQuotaStatus" class="assistant-status @(quotaExhausted ? "assistant-status-warning" : "assistant-status-ready")">
+                            @if (!Model.Quota.HasActiveSubscription)
+                            {
+                                <text>No active package</text>
+                            }
+                            else if (Model.Quota.Unlimited)
+                            {
+                                <text>Questions: unlimited</text>
+                            }
+                            else
+                            {
+                                <text>Questions left: @Model.Quota.Remaining / @Model.Quota.Quota</text>
+                            }
                         </span>
                     }
                     <button id="clearButton" class="btn btn-sm btn-outline-danger" type="button">Clear</button>
@@ -54,11 +65,15 @@
             <div id="messages" class="chat-log">
                 <div class="chat-empty-hint" id="chatEmptyHint">Ask a question to start the conversation.</div>
             </div>
-            @if (quotaExhausted)
+            @if (Model.Quota is not null)
             {
-                <div class="chat-quota-alert">
-                    You have used all @Model.Quota!.Quota messages of the @Model.Quota!.PlanName package.
-                    <a asp-controller="Subscriptions" asp-action="Index">Register or upgrade a package</a> to continue.
+                <div id="chatQuotaAlert" class="chat-quota-alert @(quotaExhausted ? "" : "d-none")">
+                    <span id="chatQuotaAlertText">
+                        @(!Model.Quota.HasActiveSubscription
+                            ? "No active subscription package."
+                            : $"You have used all {Model.Quota.Quota} questions in the {Model.Quota.PlanName} package.")
+                    </span>
+                    <a asp-controller="Subscriptions" asp-action="Index">View packages</a>.
                 </div>
             }
             <form id="chatForm" class="chat-form">
@@ -74,6 +89,9 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
-    <script>window._geminiConfigured = @(Model.GeminiConfigured ? "true" : "false");</script>
+    <script>
+        window._assistantConfigured = @(Model.AssistantConfigured ? "true" : "false");
+        window._quotaExhausted = @(quotaExhausted ? "true" : "false");
+    </script>
     <script src="~/js/chat.js" asp-append-version="true"></script>
 }

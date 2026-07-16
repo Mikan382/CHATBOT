@@ -85,6 +85,14 @@ builder.Services.AddAuthorization();
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
 builder.Services.AddScoped<IPasswordHasher<ApplicationUser>, PasswordHasher<ApplicationUser>>();
 builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
+builder.Services.AddOptions<RagOptions>()
+    .Bind(builder.Configuration.GetSection(RagOptions.SectionName))
+    .Validate(options => options.TopK is >= 1 and <= 20, "Rag:TopK must be between 1 and 20.")
+    .Validate(options => options.MinimumSimilarityScore is >= -1 and <= 1,
+        "Rag:MinimumSimilarityScore must be between -1 and 1.")
+    .Validate(options => options.HistoryMessageCount is >= 0 and <= 50,
+        "Rag:HistoryMessageCount must be between 0 and 50.")
+    .ValidateOnStart();
 
 builder.Services.AddSingleton<ITextChunker, ParagraphChunker>();
 builder.Services.AddSingleton<ITextChunker>(_ => new FixedSizeChunker());
@@ -148,9 +156,11 @@ app.Run();
 static async Task InitializeApplicationDatabaseAsync(IServiceProvider services)
 {
     using var scope = services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<ApplicationUser>>();
     await DatabaseBootstrapper.InitializeAsync(
-        scope.ServiceProvider,
-        (user, password) => passwordHasher.HashPassword(user, password),
-        DocumentContentHasher.Compute);
+        db,
+        configuration,
+        (user, password) => passwordHasher.HashPassword(user, password));
 }

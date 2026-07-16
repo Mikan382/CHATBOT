@@ -51,7 +51,7 @@
                             @foreach (var document in Model.Documents)
                             {
                                 <option value="@document.Id" data-course-id="@document.CourseId">
-                                    @document.CourseCode · @document.ChapterTitle · @document.FileName
+                                    @document.CourseCode / @document.ChapterTitle / @document.FileName
                                 </option>
                             }
                         </select>

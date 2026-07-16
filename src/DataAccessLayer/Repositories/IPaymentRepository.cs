@@ -6,6 +6,11 @@ public interface IPaymentRepository
 {
     Task AddAsync(PaymentTransaction transaction, CancellationToken cancellationToken);
     Task<PaymentTransaction?> GetByTxnRefAsync(string providerTxnRef, CancellationToken cancellationToken);
+    Task<PaymentDashboardSummary> GetDashboardSummaryAsync(
+        DateTime monthStartUtc,
+        DateTime pendingSinceUtc,
+        CancellationToken cancellationToken);
+    Task<IReadOnlyList<PaymentTransaction>> ListRecentAsync(int take, CancellationToken cancellationToken);
 
     // Pending -> Failed. Returns false if the row was already finalised (idempotent no-op).
     Task<bool> MarkFailedAsync(Guid id, string? responseCode, string? rawResponse, CancellationToken cancellationToken);
@@ -23,3 +28,10 @@ public interface IPaymentRepository
         string? rawResponse,
         CancellationToken cancellationToken);
 }
+
+public record PaymentDashboardSummary(
+    int PaidThisMonth,
+    int FailedThisMonth,
+    int Pending,
+    decimal RevenueThisMonth,
+    decimal TotalRevenue);

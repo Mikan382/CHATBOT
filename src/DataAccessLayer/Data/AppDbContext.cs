@@ -143,9 +143,6 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => x.StudentUserId, "IX_StudentSubscriptions_StudentUserId")
                 .HasFilter("[Status] = 'Active'")
                 .IsUnique();
-            entity.HasIndex(x => x.StudentUserId, "IX_StudentSubscriptions_StudentUserId_Pending")
-                .HasFilter("[Status] = 'Pending'")
-                .IsUnique();
             entity.HasIndex(x => new { x.SubscriptionPlanId, x.Status });
             entity.Property(x => x.Status).HasMaxLength(32);
             entity.Property(x => x.PriceAtActivation).HasPrecision(18, 2);
@@ -165,6 +162,7 @@ public class AppDbContext : DbContext
             // callbacks more than once, and the unique index guarantees a single Paid row per ref.
             entity.HasIndex(x => x.ProviderTxnRef).IsUnique();
             entity.HasIndex(x => x.StudentUserId);
+            entity.HasIndex(x => new { x.Status, x.PaidAtUtc });
             entity.Property(x => x.Provider).HasMaxLength(32);
             entity.Property(x => x.ProviderTxnRef).HasMaxLength(64);
             entity.Property(x => x.Status).HasMaxLength(32);

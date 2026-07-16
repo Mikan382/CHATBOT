@@ -2,6 +2,8 @@
     ViewData["Title"] = "Error";
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
-<a class="btn btn-outline-primary" asp-controller="Chat" asp-action="Index">Return to Chat</a>
+<div class="empty-state">
+    <h2>Request failed</h2>
+    <p class="text-muted mb-3">The request could not be completed. Please return to the application and try again.</p>
+    <a class="btn btn-primary" asp-controller="Chat" asp-action="Index">Return to chat</a>
+</div>

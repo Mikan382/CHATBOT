@@ -101,6 +101,16 @@ public class UserAdminRepository : IUserAdminRepository
             cancellationToken);
     }
 
+    public async Task<bool> HasRelatedDataAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _db.StudentSubscriptions.AnyAsync(x => x.StudentUserId == userId, cancellationToken)
+            || await _db.PaymentTransactions.AnyAsync(x => x.StudentUserId == userId, cancellationToken)
+            || await _db.ChatMessageUsages.AnyAsync(x => x.StudentUserId == userId, cancellationToken)
+            || await _db.ChatSessions.AnyAsync(x => x.UserId == userId, cancellationToken)
+            || await _db.Documents.AnyAsync(x => x.UploadedByUserId == userId, cancellationToken)
+            || await _db.CourseTeachers.AnyAsync(x => x.TeacherUserId == userId, cancellationToken);
+    }
+
     public async Task DeleteAsync(ApplicationUser user, CancellationToken cancellationToken = default)
     {
         _db.Users.Remove(user);

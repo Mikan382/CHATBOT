@@ -12,6 +12,7 @@ public interface IUserAdminRepository
     Task AddAsync(ApplicationUser user, CancellationToken cancellationToken = default);
     Task SaveUserAsync(ApplicationUser user, bool removeTeachingAssignments, CancellationToken cancellationToken = default);
     Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default);
+    Task<bool> HasRelatedDataAsync(Guid userId, CancellationToken cancellationToken = default);
     Task DeleteAsync(ApplicationUser user, CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

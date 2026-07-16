@@ -56,14 +56,9 @@
                                 <td>@chunk.ChunkIndex</td>
                                 <td class="small">@chunk.Content</td>
                                 <td class="small">
-                                    @if (chunk.EmbeddingModels.Count == 0)
-                                    {
-                                        <span class="text-muted">Lexical</span>
-                                    }
-                                    else
-                                    {
-                                        <span>Lexical + @string.Join(", ", chunk.EmbeddingModels)</span>
-                                    }
+                                    @(chunk.EmbeddingModels.Count == 0
+                                        ? "Missing embedding"
+                                        : $"Vector: {string.Join(", ", chunk.EmbeddingModels)}")
                                 </td>
                             </tr>
                         }

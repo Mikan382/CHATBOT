@@ -1,6 +1,13 @@
 namespace BusinessLayer.Payment;
 
-public record PaymentCheckoutRequest(string TxnRef, long AmountVnd, string OrderInfo, string IpAddress);
+public record PaymentCheckoutRequest(
+    string TxnRef,
+    long AmountVnd,
+    string OrderInfo,
+    string IpAddress,
+    string ReturnUrl,
+    DateTime CreatedAtUtc,
+    DateTime ExpiresAtUtc);
 
 public record PaymentCallbackResult(
     bool SignatureValid,
@@ -14,6 +21,7 @@ public interface IPaymentGateway
 {
     string ProviderName { get; }
     bool IsConfigured { get; }
+    TimeSpan CheckoutLifetime { get; }
 
     // Builds the signed redirect URL that sends the student to the gateway's hosted payment page.
     string BuildCheckoutUrl(PaymentCheckoutRequest request);

@@ -25,10 +25,19 @@ public class HuggingFaceEmbeddingClient : IEmbeddingClient
         _models = configurations.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
         AvailableModels = configurations.Select(x => x.Name).ToList();
 
-        var configuredDefault = configuration["HuggingFace:ModelName"];
-        ModelName = !string.IsNullOrWhiteSpace(configuredDefault) && _models.ContainsKey(configuredDefault)
-            ? configuredDefault
-            : AvailableModels.FirstOrDefault() ?? "huggingface-embedding";
+        var configuredDefault = configuration["HuggingFace:ModelName"]?.Trim();
+        if (string.IsNullOrWhiteSpace(configuredDefault))
+        {
+            throw new InvalidOperationException("Missing HuggingFace:ModelName configuration.");
+        }
+
+        if (!_models.ContainsKey(configuredDefault))
+        {
+            throw new InvalidOperationException(
+                $"HuggingFace:ModelName '{configuredDefault}' is not present in HuggingFace:Models.");
+        }
+
+        ModelName = configuredDefault;
     }
 
     public bool IsConfigured => IsModelConfigured(ModelName);
@@ -208,7 +217,21 @@ public class HuggingFaceEmbeddingClient : IEmbeddingClient
             var modelUrl = section["ModelUrl"]?.Trim();
             if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(modelUrl))
             {
-                continue;
+                throw new InvalidOperationException(
+                    $"HuggingFace:Models:{section.Key} must define both Name and ModelUrl.");
+            }
+
+            if (!Uri.TryCreate(modelUrl, UriKind.Absolute, out var uri)
+                || uri.Scheme is not ("http" or "https"))
+            {
+                throw new InvalidOperationException(
+                    $"HuggingFace:Models:{section.Key}:ModelUrl must be an absolute HTTP(S) URL.");
+            }
+
+            if (models.Any(model => string.Equals(model.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException(
+                    $"HuggingFace:Models contains duplicate model name '{name}'.");
             }
 
             models.Add(new EmbeddingModelConfiguration(
@@ -218,36 +241,7 @@ public class HuggingFaceEmbeddingClient : IEmbeddingClient
                 section["PassagePrefix"] ?? ""));
         }
 
-        var defaultUrl = configuration["HuggingFace:ModelUrl"]?.Trim();
-        if (!string.IsNullOrWhiteSpace(defaultUrl))
-        {
-            var defaultName = configuration["HuggingFace:ModelName"]?.Trim();
-            defaultName = string.IsNullOrWhiteSpace(defaultName) ? ModelNameFromUrl(defaultUrl) : defaultName;
-            if (!models.Any(x => x.Name.Equals(defaultName, StringComparison.OrdinalIgnoreCase)))
-            {
-                models.Insert(0, new EmbeddingModelConfiguration(defaultName, defaultUrl, "query: ", "passage: "));
-            }
-        }
-
-        return models
-            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(x => x.First())
-            .ToList();
-    }
-
-    private static string ModelNameFromUrl(string modelUrl)
-    {
-        var marker = "/models/";
-        var index = modelUrl.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (index < 0)
-        {
-            return modelUrl.TrimEnd('/').Split('/').Last();
-        }
-
-        var name = modelUrl[(index + marker.Length)..];
-        var pipelineMarker = "/pipeline/";
-        var pipelineIndex = name.IndexOf(pipelineMarker, StringComparison.OrdinalIgnoreCase);
-        return (pipelineIndex >= 0 ? name[..pipelineIndex] : name).Trim('/');
+        return models;
     }
 
     private static float[] ReadVector(JsonElement element)
@@ -311,7 +305,13 @@ public class HuggingFaceEmbeddingClient : IEmbeddingClient
 
     private static float[] MeanPool(IReadOnlyList<float[]> vectors)
     {
-        var dimensions = vectors.Min(x => x.Length);
+        var dimensions = vectors[0].Length;
+        if (dimensions == 0 || vectors.Any(vector => vector.Length != dimensions))
+        {
+            throw new InvalidOperationException(
+                "Hugging Face embedding API returned vectors with inconsistent dimensions.");
+        }
+
         var pooled = new float[dimensions];
         foreach (var vector in vectors)
         {
@@ -331,10 +331,15 @@ public class HuggingFaceEmbeddingClient : IEmbeddingClient
 
     private static float[] Normalize(float[] vector)
     {
+        if (vector.Any(value => !float.IsFinite(value)))
+        {
+            throw new InvalidOperationException("Hugging Face embedding API returned invalid vector values.");
+        }
+
         var magnitude = Math.Sqrt(vector.Sum(x => x * x));
         if (magnitude <= 0)
         {
-            return vector;
+            throw new InvalidOperationException("Hugging Face embedding API returned a zero vector.");
         }
 
         for (var i = 0; i < vector.Length; i++)

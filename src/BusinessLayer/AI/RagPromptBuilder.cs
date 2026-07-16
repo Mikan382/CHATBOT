@@ -19,7 +19,7 @@ public static class RagPromptBuilder
     {
         var historyText = history.Count == 0
             ? "No previous conversation history."
-            : string.Join("\n", history.TakeLast(8).Select(x => $"{x.Role}: {x.Content}"));
+            : string.Join("\n", history.Select(x => $"{x.Role}: {x.Content}"));
 
         var context = chunks.Count == 0
             ? "No relevant chunk was found in the indexed documents."

@@ -7,8 +7,7 @@ public class ChatMessageUsage
 {
     public Guid Id { get; set; }
     public Guid StudentUserId { get; set; }
-    // Identifies the billing period: "SUB-{subscriptionId:N}" while a package is active,
-    // or "MONTH-{yyyyMM}" for students on the free fallback.
+    // Identifies the entitlement snapshot that owns this usage: "SUB-{subscriptionId:N}".
     public string PeriodKey { get; set; } = "";
     public int Count { get; set; }
     public DateTime UpdatedAtUtc { get; set; }

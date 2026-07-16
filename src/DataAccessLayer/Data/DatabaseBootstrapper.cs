@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using DataAccessLayer.Data.Seed;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
@@ -17,85 +16,18 @@ public static class DatabaseBootstrapper
     private const int DefaultFixedChunkOverlap = 150;
     private const string DemoSeedVersionKey = "DemoSeedVersion";
     private const string DemoSeedVersion = "1";
-    private const string DocumentHashVersionKey = "DocumentHashVersion";
-    private const string DocumentHashVersion = "3";
     private static readonly Guid FreePlanId = Guid.Parse("20000000-0000-0000-0000-000000000001");
     private static readonly Guid StandardPlanId = Guid.Parse("20000000-0000-0000-0000-000000000002");
     private static readonly Guid PremiumPlanId = Guid.Parse("20000000-0000-0000-0000-000000000003");
 
     public static async Task InitializeAsync(
-        IServiceProvider services,
-        Func<ApplicationUser, string, string> hashPassword,
-        Func<string, string> computeDocumentHash)
+        AppDbContext db,
+        IConfiguration configuration,
+        Func<ApplicationUser, string, string> hashPassword)
     {
-        var db = services.GetRequiredService<AppDbContext>();
-        var configuration = services.GetRequiredService<IConfiguration>();
-
         await db.Database.MigrateAsync();
         await SeedSettingsAsync(db);
         await SeedDemoDataOnceAsync(db, configuration, hashPassword);
-        await BackfillDocumentHashesAsync(db, computeDocumentHash);
-    }
-
-    private static async Task BackfillDocumentHashesAsync(
-        AppDbContext db,
-        Func<string, string> computeDocumentHash)
-    {
-        var version = await db.SystemSettings
-            .FirstOrDefaultAsync(x => x.Key == DocumentHashVersionKey);
-        if (version?.Value == DocumentHashVersion)
-        {
-            return;
-        }
-
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        var documents = await db.Documents
-            .OrderBy(x => x.UploadedAtUtc)
-            .ThenBy(x => x.Id)
-            .ToListAsync();
-
-        foreach (var document in documents)
-        {
-            document.ContentHash = $"tmp{document.Id:N}";
-        }
-        await db.SaveChangesAsync();
-
-        var seen = new HashSet<(Guid ChapterId, string Hash)>();
-        var duplicateCount = 0;
-        foreach (var document in documents)
-        {
-            var hash = computeDocumentHash(document.ContentText);
-            if (!seen.Add((document.ChapterId, hash)))
-            {
-                db.Documents.Remove(document);
-                duplicateCount++;
-                continue;
-            }
-
-            document.ContentHash = hash;
-        }
-
-        if (version is null)
-        {
-            db.SystemSettings.Add(new SystemSetting
-            {
-                Key = DocumentHashVersionKey,
-                Value = DocumentHashVersion,
-                UpdatedAtUtc = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            version.Value = DocumentHashVersion;
-            version.UpdatedAtUtc = DateTime.UtcNow;
-        }
-
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
-        if (duplicateCount > 0)
-        {
-            Console.WriteLine($"[DATA] Removed {duplicateCount} duplicate document(s) while backfilling content hashes.");
-        }
     }
 
     private static async Task SeedDemoDataOnceAsync(
@@ -137,9 +69,9 @@ public static class DatabaseBootstrapper
         var now = DateTime.UtcNow;
         Prn222SeedData.AddTo(db);
 
-        var student = CreateSeedUser(configuration, hashPassword, "Student", "student@prn222.local", "Student Demo", UserRoleNames.Student, now);
-        var teacher = CreateSeedUser(configuration, hashPassword, "Teacher", "teacher@prn222.local", "Teacher Demo", UserRoleNames.Teacher, now);
-        var admin = CreateSeedUser(configuration, hashPassword, "Admin", "admin@prn222.local", "Admin Demo", UserRoleNames.Admin, now);
+        var student = CreateSeedUser(configuration, hashPassword, "Student", UserRoleNames.Student, now);
+        var teacher = CreateSeedUser(configuration, hashPassword, "Teacher", UserRoleNames.Teacher, now);
+        var admin = CreateSeedUser(configuration, hashPassword, "Admin", UserRoleNames.Admin, now);
         db.Users.AddRange(student, teacher, admin);
 
         db.CourseTeachers.Add(new CourseTeacher
@@ -149,7 +81,9 @@ public static class DatabaseBootstrapper
             AssignedAtUtc = now
         });
 
-        db.SubscriptionPlans.AddRange(CreateSubscriptionPlans(now));
+        var subscriptionPlans = CreateSubscriptionPlans(now);
+        db.SubscriptionPlans.AddRange(subscriptionPlans);
+        var freePlan = subscriptionPlans.Single(x => x.Id == FreePlanId);
         db.StudentSubscriptions.Add(new StudentSubscription
         {
             Id = Guid.NewGuid(),
@@ -157,6 +91,7 @@ public static class DatabaseBootstrapper
             SubscriptionPlanId = FreePlanId,
             Status = SubscriptionStatusNames.Active,
             PriceAtActivation = 0,
+            MessageQuotaAtActivation = freePlan.MessageQuota,
             StartedAtUtc = now,
             ExpiresAtUtc = now.AddDays(30),
             CreatedAtUtc = now,
@@ -168,19 +103,12 @@ public static class DatabaseBootstrapper
         IConfiguration configuration,
         Func<ApplicationUser, string, string> hashPassword,
         string key,
-        string defaultEmail,
-        string defaultDisplayName,
         string role,
         DateTime now)
     {
-        var email = (configuration[$"SeedUsers:{key}:Email"] ?? defaultEmail).Trim().ToLowerInvariant();
-        var displayName = configuration[$"SeedUsers:{key}:FullName"] ?? defaultDisplayName;
-        var password = configuration[$"SeedUsers:{key}:Password"];
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            password = "Prn222@123";
-            Console.WriteLine($"[SEED] No password configured for '{key}'. Using the default dev password for {email}.");
-        }
+        var email = RequireSeedValue(configuration, key, "Email").Trim().ToLowerInvariant();
+        var displayName = RequireSeedValue(configuration, key, "FullName").Trim();
+        var password = RequireSeedValue(configuration, key, "Password");
 
         var user = new ApplicationUser
         {
@@ -193,6 +121,18 @@ public static class DatabaseBootstrapper
         };
         user.PasswordHash = hashPassword(user, password);
         return user;
+    }
+
+    private static string RequireSeedValue(IConfiguration configuration, string userKey, string property)
+    {
+        var configurationKey = $"SeedUsers:{userKey}:{property}";
+        var value = configuration[configurationKey];
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"Missing required demo seed setting '{configurationKey}'.");
+        }
+
+        return value;
     }
 
     private static IReadOnlyList<SubscriptionPlan> CreateSubscriptionPlans(DateTime now)
@@ -252,9 +192,7 @@ public static class DatabaseBootstrapper
             .ToDictionaryAsync(x => x.Key);
         var now = DateTime.UtcNow;
         var changed = false;
-        var legacyFixedChunkSize = DefaultFixedChunkSize;
-
-        if (!settings.TryGetValue(ChunkingStrategyKey, out var strategySetting))
+        if (!settings.ContainsKey(ChunkingStrategyKey))
         {
             db.SystemSettings.Add(new SystemSetting
             {
@@ -264,26 +202,13 @@ public static class DatabaseBootstrapper
             });
             changed = true;
         }
-        else if (strategySetting.Value.StartsWith("fixed_", StringComparison.OrdinalIgnoreCase))
-        {
-            var sizePart = strategySetting.Value["fixed_".Length..].Split('_')[0];
-            _ = int.TryParse(sizePart, out legacyFixedChunkSize);
-            if (legacyFixedChunkSize <= 0)
-            {
-                legacyFixedChunkSize = DefaultFixedChunkSize;
-            }
-
-            strategySetting.Value = "fixed";
-            strategySetting.UpdatedAtUtc = now;
-            changed = true;
-        }
 
         if (!settings.ContainsKey(FixedChunkSizeKey))
         {
             db.SystemSettings.Add(new SystemSetting
             {
                 Key = FixedChunkSizeKey,
-                Value = legacyFixedChunkSize.ToString(),
+                Value = DefaultFixedChunkSize.ToString(),
                 UpdatedAtUtc = now
             });
             changed = true;

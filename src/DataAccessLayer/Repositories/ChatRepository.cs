@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
@@ -188,38 +189,68 @@ public class ChatRepository : IChatRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task IncrementUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken)
+    public async Task<bool> TryConsumeUsageAsync(
+        Guid studentUserId,
+        string periodKey,
+        int quota,
+        CancellationToken cancellationToken)
     {
-        // Atomic increment at the DB level so concurrent sends can't lose a count.
-        var updated = await _db.ChatMessageUsages
-            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
+        if (quota < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quota));
+        }
+
+        var usageQuery = _db.ChatMessageUsages
+            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey);
+        if (quota > 0)
+        {
+            usageQuery = usageQuery.Where(x => x.Count < quota);
+        }
+
+        var updated = await usageQuery
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
                 .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
         if (updated > 0)
         {
-            return;
+            return true;
         }
+
+        if (await _db.ChatMessageUsages.AnyAsync(
+                x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey,
+                cancellationToken))
+        {
+            return false;
+        }
+
+        var usage = new ChatMessageUsage
+        {
+            Id = Guid.NewGuid(),
+            StudentUserId = studentUserId,
+            PeriodKey = periodKey,
+            Count = 1,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
 
         try
         {
-            _db.ChatMessageUsages.Add(new ChatMessageUsage
-            {
-                Id = Guid.NewGuid(),
-                StudentUserId = studentUserId,
-                PeriodKey = periodKey,
-                Count = 1,
-                UpdatedAtUtc = DateTime.UtcNow
-            });
+            _db.ChatMessageUsages.Add(usage);
             await _db.SaveChangesAsync(cancellationToken);
+            return true;
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
-            // A concurrent request inserted the row first; drop our failed insert and increment instead.
-            _db.ChangeTracker.Clear();
-            await _db.ChatMessageUsages
-                .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
+            _db.Entry(usage).State = EntityState.Detached;
+            usageQuery = _db.ChatMessageUsages
+                .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey);
+            if (quota > 0)
+            {
+                usageQuery = usageQuery.Where(x => x.Count < quota);
+            }
+
+            updated = await usageQuery
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
                     .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
+            return updated > 0;
         }
     }
 

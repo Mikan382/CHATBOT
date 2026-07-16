@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using BusinessLayer.AI;
 using BusinessLayer.DTOs;
 using BusinessLayer.Retrieval;
@@ -13,28 +15,33 @@ public class ChatService : IChatService
 {
     private const int MaxMessageLength = 4000;
     private const int MaxSessionSearchLength = 100;
-    private const string DefaultPlanCode = "FREE";
     private readonly IChatRepository _chatRepository;
     private readonly ICourseRepository _courseRepository;
     private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly RetrievalService _retrievalService;
     private readonly IGeminiClient _geminiClient;
+    private readonly RagOptions _ragOptions;
+    private readonly ILogger<ChatService> _logger;
 
     public ChatService(
         IChatRepository chatRepository,
         ICourseRepository courseRepository,
         ISubscriptionRepository subscriptionRepository,
         RetrievalService retrievalService,
-        IGeminiClient geminiClient)
+        IGeminiClient geminiClient,
+        IOptions<RagOptions> ragOptions,
+        ILogger<ChatService> logger)
     {
         _chatRepository = chatRepository;
         _courseRepository = courseRepository;
         _subscriptionRepository = subscriptionRepository;
         _retrievalService = retrievalService;
         _geminiClient = geminiClient;
+        _ragOptions = ragOptions.Value;
+        _logger = logger;
     }
 
-    public bool GeminiConfigured => _geminiClient.IsConfigured;
+    public bool AssistantConfigured => _geminiClient.IsConfigured && _retrievalService.IsConfigured;
 
     public async Task<ChatSessionDto?> GetSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
@@ -51,43 +58,26 @@ public class ChatService : IChatService
 
     public async Task<ChatQuotaStatusDto> GetQuotaStatusAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var (plan, periodKey) = await ResolveQuotaContextAsync(userId, cancellationToken);
-        var quota = plan?.MessageQuota ?? 0;
-        var planName = plan?.Name ?? "Free";
-        var unlimited = quota <= 0;
-        var used = unlimited
-            ? 0
-            : await _chatRepository.GetUsageAsync(userId, periodKey, cancellationToken);
-        return new ChatQuotaStatusDto(planName, quota, used, unlimited);
-    }
-
-    public async Task RegisterMessageUsageAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var (_, periodKey) = await ResolveQuotaContextAsync(userId, cancellationToken);
-        await _chatRepository.IncrementUsageAsync(userId, periodKey, cancellationToken);
-    }
-
-    // Resolves which plan's quota applies and the billing-period key used to meter usage.
-    // GetQuotaStatusAsync (read) and RegisterMessageUsageAsync (write) MUST agree on this key.
-    private async Task<(SubscriptionPlan? Plan, string PeriodKey)> ResolveQuotaContextAsync(
-        Guid userId,
-        CancellationToken cancellationToken)
-    {
-        var now = DateTime.UtcNow;
-        var active = await _subscriptionRepository.GetCurrentForStudentAsync(userId, now, cancellationToken);
-        if (active?.Plan is not null)
+        var active = await GetActiveSubscriptionAsync(userId, cancellationToken);
+        if (active?.Plan is null)
         {
-            // Active package: quota runs for the whole subscription period, keyed by its id
-            // so a new/renewed subscription starts a fresh counter.
-            return (active.Plan, $"SUB-{active.Id:N}");
+            return new ChatQuotaStatusDto("No active package", 0, 0, false, false);
         }
 
-        // No active package: fall back to the FREE plan's quota, reset each calendar month.
-        var free = await _subscriptionRepository.GetPlanByCodeAsync(DefaultPlanCode, cancellationToken);
-        return (free, $"MONTH-{now:yyyyMM}");
+        var quota = active.MessageQuotaAtActivation;
+        var unlimited = quota == 0;
+        var periodKey = PeriodKey(active.Id);
+        var used = await _chatRepository.GetUsageAsync(userId, periodKey, cancellationToken);
+        return new ChatQuotaStatusDto(active.Plan.Name, quota, used, unlimited, true);
     }
 
-    public async Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken)
+    public async Task<AcceptedChatMessageDto> AcceptUserMessageAsync(
+        Guid sessionId,
+        Guid userId,
+        Guid courseId,
+        string text,
+        bool enforceQuota,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -104,6 +94,10 @@ public class ChatService : IChatService
 
         await _chatRepository.EnsureSessionAsync(sessionId, userId, courseId, cancellationToken);
 
+        var quota = enforceQuota
+            ? await ConsumeMessageUsageAsync(userId, cancellationToken)
+            : null;
+
         var userMessage = new ChatMessage
         {
             Id = Guid.NewGuid(),
@@ -115,7 +109,7 @@ public class ChatService : IChatService
 
         await _chatRepository.AddMessageAsync(userMessage, cancellationToken);
         await _chatRepository.UpdateSessionTitleFromFirstUserMessageAsync(sessionId, userId, text.Trim(), cancellationToken);
-        return ToDto(userMessage);
+        return new AcceptedChatMessageDto(ToDto(userMessage), quota);
     }
 
     public async Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken)
@@ -131,14 +125,19 @@ public class ChatService : IChatService
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            answer = ConversationalMessageDetector.IsConversationalOnly(text)
-                ? await GenerateConversationalAsync(text, course.Name, cancellationToken)
-                : await GenerateRagAsync(course.Id, course.Name, text, history, citations, cancellationToken);
+            answer = await GenerateRagAsync(
+                course.Id,
+                course.Name,
+                text,
+                history,
+                citations,
+                cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            error = ex.Message;
-            answer = $"Could not generate an answer: {ex.Message}";
+            _logger.LogError(ex, "Assistant generation failed for session {SessionId}.", sessionId);
+            error = "Assistant request failed.";
+            answer = "The assistant is temporarily unavailable. Please try again.";
         }
         finally
         {
@@ -193,14 +192,6 @@ public class ChatService : IChatService
         return await _chatRepository.DeleteSessionAsync(sessionId, userId, cancellationToken);
     }
 
-    private async Task<string> GenerateConversationalAsync(string text, string courseName, CancellationToken cancellationToken)
-    {
-        return await _geminiClient.GenerateAsync(
-            ConversationalPromptBuilder.BuildSystemInstruction(courseName),
-            text.Trim(),
-            cancellationToken);
-    }
-
     private async Task<string> GenerateRagAsync(
         Guid courseId,
         string courseName,
@@ -209,7 +200,7 @@ public class ChatService : IChatService
         List<CitationDto> citations,
         CancellationToken cancellationToken)
     {
-        var chunks = await _retrievalService.RetrieveAsync(text, courseId, 3, cancellationToken);
+        var chunks = await _retrievalService.RetrieveAsync(text, courseId, cancellationToken);
         citations.AddRange(chunks.Select(ToCitation));
         if (chunks.Count == 0)
         {
@@ -222,7 +213,11 @@ public class ChatService : IChatService
 
     private async Task<IReadOnlyList<ChatHistoryMessage>> BuildHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken, bool excludeLatestUserMessage = false)
     {
-        var messages = await _chatRepository.ListRecentMessagesAsync(sessionId, userId, 12, cancellationToken);
+        var messages = await _chatRepository.ListRecentMessagesAsync(
+            sessionId,
+            userId,
+            _ragOptions.HistoryMessageCount,
+            cancellationToken);
         if (excludeLatestUserMessage && messages.Count > 0 && messages[^1].Role == ChatRole.User)
         {
             messages = messages.Take(messages.Count - 1).ToList();
@@ -236,6 +231,37 @@ public class ChatService : IChatService
     private static CitationDto ToCitation(RetrievedChunkDto chunk)
     {
         return new CitationDto(chunk.ChunkId, chunk.SourceName, chunk.ChapterTitle, chunk.ChunkIndex, chunk.Content);
+    }
+
+    private async Task<ChatQuotaStatusDto> ConsumeMessageUsageAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var active = await GetActiveSubscriptionAsync(userId, cancellationToken);
+        if (active?.Plan is null)
+        {
+            throw new InvalidOperationException("No active subscription package. Activate or purchase a package to continue.");
+        }
+
+        var quota = active.MessageQuotaAtActivation;
+        var periodKey = PeriodKey(active.Id);
+        var consumed = await _chatRepository.TryConsumeUsageAsync(userId, periodKey, quota, cancellationToken);
+        if (!consumed && quota > 0)
+        {
+            throw new InvalidOperationException(
+                $"You have used all {quota} questions in the {active.Plan.Name} package.");
+        }
+
+        var used = await _chatRepository.GetUsageAsync(userId, periodKey, cancellationToken);
+        return new ChatQuotaStatusDto(active.Plan.Name, quota, used, quota == 0, true);
+    }
+
+    private Task<StudentSubscription?> GetActiveSubscriptionAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return _subscriptionRepository.GetCurrentForStudentAsync(userId, DateTime.UtcNow, cancellationToken);
+    }
+
+    private static string PeriodKey(Guid subscriptionId)
+    {
+        return $"SUB-{subscriptionId:N}";
     }
 
     private static string NormalizeSessionTitle(string title)

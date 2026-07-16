@@ -27,6 +27,38 @@ public class PaymentRepository : IPaymentRepository
             .FirstOrDefaultAsync(x => x.ProviderTxnRef == providerTxnRef, cancellationToken);
     }
 
+    public async Task<PaymentDashboardSummary> GetDashboardSummaryAsync(
+        DateTime monthStartUtc,
+        DateTime pendingSinceUtc,
+        CancellationToken cancellationToken)
+    {
+        var paid = _db.PaymentTransactions.Where(x => x.Status == PaymentStatusNames.Paid);
+        var paidThisMonth = paid.Where(x => x.PaidAtUtc >= monthStartUtc);
+        return new PaymentDashboardSummary(
+            await paidThisMonth.CountAsync(cancellationToken),
+            await _db.PaymentTransactions.CountAsync(
+                x => x.Status == PaymentStatusNames.Failed && x.UpdatedAtUtc >= monthStartUtc,
+                cancellationToken),
+            await _db.PaymentTransactions.CountAsync(
+                x => x.Status == PaymentStatusNames.Pending && x.CreatedAtUtc >= pendingSinceUtc,
+                cancellationToken),
+            await paidThisMonth.SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m,
+            await paid.SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m);
+    }
+
+    public async Task<IReadOnlyList<PaymentTransaction>> ListRecentAsync(
+        int take,
+        CancellationToken cancellationToken)
+    {
+        return await _db.PaymentTransactions
+            .Include(x => x.Student)
+            .Include(x => x.Plan)
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .Take(take)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> MarkFailedAsync(Guid id, string? responseCode, string? rawResponse, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
@@ -55,7 +87,14 @@ public class PaymentRepository : IPaymentRepository
         var info = await _db.PaymentTransactions
             .AsNoTracking()
             .Where(x => x.Id == id)
-            .Select(x => new { x.StudentUserId, x.SubscriptionPlanId, x.Amount, x.Status })
+            .Select(x => new
+            {
+                x.StudentUserId,
+                x.SubscriptionPlanId,
+                x.Amount,
+                x.MessageQuota,
+                x.Status
+            })
             .FirstOrDefaultAsync(cancellationToken);
         if (info is null || info.Status != PaymentStatusNames.Pending)
         {
@@ -89,7 +128,10 @@ public class PaymentRepository : IPaymentRepository
             .ToListAsync(cancellationToken);
         foreach (var activeSubscription in activeSubscriptions)
         {
-            activeSubscription.Status = SubscriptionStatusNames.Replaced;
+            activeSubscription.Status = activeSubscription.ExpiresAtUtc.HasValue
+                && activeSubscription.ExpiresAtUtc <= startedAtUtc
+                    ? SubscriptionStatusNames.Expired
+                    : SubscriptionStatusNames.Replaced;
             activeSubscription.UpdatedAtUtc = startedAtUtc;
         }
 
@@ -100,6 +142,7 @@ public class PaymentRepository : IPaymentRepository
             SubscriptionPlanId = info.SubscriptionPlanId,
             Status = SubscriptionStatusNames.Active,
             PriceAtActivation = info.Amount,
+            MessageQuotaAtActivation = info.MessageQuota,
             StartedAtUtc = startedAtUtc,
             ExpiresAtUtc = expiresAtUtc,
             CreatedAtUtc = startedAtUtc,

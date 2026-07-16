@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLayer.Services;
@@ -25,6 +26,7 @@ public class PaymentController : BaseController
                 CurrentUserId(),
                 planId,
                 ResolveClientIp(),
+                BuildReturnUrl(),
                 cancellationToken);
             return Redirect(checkoutUrl);
         }
@@ -35,9 +37,9 @@ public class PaymentController : BaseController
         }
     }
 
-    // VNPay redirects the student's browser back here after payment (GET). The user is still
-    // authenticated, so this both confirms the payment and shows the result.
-    [Authorize(Roles = "Student")]
+    // VNPay redirects the browser here after payment. Confirmation relies on the signed callback,
+    // not on an authentication cookie, because the browser session may have expired meanwhile.
+    [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> VnpayReturn(CancellationToken cancellationToken)
     {
@@ -71,7 +73,24 @@ public class PaymentController : BaseController
 
     private string ResolveClientIp()
     {
-        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-        return string.IsNullOrWhiteSpace(ip) || ip == "::1" ? "127.0.0.1" : ip;
+        var ip = HttpContext.Connection.RemoteIpAddress
+            ?? throw new InvalidOperationException("The client IP address is unavailable.");
+        if (IPAddress.IsLoopback(ip))
+        {
+            return IPAddress.Loopback.ToString();
+        }
+
+        return ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4().ToString() : ip.ToString();
+    }
+
+    private string BuildReturnUrl()
+    {
+        return Url.Action(
+                nameof(VnpayReturn),
+                "Payment",
+                values: null,
+                protocol: Request.Scheme,
+                host: Request.Host.Value)
+            ?? throw new InvalidOperationException("Could not create the VNPay return URL.");
     }
 }

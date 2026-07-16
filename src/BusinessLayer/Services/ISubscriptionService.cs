@@ -5,6 +5,7 @@ namespace BusinessLayer.Services;
 public interface ISubscriptionService
 {
     Task<StudentSubscriptionPageDto> GetStudentPageAsync(Guid studentUserId, CancellationToken cancellationToken);
+    Task ActivateFreePlanAsync(Guid studentUserId, Guid planId, CancellationToken cancellationToken);
     Task RevokeSubscriptionAsync(Guid subscriptionId, CancellationToken cancellationToken);
     Task<SubscriptionDashboardDto> GetDashboardAsync(CancellationToken cancellationToken);
     Task CreatePlanAsync(

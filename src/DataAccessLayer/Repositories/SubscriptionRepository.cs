@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
@@ -63,12 +64,38 @@ public class SubscriptionRepository : ISubscriptionRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<SubscriptionPlan?> GetPlanByCodeAsync(string code, CancellationToken cancellationToken)
+    public async Task ActivateFreePlanAsync(
+        StudentSubscription subscription,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
     {
-        var normalizedCode = code.Trim().ToUpperInvariant();
-        return await _db.SubscriptionPlans
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Code == normalizedCode, cancellationToken);
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var activeRows = await _db.StudentSubscriptions
+            .Where(x => x.StudentUserId == subscription.StudentUserId
+                && x.Status == SubscriptionStatusNames.Active)
+            .ToListAsync(cancellationToken);
+        if (activeRows.Any(x => !x.ExpiresAtUtc.HasValue || x.ExpiresAtUtc > nowUtc))
+        {
+            throw new InvalidOperationException("An active subscription already exists.");
+        }
+
+        foreach (var expired in activeRows)
+        {
+            expired.Status = SubscriptionStatusNames.Expired;
+            expired.UpdatedAtUtc = nowUtc;
+        }
+
+        _db.StudentSubscriptions.Add(subscription);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException("An active subscription already exists.", ex);
+        }
     }
 
     public async Task<StudentSubscription?> GetForDecisionAsync(
@@ -91,9 +118,9 @@ public class SubscriptionRepository : ISubscriptionRepository
         return await ActiveSubscriptions(nowUtc).CountAsync(cancellationToken);
     }
 
-    public async Task<int> CountRequestsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken)
+    public async Task<int> CountActivationsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken)
     {
-        return await _db.StudentSubscriptions.CountAsync(x => x.CreatedAtUtc >= sinceUtc, cancellationToken);
+        return await _db.StudentSubscriptions.CountAsync(x => x.StartedAtUtc >= sinceUtc, cancellationToken);
     }
 
     public async Task<IReadOnlyList<SubscriptionPlanCount>> CountActiveByPlanAsync(DateTime nowUtc, CancellationToken cancellationToken)
@@ -102,6 +129,29 @@ public class SubscriptionRepository : ISubscriptionRepository
             .GroupBy(x => x.SubscriptionPlanId)
             .Select(x => new SubscriptionPlanCount(x.Key, x.Count(), x.Sum(s => s.PriceAtActivation)))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<ActiveChatUsageSummary> GetActiveChatUsageAsync(
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        var active = await ActiveSubscriptions(nowUtc)
+            .Select(x => new { x.Id, x.MessageQuotaAtActivation })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+        if (active.Count == 0)
+        {
+            return new ActiveChatUsageSummary(0, 0, 0);
+        }
+
+        var periodKeys = active.Select(x => $"SUB-{x.Id:N}").ToList();
+        var used = await _db.ChatMessageUsages
+            .Where(x => periodKeys.Contains(x.PeriodKey))
+            .SumAsync(x => (int?)x.Count, cancellationToken) ?? 0;
+        return new ActiveChatUsageSummary(
+            used,
+            active.Where(x => x.MessageQuotaAtActivation > 0).Sum(x => x.MessageQuotaAtActivation),
+            active.Count(x => x.MessageQuotaAtActivation == 0));
     }
 
     public async Task<IReadOnlyList<StudentSubscription>> ListRecentSubscriptionsAsync(int take, CancellationToken cancellationToken)

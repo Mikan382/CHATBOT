@@ -26,9 +26,12 @@ public class PaymentService : IPaymentService
         _userRepository = userRepository;
     }
 
-    public bool GatewayConfigured => _gateway.IsConfigured;
-
-    public async Task<string> CreateCheckoutAsync(Guid studentUserId, Guid planId, string ipAddress, CancellationToken cancellationToken)
+    public async Task<string> CreateCheckoutAsync(
+        Guid studentUserId,
+        Guid planId,
+        string ipAddress,
+        string returnUrl,
+        CancellationToken cancellationToken)
     {
         if (!_gateway.IsConfigured)
         {
@@ -54,6 +57,11 @@ public class PaymentService : IPaymentService
             throw new InvalidOperationException("This package is free and does not require payment.");
         }
 
+        if (plan.MonthlyPrice != decimal.Truncate(plan.MonthlyPrice))
+        {
+            throw new InvalidOperationException("VNPay packages must use a whole VND amount.");
+        }
+
         var now = DateTime.UtcNow;
         var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, now, cancellationToken);
         if (current?.SubscriptionPlanId == planId)
@@ -68,6 +76,8 @@ public class PaymentService : IPaymentService
             SubscriptionPlanId = planId,
             Provider = _gateway.ProviderName,
             Amount = plan.MonthlyPrice,
+            DurationDays = plan.DurationDays,
+            MessageQuota = plan.MessageQuota,
             Status = PaymentStatusNames.Pending,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
@@ -75,11 +85,16 @@ public class PaymentService : IPaymentService
         transaction.ProviderTxnRef = transaction.Id.ToString("N");
         await _paymentRepository.AddAsync(transaction, cancellationToken);
 
+        var checkoutExpiresAtUtc = now.Add(_gateway.CheckoutLifetime);
+
         return _gateway.BuildCheckoutUrl(new PaymentCheckoutRequest(
             transaction.ProviderTxnRef,
-            (long)Math.Round(plan.MonthlyPrice),
+            decimal.ToInt64(plan.MonthlyPrice),
             $"Thanh toan goi {plan.Code} {transaction.ProviderTxnRef}",
-            ipAddress));
+            ipAddress,
+            returnUrl,
+            now,
+            checkoutExpiresAtUtc));
     }
 
     public async Task<PaymentConfirmResult> ConfirmAsync(IReadOnlyDictionary<string, string> callback, CancellationToken cancellationToken)
@@ -96,7 +111,7 @@ public class PaymentService : IPaymentService
             return new PaymentConfirmResult(false, "Payment transaction was not found.", "01", "Order not found");
         }
 
-        var expectedAmount = (long)Math.Round(transaction.Amount) * 100;
+        var expectedAmount = decimal.ToInt64(transaction.Amount) * 100;
         if (result.Amount != expectedAmount)
         {
             return new PaymentConfirmResult(false, "Payment amount does not match.", "04", "Invalid amount");
@@ -114,18 +129,30 @@ public class PaymentService : IPaymentService
 
         var raw = SerializeCallback(callback);
         var paySucceeded = result.ResponseCode == SuccessResponseCode
-            && (string.IsNullOrEmpty(result.TransactionStatus) || result.TransactionStatus == SuccessResponseCode);
+            && result.TransactionStatus == SuccessResponseCode;
         if (!paySucceeded)
         {
-            await _paymentRepository.MarkFailedAsync(transaction.Id, result.ResponseCode, raw, cancellationToken);
+            var markedFailed = await _paymentRepository.MarkFailedAsync(
+                transaction.Id,
+                result.ResponseCode,
+                raw,
+                cancellationToken);
+            if (!markedFailed)
+            {
+                var latest = await _paymentRepository.GetByTxnRefAsync(result.TxnRef, cancellationToken);
+                if (latest?.Status == PaymentStatusNames.Paid)
+                {
+                    return new PaymentConfirmResult(true, "This payment was already confirmed.", "02", "Order already confirmed");
+                }
+            }
+
             return new PaymentConfirmResult(false, "Payment was not successful.", "00", "Confirm Success");
         }
 
-        var plan = await _subscriptionRepository.GetPlanAsync(transaction.SubscriptionPlanId, cancellationToken);
         var now = DateTime.UtcNow;
-        DateTime? expiresAt = plan is { DurationDays: > 0 } ? now.AddDays(plan.DurationDays) : null;
+        DateTime? expiresAt = transaction.DurationDays > 0 ? now.AddDays(transaction.DurationDays) : null;
 
-        await _paymentRepository.ConfirmPaidAndActivateAsync(
+        var activated = await _paymentRepository.ConfirmPaidAndActivateAsync(
             transaction.Id,
             Guid.NewGuid(),
             now,
@@ -135,16 +162,26 @@ public class PaymentService : IPaymentService
             raw,
             cancellationToken);
 
+        if (!activated)
+        {
+            var latest = await _paymentRepository.GetByTxnRefAsync(result.TxnRef, cancellationToken);
+            return latest?.Status == PaymentStatusNames.Paid
+                ? new PaymentConfirmResult(true, "This payment was already confirmed.", "02", "Order already confirmed")
+                : new PaymentConfirmResult(false, "Payment confirmation could not be completed.", "99", "Unknown error");
+        }
+
         return new PaymentConfirmResult(true, "Payment successful. Your package is now active.", "00", "Confirm Success");
     }
 
     private static string SerializeCallback(IReadOnlyDictionary<string, string> callback)
     {
         var builder = new StringBuilder();
-        foreach (var (key, value) in callback)
+        foreach (var (key, value) in callback.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
             if (builder.Length > 0) builder.Append('&');
-            builder.Append(key).Append('=').Append(value);
+            builder.Append(Uri.EscapeDataString(key))
+                .Append('=')
+                .Append(Uri.EscapeDataString(value));
         }
 
         var raw = builder.ToString();

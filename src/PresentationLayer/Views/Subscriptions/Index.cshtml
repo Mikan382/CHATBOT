@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
             <h2 class="mb-1">My Subscription</h2>
-            <div class="text-muted">Buy a service package to unlock more chat messages. Payment is processed through VNPay (sandbox).</div>
+            <div class="text-muted">Buy a service package to unlock course questions. Payment is processed through VNPay (sandbox).</div>
         </div>
     </div>
 
@@ -25,6 +25,7 @@
                         <div class="subscription-current-name">@Model.CurrentSubscription.PlanName</div>
                         <div class="text-muted small mb-2">@Model.CurrentSubscription.PlanCode / @Model.CurrentSubscription.Status</div>
                         <div class="small">Started: @Model.CurrentSubscription.StartedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                        <div class="small">Questions: @(Model.CurrentSubscription.MessageQuota == 0 ? "Unlimited" : Model.CurrentSubscription.MessageQuota)</div>
                         @if (Model.CurrentSubscription.ExpiresAtUtc.HasValue)
                         {
                             <div class="small mb-3">Expires: @Model.CurrentSubscription.ExpiresAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</div>
@@ -63,7 +64,7 @@
                                     <div class="subscription-price">@plan.MonthlyPrice.ToString("N0") VND</div>
                                     <div class="text-muted small mb-3">
                                         @(plan.DurationDays == 0 ? "No expiry" : $"{plan.DurationDays} days")
-                                        · @(plan.MessageQuota == 0 ? "Unlimited chat" : $"{plan.MessageQuota} messages")
+                                        / @(plan.MessageQuota == 0 ? "Unlimited questions" : $"{plan.MessageQuota} questions")
                                     </div>
                                     <p class="small flex-grow-1">@plan.Description</p>
                                     @if (isCurrent)
@@ -72,15 +73,34 @@
                                     }
                                     else if (isFree)
                                     {
-                                        <button class="btn btn-outline-secondary w-100" type="button" disabled>Free plan</button>
+                                        @if (Model.CurrentSubscription is null)
+                                        {
+                                            <form method="post" asp-controller="Subscriptions" asp-action="ActivateFree">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="planId" value="@plan.Id" />
+                                                <button class="btn btn-outline-primary w-100" type="submit">Activate Free</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-outline-secondary w-100" type="button" disabled>Available after current package</button>
+                                        }
                                     }
                                     else
                                     {
-                                        <form method="post" asp-controller="Payment" asp-action="Checkout" class="subscription-buy-form">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="planId" value="@plan.Id" />
-                                            <button class="btn btn-primary w-100" type="submit">Buy with VNPay</button>
-                                        </form>
+                                        @if (Model.PaymentConfigured)
+                                        {
+                                            <form method="post" asp-controller="Payment" asp-action="Checkout" class="subscription-buy-form"
+                                                  data-replaces-current="@(Model.CurrentSubscription is not null ? "true" : "false")">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="planId" value="@plan.Id" />
+                                                <button class="btn btn-primary w-100" type="submit">Buy with VNPay</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-outline-secondary w-100" type="button" disabled>VNPay unavailable</button>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -96,7 +116,10 @@
     <script>
         document.querySelectorAll(".subscription-buy-form").forEach((form) => {
             form.addEventListener("submit", (event) => {
-                if (!confirm("Proceed to VNPay to pay for this package?")) {
+                const message = form.dataset.replacesCurrent === "true"
+                    ? "Proceed to VNPay? A successful payment activates this package immediately and replaces the current package without a refund."
+                    : "Proceed to VNPay to pay for this package?";
+                if (!confirm(message)) {
                     event.preventDefault();
                 }
             });

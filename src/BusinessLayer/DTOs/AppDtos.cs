@@ -17,11 +17,20 @@ public record ChatMessageDto(
 
 public record ChatHistoryMessage(string Role, string Content);
 
-public record ChatQuotaStatusDto(string PlanName, int Quota, int Used, bool Unlimited)
+public record ChatQuotaStatusDto(
+    string PlanName,
+    int Quota,
+    int Used,
+    bool Unlimited,
+    bool HasActiveSubscription)
 {
-    public bool Exhausted => !Unlimited && Used >= Quota;
+    public bool Exhausted => !HasActiveSubscription || (!Unlimited && Used >= Quota);
     public int Remaining => Unlimited ? 0 : Math.Max(0, Quota - Used);
 }
+
+public record AcceptedChatMessageDto(
+    ChatMessageDto Message,
+    ChatQuotaStatusDto? Quota);
 
 public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Summary);
 
@@ -116,12 +125,14 @@ public record StudentSubscriptionDto(
     string PlanName,
     string PlanCode,
     string Status,
+    int MessageQuota,
     DateTime StartedAtUtc,
     DateTime? ExpiresAtUtc);
 
 public record StudentSubscriptionPageDto(
     StudentSubscriptionDto? CurrentSubscription,
-    IReadOnlyList<SubscriptionPlanDto> AvailablePlans);
+    IReadOnlyList<SubscriptionPlanDto> AvailablePlans,
+    bool PaymentConfigured);
 
 public record SubscriptionPlanStatsDto(
     Guid PlanId,
@@ -129,7 +140,7 @@ public record SubscriptionPlanStatsDto(
     string PlanCode,
     bool IsActive,
     int ActiveSubscriptions,
-    decimal EstimatedMonthlyRevenue);
+    decimal ActivePackageValue);
 
 public record RecentSubscriptionDto(
     Guid Id,
@@ -137,14 +148,32 @@ public record RecentSubscriptionDto(
     string StudentDisplayName,
     string PlanName,
     string Status,
-    DateTime RequestedAtUtc,
+    DateTime ActivatedAtUtc,
     DateTime? ExpiresAtUtc);
+
+public record RecentPaymentDto(
+    Guid Id,
+    string StudentEmail,
+    string StudentDisplayName,
+    string PlanName,
+    decimal Amount,
+    string Status,
+    DateTime OccurredAtUtc);
 
 public record SubscriptionDashboardDto(
     int TotalStudents,
     int ActiveSubscriptions,
-    int RequestsThisMonth,
-    decimal EstimatedMonthlyRevenue,
+    int ActivationsThisMonth,
+    int PaidPaymentsThisMonth,
+    int FailedPaymentsThisMonth,
+    int PendingPayments,
+    decimal RevenueThisMonth,
+    decimal TotalRevenue,
+    decimal ActivePackageValue,
+    int UsedMessages,
+    int FiniteMessageQuota,
+    int UnlimitedSubscriptions,
     IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
     IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
+    IReadOnlyList<RecentPaymentDto> RecentPayments,
     IReadOnlyList<SubscriptionPlanDto> Plans);

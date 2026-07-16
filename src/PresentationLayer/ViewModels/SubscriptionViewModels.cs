@@ -7,18 +7,15 @@ public class StudentSubscriptionViewModel
 {
     public StudentSubscriptionDto? CurrentSubscription { get; set; }
     public IReadOnlyList<SubscriptionPlanDto> AvailablePlans { get; set; } = [];
+    public bool PaymentConfigured { get; set; }
 }
 
 public class SubscriptionDashboardViewModel
 {
-    public SubscriptionDashboardDto Dashboard { get; set; } = new(
-        0,
-        0,
-        0,
-        0,
-        [],
-        [],
-        []);
+    public SubscriptionDashboardDto Dashboard { get; set; } = null!;
+    public SubscriptionPlanInput CreatePlan { get; set; } = new();
+    public SubscriptionPlanInput? FailedPlanUpdate { get; set; }
+    public string? Error { get; set; }
 }
 
 public class SubscriptionPlanInput

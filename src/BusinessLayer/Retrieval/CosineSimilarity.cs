@@ -7,11 +7,12 @@ public static class CosineSimilarity
 {
     public static double Cosine(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
     {
-        var dimensions = Math.Min(left.Length, right.Length);
-        if (dimensions == 0)
+        if (left.Length == 0 || left.Length != right.Length)
         {
             return 0;
         }
+
+        var dimensions = left.Length;
 
         var dot = 0d;
         var leftMagnitude = 0d;

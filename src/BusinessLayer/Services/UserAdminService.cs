@@ -139,6 +139,12 @@ public class UserAdminService : IUserAdminService
         var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("User was not found.");
         await EnsureActiveAdminRemainsAsync(user, true, cancellationToken);
+        if (await _userRepository.HasRelatedDataAsync(userId, cancellationToken))
+        {
+            throw new InvalidOperationException(
+                "This user has related application data. Lock the account instead of deleting it.");
+        }
+
         await _userRepository.DeleteAsync(user, cancellationToken);
     }
 

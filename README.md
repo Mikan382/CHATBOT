@@ -1,166 +1,137 @@
 # PRN222 Course Assistant
 
-An ASP.NET Core MVC application for managing PRN222 course materials and answering
-student questions with retrieval-augmented generation (RAG). Built as a three-layer
-(Presentation / Business / Data Access) solution on .NET 8 and SQL Server.
+ASP.NET Core MVC application for managing PRN222 course materials and answering
+student questions with retrieval-augmented generation (RAG).
 
-> Internal / educational project. Payments run against the **VNPay sandbox** (no real money) and it is not intended for production deployment.
-
-## Table of Contents
-
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-- [Configuration](#configuration)
-- [Demo Accounts](#demo-accounts)
-- [Roles & Routes](#roles--routes)
-- [Project Structure](#project-structure)
-- [Database & Migrations](#database--migrations)
-- [Scope](#scope)
+> Internal assignment project. VNPay uses the sandbox; no real money or production deployment is involved.
 
 ## Features
 
-- **Authentication & roles** — cookie login with `Student`, `Teacher`, and `Admin` roles.
-- **Course management** — course/chapter CRUD and teacher-to-course assignment.
-- **Document indexing** — synchronous text extraction, duplicate detection, and chunking. The chunking strategy used for each document is recorded and shown in the UI.
-- **RAG chat** — SignalR-based chat with citations and searchable, renameable, clearable session history.
-- **Configurable chunking** — admin-selectable global strategy: `paragraph`, configurable `fixed`, or `sentence`.
-- **RAG benchmark** — compare chunking strategies and Hugging Face embedding models against a curated ground-truth set; toggle questions active/inactive to control which run.
-- **Subscriptions & payment** — students buy packages through the **VNPay sandbox**; a paid package auto-activates on a verified payment callback (no admin approval step). Each package sets a **monthly chat-message quota** enforced in chat. Payment confirmation is idempotent (return + IPN), and the price is snapshotted at activation so later price edits do not rewrite existing subscriptions. Admins manage packages, revoke active subscriptions, and see an estimated monthly value.
-
-## Tech Stack
-
-| Area | Technology |
-|---|---|
-| Runtime | .NET 8 (ASP.NET Core MVC) |
-| Real-time | SignalR |
-| Data | Entity Framework Core 8, SQL Server / LocalDB |
-| Frontend | Razor Views, Bootstrap 5, vanilla JS |
-| AI | Google Gemini (chat), Hugging Face (embeddings) |
+- Cookie authentication with `Student`, `Teacher`, and `Admin` roles.
+- Course/chapter CRUD and many-to-many teacher assignment.
+- Synchronous PDF, DOCX, PPTX, TXT, and MD indexing with duplicate-content detection.
+- Admin-configured `paragraph`, `fixed`, or `sentence` chunking for new uploads.
+- Pure vector RAG through Hugging Face embeddings, with Gemini answers and document citations.
+- SignalR chat with searchable, renamable, clearable, and deletable sessions.
+- Ground-truth benchmark for comparing chunking strategies and embedding models.
+- Subscription plans with per-activation question quotas and VNPay sandbox checkout.
+- Admin dashboard for paid revenue, active package value, payment state, plan distribution,
+  subscription activation, and active quota usage.
 
 ## Architecture
 
+This project uses the traditional N-layer model described in
+[Microsoft's common web application architectures](https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures),
+not Clean Architecture.
+
 ```text
-User
-  -> PresentationLayer   (MVC Controllers, Razor Views, SignalR Hub, ViewModels)
-  -> BusinessLayer       (services, DTOs, AI clients, parsing / indexing / retrieval)
-  -> DataAccessLayer     (repositories, EF Core, AppDbContext, SQL Server)
+Runtime request flow:
+User -> PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server
+
+Compile-time project references:
+PresentationLayer -> BusinessLayer
+PresentationLayer -> DataAccessLayer  (Program.cs composition root only)
+BusinessLayer     -> DataAccessLayer
+DataAccessLayer   -> none of the upper layers
 ```
 
-- `Program.cs` is the composition root: it wires Business/Data Access implementations and initializes the database. All other Presentation code depends on Business **interfaces and DTOs**, never on EF Core entities.
-- Interfaces live at layer boundaries (repositories, external AI clients, replaceable chunking strategies). One-off internal orchestrators stay concrete.
-- External AI calls go through client abstractions. Document upload/indexing is synchronous inside the Business layer (no background worker or queue).
+`Program.cs` is the composition root. Controllers and the Hub call Business interfaces;
+Business services call repositories and external-provider clients. Document indexing runs
+inside the upload request. There is no Razor Pages endpoint, background worker, indexing
+queue, lexical retrieval fallback, conversational bypass, or fine-tuned model. Every assistant
+answer first retrieves vector matches from the selected course documents.
 
-## Prerequisites
+## Requirements
 
-- The .NET SDK pinned by [`global.json`](global.json)
-- SQL Server LocalDB (or any SQL Server instance)
-- A Google Gemini API key (required for chat replies)
-- A Hugging Face API key (optional for chat; **required** to run a benchmark)
+- .NET SDK from [`global.json`](global.json)
+- SQL Server LocalDB or another SQL Server instance
+- Gemini API key for answer generation and benchmark evaluation
+- Hugging Face API key for document indexing, vector retrieval, and benchmarks
+- Optional VNPay sandbox merchant credentials for paid packages
 
-## Getting Started
-
-### 1. Clone and restore
+## Run Locally
 
 ```powershell
-git clone <repository-url>
-cd CHATBOT
 dotnet restore .\Prn222Chatbot.sln
-```
-
-### 2. Configure secrets
-
-Keep secrets out of tracked configuration with User Secrets:
-
-```powershell
 dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\PresentationLayer
 dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\PresentationLayer
-dotnet user-secrets set "SeedUsers:Admin:Password" "YOUR_ADMIN_PASSWORD" --project .\src\PresentationLayer
 dotnet user-secrets set "VnPay:TmnCode" "YOUR_VNPAY_TMNCODE" --project .\src\PresentationLayer
 dotnet user-secrets set "VnPay:HashSecret" "YOUR_VNPAY_HASHSECRET" --project .\src\PresentationLayer
-```
-
-Register a sandbox merchant at <https://sandbox.vnpayment.vn/devreguser/> to obtain `TmnCode` and `HashSecret`. Without them, chat and the rest of the app still work; only the **Buy with VNPay** action is disabled.
-
-### 3. Run
-
-```powershell
-dotnet build .\Prn222Chatbot.sln --no-restore
 dotnet run --project .\src\PresentationLayer
 ```
 
-Open <http://localhost:5096> (default `http` profile).
+Open <http://localhost:5096> when using the default HTTP launch profile. If VNPay
+credentials are absent, paid buttons are disabled; the rest of the application remains usable.
 
-On startup the app applies pending EF Core migrations and seeds required settings. Demo data is inserted **only when the database is empty**, so later seed-configuration changes never overwrite stored data.
+Startup applies pending migrations and inserts demo data only when the database is empty.
+Development seed passwords are explicit in `appsettings.Development.json`; User Secrets or
+environment variables can override every `SeedUsers` value.
 
 ## Configuration
 
 | Key | Purpose |
 |---|---|
-| `ConnectionStrings:DefaultConnection` | SQL Server connection string (override in `appsettings.json`, User Secrets, or the `ConnectionStrings__DefaultConnection` env var) |
-| `Gemini:ApiKey` | Google Gemini key used for chat generation |
-| `HuggingFace:ApiKey` | Hugging Face key used for embeddings and benchmarks |
-| `HuggingFace:Models` | Benchmark embedding models — each needs its model URL and any query/passage prefixes |
-| `SeedUsers:{Role}:Password` | Optional seed password per demo role |
-| `VnPay:TmnCode` / `VnPay:HashSecret` | VNPay sandbox merchant code and HMAC secret (keep in User Secrets) |
-| `VnPay:ReturnUrl` | Browser return URL after payment (default `http://localhost:5096/Payment/VnpayReturn`) |
+| `ConnectionStrings:DefaultConnection` | SQL Server connection |
+| `Gemini:ApiKey`, `Gemini:Model` | Gemini credential and generation model |
+| `Rag:TopK` | Number of vector matches supplied to the prompt |
+| `Rag:MinimumSimilarityScore` | Minimum cosine similarity for a citation |
+| `Rag:HistoryMessageCount` | Recent messages supplied as conversation context |
+| `HuggingFace:ApiKey`, `HuggingFace:ModelName` | Runtime embedding credential/model |
+| `HuggingFace:Models` | Allowed benchmark models, endpoints, and query/passage prefixes |
+| `VnPay:TmnCode`, `VnPay:HashSecret` | VNPay sandbox merchant credentials |
+| `VnPay:BaseUrl`, `VnPay:PaymentTimeoutMinutes` | Sandbox checkout endpoint and pending window |
+| `SeedUsers:{Role}:Email/FullName/Password` | Required values when seeding an empty database |
 
-Retrieval falls back to lexical search when Hugging Face is not configured, so normal chat works with Gemini alone. Benchmarks re-embed a temporary corpus on every run, so provider usage limits apply. The default benchmark compares `intfloat/multilingual-e5-base` and `intfloat/multilingual-e5-small`.
+The VNPay browser return URL is generated from the current request host; it is not hardcoded
+in configuration. Register sandbox credentials at <https://sandbox.vnpayment.vn/devreguser/>.
+VNPay cannot call the IPN endpoint on `localhost`; local demos confirm payment through the
+signed browser return. A public HTTPS URL is required to demonstrate server-to-server IPN.
 
 ## Demo Accounts
 
-Fresh databases seed the PRN222 course (`Course Introduction` at order `0` and Chapters 01–08) and the accounts below. When no seed password secret is set, the default password is `Prn222@123`.
+| Role | Email | Default development password |
+|---|---|---|
+| Student | `student@prn222.local` | `Prn222@123` |
+| Teacher | `teacher@prn222.local` | `Prn222@123` |
+| Admin | `admin@prn222.local` | `Prn222@123` |
 
-| Role | Email |
-|---|---|
-| Student | `student@prn222.local` |
-| Teacher | `teacher@prn222.local` |
-| Admin | `admin@prn222.local` |
-
-## Roles & Routes
+## Main Routes
 
 | Route | Access | Purpose |
 |---|---|---|
-| `/chat` | All roles | RAG chat and session history (quota-limited for students) |
-| `/documents` | All roles | Browse/filter; Teacher/Admin can upload and delete |
-| `/courses` | Teacher/Admin | Assigned courses or full management |
-| `/AdminUsers` | Admin | User CRUD, lockout, roles, and password reset |
-| `/settings` | Admin | Global chunking strategy |
-| `/benchmark` | Admin | Run experiments and compare RAG metrics |
-| `/benchmark/questions` | Admin | Ground-truth question CRUD and active/inactive toggle |
-| `/subscriptions` | Student | Browse packages and buy one via VNPay |
-| `/payment` | Student / callback | `Checkout` starts a VNPay payment; `VnpayReturn` (browser) and `VnpayIpn` (server) confirm it |
-| `/subscriptions/dashboard` | Admin | Manage packages, revoke subscriptions, view statistics |
+| `/chat` | All roles | RAG chat and session history |
+| `/documents` | All roles | Browse documents; Teacher/Admin can upload/delete |
+| `/courses` | Teacher/Admin | Assigned-course or full course management |
+| `/AdminUsers` | Admin | Account, role, lock, password, and delete controls |
+| `/settings` | Admin | Global chunking configuration |
+| `/benchmark` | Admin | Ground truth and RAG experiments |
+| `/subscriptions` | Student | Free activation or VNPay checkout |
+| `/subscriptions/dashboard` | Admin | Plans, subscriptions, payments, revenue, and usage |
 
-## Project Structure
+## Database Migrations
 
-```text
-src/
-  PresentationLayer/    Controllers/  Hubs/  ViewModels/  Views/  wwwroot/
-  BusinessLayer/        Services/  DTOs/  AI/  Parsing/  Indexing/  Retrieval/
-  DataAccessLayer/      Entities/  Enums/  Repositories/  Data/
-assets/
-  prn222-ground-truth.json   # 50 curated benchmark questions (reference data, not auto-imported)
-```
-
-## Database & Migrations
-
-Startup applies pending migrations automatically. To run them without launching the web app:
+`AppDbContextFactory` exists only for `dotnet ef`. It keeps the EF design package out of
+`PresentationLayer` and requires an explicit connection string instead of hiding a fallback.
 
 ```powershell
-dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer --context AppDbContext
+$env:ConnectionStrings__DefaultConnection = "Server=(localdb)\MSSQLLocalDB;Database=Prn222RagChatbot;Trusted_Connection=True;TrustServerCertificate=True"
+dotnet ef migrations add MigrationName --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer
+dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer
 ```
 
-`AppDbContextFactory` provides the design-time context for this command. Migration files are append-only history; older migration names do not necessarily reflect current runtime behavior.
+Migration files are append-only history. Embeddings are JSON in SQL Server because this is a
+single-course assignment dataset; retrieval computes cosine similarity in memory.
 
-Notes:
+## Subscription Semantics
 
-- Embeddings are stored as JSON in SQL Server (assignment/demo scope).
-- Benchmark runs re-chunk `Document.ContentText` in memory and embed both corpus chunks and questions with the selected model. Only ground truth, completed runs, and result metrics are persisted; production chat indexes are untouched.
-- The versioned document-hash bootstrap keeps the earliest document when a chapter contains duplicate normalized content.
+- Quota means accepted student questions per subscription activation, not estimated LLM tokens.
+- `0` quota means unlimited. Clearing/deleting chat history does not restore quota.
+- Plan price, duration, and quota are snapshotted when payment/activation occurs.
+- Revenue counts successful VNPay payments. Revoking access does not refund or remove revenue.
+- Active package value is shown separately and must not be interpreted as collected revenue.
+- Abandoned VNPay transactions older than the configured timeout are displayed as expired.
 
 ## Scope
 
-Deployment, background workers, and fine-tuned models are out of scope. Payment is integrated against the **VNPay sandbox** — the flow, signing, and idempotent confirmation are real, but no real money moves and it does not represent production billing. Subscriptions gate chat usage through message quotas.
+No deployment, production billing, refund workflow, background worker, or fine-tuned model.
+Benchmarks call external AI APIs and can consume provider quota.
