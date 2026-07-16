@@ -15,7 +15,6 @@ public interface ISubscriptionService
         long tokenQuota,
         int sortOrder,
         bool isActive,
-        bool isDefault,
         CancellationToken cancellationToken);
     Task UpdatePlanAsync(
         Guid id,
@@ -27,6 +26,6 @@ public interface ISubscriptionService
         long tokenQuota,
         int sortOrder,
         bool isActive,
-        bool isDefault,
         CancellationToken cancellationToken);
+    Task SetDefaultPlanAsync(Guid planId, CancellationToken cancellationToken);
 }

@@ -46,6 +46,4 @@ public class SubscriptionPlanInput
     public int SortOrder { get; set; } = 100;
 
     public bool IsActive { get; set; } = true;
-
-    public bool IsDefault { get; set; }
 }

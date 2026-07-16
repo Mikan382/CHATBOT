@@ -69,7 +69,6 @@ public class SubscriptionsController : BaseController
                 input.TokenQuota,
                 input.SortOrder,
                 input.IsActive,
-                input.IsDefault,
                 cancellationToken);
             SetFlashSuccess("Subscription package was created.");
         }
@@ -109,7 +108,6 @@ public class SubscriptionsController : BaseController
                 input.TokenQuota,
                 input.SortOrder,
                 input.IsActive,
-                input.IsDefault,
                 cancellationToken);
             SetFlashSuccess("Subscription package was updated.");
         }
@@ -119,6 +117,24 @@ public class SubscriptionsController : BaseController
                 cancellationToken,
                 failedPlanUpdate: input,
                 error: UserFacingError(ex)));
+        }
+
+        return RedirectToAction("Dashboard");
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetDefaultPlan(Guid planId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _subscriptionService.SetDefaultPlanAsync(planId, cancellationToken);
+            SetFlashSuccess("Default subscription package was updated.");
+        }
+        catch (Exception ex)
+        {
+            SetFlashError(UserFacingError(ex));
         }
 
         return RedirectToAction("Dashboard");
@@ -138,5 +154,4 @@ public class SubscriptionsController : BaseController
             Error = error
         };
     }
-
 }

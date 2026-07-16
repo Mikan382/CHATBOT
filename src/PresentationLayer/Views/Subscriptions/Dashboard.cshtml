@@ -2,6 +2,10 @@
 @model SubscriptionDashboardViewModel
 @{
     ViewData["Title"] = "Subscription Dashboard";
+    var eligibleDefaultPlans = Model.Dashboard.Plans
+        .Where(plan => plan.IsActive && plan.Price == 0)
+        .ToList();
+    var currentDefaultPlan = Model.Dashboard.Plans.FirstOrDefault(plan => plan.IsDefault);
 }
 
 <div>
@@ -220,37 +224,94 @@
 
     <div class="card app-card mb-4">
         <div class="card-body">
-            <h5 class="card-title">Create Package</h5>
-            <form method="post" asp-controller="Subscriptions" asp-action="CreatePlan" class="subscription-plan-form">
+            <h5 class="card-title mb-1">Create Package</h5>
+            <div class="text-muted small mb-3">
+                The first active package priced at 0 VND becomes the default automatically.
+            </div>
+            <form method="post" asp-controller="Subscriptions" asp-action="CreatePlan" class="subscription-create-form">
                 @Html.AntiForgeryToken()
-                <input class="form-control form-control-sm" name="Code" value="@Model.CreatePlan.Code" placeholder="Code" maxlength="32" required />
-                <input class="form-control form-control-sm" name="Name" value="@Model.CreatePlan.Name" placeholder="Name" maxlength="160" required />
-                <input class="form-control form-control-sm" name="Price" value="@Model.CreatePlan.Price.ToString(CultureInfo.InvariantCulture)" type="number" min="0" step="1" placeholder="Price (VND)" required />
-                <input class="form-control form-control-sm" name="DurationDays" value="@Model.CreatePlan.DurationDays" type="number" min="1" max="3650" title="Access duration in days" required />
-                <input class="form-control form-control-sm" name="TokenQuota" value="@Model.CreatePlan.TokenQuota" type="number" min="1" max="10000000000" title="Gemini tokens available during this activation" placeholder="Token quota" required />
-                <input class="form-control form-control-sm" name="SortOrder" value="@Model.CreatePlan.SortOrder" type="number" min="0" max="10000" title="Display order" required />
-                <input class="form-control form-control-sm subscription-description-input" name="Description" value="@Model.CreatePlan.Description" placeholder="Description" maxlength="600" />
-                <label class="form-check small subscription-plan-active-field">
-                    <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked="@Model.CreatePlan.IsActive" />
-                    <input type="hidden" name="IsActive" value="false" />
-                    <span>Active</span>
-                </label>
-                <label class="form-check small subscription-plan-active-field">
-                    <input class="form-check-input" type="checkbox" name="IsDefault" value="true" checked="@Model.CreatePlan.IsDefault" />
-                    <input type="hidden" name="IsDefault" value="false" />
-                    <span>Default</span>
-                </label>
-                <button class="btn btn-sm btn-primary" type="submit">Create</button>
+                <div>
+                    <label class="form-label small" for="createPlanCode">Code</label>
+                    <input id="createPlanCode" class="form-control form-control-sm" name="Code" value="@Model.CreatePlan.Code" maxlength="32" required />
+                </div>
+                <div>
+                    <label class="form-label small" for="createPlanName">Name</label>
+                    <input id="createPlanName" class="form-control form-control-sm" name="Name" value="@Model.CreatePlan.Name" maxlength="160" required />
+                </div>
+                <div>
+                    <label class="form-label small" for="createPlanPrice">Price (VND)</label>
+                    <input id="createPlanPrice" class="form-control form-control-sm" name="Price" value="@Model.CreatePlan.Price.ToString(CultureInfo.InvariantCulture)" type="number" min="0" step="1" required />
+                </div>
+                <div>
+                    <label class="form-label small" for="createPlanDays">Duration (days)</label>
+                    <input id="createPlanDays" class="form-control form-control-sm" name="DurationDays" value="@Model.CreatePlan.DurationDays" type="number" min="1" max="3650" required />
+                </div>
+                <div>
+                    <label class="form-label small" for="createPlanTokens">Token quota</label>
+                    <input id="createPlanTokens" class="form-control form-control-sm" name="TokenQuota" value="@Model.CreatePlan.TokenQuota" type="number" min="1" max="10000000000" required />
+                </div>
+                <div>
+                    <label class="form-label small" for="createPlanOrder">Display order</label>
+                    <input id="createPlanOrder" class="form-control form-control-sm" name="SortOrder" value="@Model.CreatePlan.SortOrder" type="number" min="0" max="10000" required />
+                </div>
+                <div class="subscription-create-description">
+                    <label class="form-label small" for="createPlanDescription">Description</label>
+                    <input id="createPlanDescription" class="form-control form-control-sm" name="Description" value="@Model.CreatePlan.Description" maxlength="600" />
+                </div>
+                <div class="subscription-create-actions">
+                    <label class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked="@Model.CreatePlan.IsActive" />
+                        <input type="hidden" name="IsActive" value="false" />
+                        <span class="form-check-label">Active</span>
+                    </label>
+                    <button class="btn btn-sm btn-primary" type="submit">Create package</button>
+                </div>
             </form>
         </div>
     </div>
 
     <div class="card app-card">
         <div class="card-body">
-            <h5 class="card-title">Manage Packages</h5>
-            <div class="text-muted small mb-3">
-                Changes apply to future activations. The default package must be active, free, and unique.
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h5 class="card-title mb-1">Manage Packages</h5>
+                    <div class="text-muted small">
+                        Changes apply to future activations. Existing subscriptions keep their activation snapshot.
+                    </div>
+                </div>
+                <span class="badge text-bg-light">@Model.Dashboard.Plans.Count package(s)</span>
             </div>
+
+            <section class="subscription-default-panel">
+                <div>
+                    <div class="fw-semibold">Default package</div>
+                    <div class="text-muted small">New Students receive exactly one selected active 0 VND package.</div>
+                </div>
+                @if (eligibleDefaultPlans.Count == 0)
+                {
+                    <div class="text-danger small">Create an active 0 VND package before creating Student accounts.</div>
+                }
+                else
+                {
+                    <form method="post"
+                          asp-controller="Subscriptions"
+                          asp-action="SetDefaultPlan"
+                          class="subscription-default-form"
+                          data-current-default-id="@currentDefaultPlan?.Id">
+                        @Html.AntiForgeryToken()
+                        <select class="form-select form-select-sm" name="planId" aria-label="Default subscription package">
+                            @foreach (var plan in eligibleDefaultPlans)
+                            {
+                                <option value="@plan.Id" selected="@plan.IsDefault">
+                                    @plan.Code - @plan.Name
+                                </option>
+                            }
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Set default</button>
+                    </form>
+                }
+            </section>
+
             <div class="subscription-plan-editor">
                 @if (Model.Dashboard.Plans.Count == 0)
                 {
@@ -258,18 +319,6 @@
                 }
                 else
                 {
-                    <div class="subscription-plan-grid subscription-plan-grid-header">
-                        <div>Code</div>
-                        <div>Name</div>
-                        <div>Price</div>
-                        <div>Days</div>
-                        <div>Tokens</div>
-                        <div>Order</div>
-                        <div>Description</div>
-                        <div>Active</div>
-                        <div>Default</div>
-                        <div></div>
-                    </div>
                     @foreach (var plan in Model.Dashboard.Plans)
                     {
                         var failed = Model.FailedPlanUpdate?.Id == plan.Id ? Model.FailedPlanUpdate : null;
@@ -280,33 +329,115 @@
                         var durationDays = failed?.DurationDays ?? plan.DurationDays;
                         var tokenQuota = failed?.TokenQuota ?? plan.TokenQuota;
                         var sortOrder = failed?.SortOrder ?? plan.SortOrder;
-                        var isActive = failed?.IsActive ?? plan.IsActive;
-                        var isDefault = failed?.IsDefault ?? plan.IsDefault;
-                        <form method="post" asp-controller="Subscriptions" asp-action="UpdatePlan" class="subscription-plan-edit-form subscription-plan-grid">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="Id" value="@plan.Id" />
-                            <input class="form-control form-control-sm" name="Code" value="@code" maxlength="32" required />
-                            <input class="form-control form-control-sm" name="Name" value="@name" maxlength="160" required />
-                            <input class="form-control form-control-sm" name="Price" type="number" min="0" step="1" value="@price.ToString(CultureInfo.InvariantCulture)" required />
-                            <input class="form-control form-control-sm" name="DurationDays" type="number" min="1" max="3650" value="@durationDays" title="Access duration in days" required />
-                            <input class="form-control form-control-sm" name="TokenQuota" type="number" min="1" max="10000000000" value="@tokenQuota" title="Gemini tokens per activation" required />
-                            <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="@sortOrder" title="Display order" required />
-                            <input class="form-control form-control-sm subscription-description-input" name="Description" value="@description" maxlength="600" />
-                            <label class="form-check small subscription-plan-active-field">
-                                <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked="@isActive" />
-                                <input type="hidden" name="IsActive" value="false" />
-                                <span>Active</span>
-                            </label>
-                            <label class="form-check small subscription-plan-active-field">
-                                <input class="form-check-input" type="checkbox" name="IsDefault" value="true" checked="@isDefault" />
-                                <input type="hidden" name="IsDefault" value="false" />
-                                <span>Default</span>
-                            </label>
-                            <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
-                        </form>
+                        var isActive = plan.IsDefault || (failed?.IsActive ?? plan.IsActive);
+                        <article class="subscription-plan-item @(plan.IsDefault ? "is-default" : "")">
+                            <div class="subscription-plan-item-header">
+                                <div>
+                                    <strong>@plan.Code - @plan.Name</strong>
+                                    <div class="text-muted small">
+                                        @plan.DurationDays days / @plan.TokenQuota.ToString("N0") tokens
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    @if (plan.IsDefault)
+                                    {
+                                        <span class="badge text-bg-info">Default</span>
+                                    }
+                                    <span class="badge @(plan.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                        @(plan.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </div>
+                            </div>
+                            <form method="post" asp-controller="Subscriptions" asp-action="UpdatePlan" class="subscription-plan-edit-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="Id" value="@plan.Id" />
+                                <div>
+                                    <label class="form-label small">Code</label>
+                                    <input class="form-control form-control-sm" name="Code" value="@code" maxlength="32" required />
+                                </div>
+                                <div>
+                                    <label class="form-label small">Name</label>
+                                    <input class="form-control form-control-sm" name="Name" value="@name" maxlength="160" required />
+                                </div>
+                                <div>
+                                    <label class="form-label small">Price (VND)</label>
+                                    @if (plan.IsDefault)
+                                    {
+                                        <input class="form-control form-control-sm"
+                                               name="Price"
+                                               type="number"
+                                               min="0"
+                                               step="1"
+                                               value="@price.ToString(CultureInfo.InvariantCulture)"
+                                               readonly
+                                               required />
+                                    }
+                                    else
+                                    {
+                                        <input class="form-control form-control-sm"
+                                               name="Price"
+                                               type="number"
+                                               min="0"
+                                               step="1"
+                                               value="@price.ToString(CultureInfo.InvariantCulture)"
+                                               required />
+                                    }
+                                </div>
+                                <div>
+                                    <label class="form-label small">Duration (days)</label>
+                                    <input class="form-control form-control-sm" name="DurationDays" type="number" min="1" max="3650" value="@durationDays" required />
+                                </div>
+                                <div>
+                                    <label class="form-label small">Token quota</label>
+                                    <input class="form-control form-control-sm" name="TokenQuota" type="number" min="1" max="10000000000" value="@tokenQuota" required />
+                                </div>
+                                <div>
+                                    <label class="form-label small">Display order</label>
+                                    <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="@sortOrder" required />
+                                </div>
+                                <div class="subscription-plan-description">
+                                    <label class="form-label small">Description</label>
+                                    <input class="form-control form-control-sm" name="Description" value="@description" maxlength="600" />
+                                </div>
+                                <div class="subscription-plan-footer">
+                                    @if (plan.IsDefault)
+                                    {
+                                        <input type="hidden" name="IsActive" value="true" />
+                                        <div class="text-muted small">Choose another default package before changing this package's price or status.</div>
+                                    }
+                                    else
+                                    {
+                                        <label class="form-check form-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked="@isActive" />
+                                            <input type="hidden" name="IsActive" value="false" />
+                                            <span class="form-check-label">Active</span>
+                                        </label>
+                                    }
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">Save changes</button>
+                                </div>
+                            </form>
+                        </article>
                     }
                 }
             </div>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        const defaultForm = document.querySelector(".subscription-default-form");
+        if (defaultForm) {
+            const select = defaultForm.querySelector("select");
+            const button = defaultForm.querySelector("button[type='submit']");
+            const currentDefaultId = defaultForm.dataset.currentDefaultId || "";
+            const updateDefaultButton = () => {
+                const unchanged = select.value === currentDefaultId;
+                button.disabled = unchanged;
+                button.textContent = unchanged ? "Current default" : "Set default";
+            };
+            select.addEventListener("change", updateDefaultButton);
+            updateDefaultButton();
+        }
+    </script>
+}

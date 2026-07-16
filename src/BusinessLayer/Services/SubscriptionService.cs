@@ -91,11 +91,13 @@ public class SubscriptionService : ISubscriptionService
         long tokenQuota,
         int sortOrder,
         bool isActive,
-        bool isDefault,
         CancellationToken cancellationToken)
     {
         code = NormalizeCode(code);
         name = StringHelper.NormalizeRequired(name, "Package name");
+        var isDefault = isActive
+            && price == 0
+            && await _subscriptionRepository.GetDefaultPlanAsync(cancellationToken) is null;
         ValidatePlan(price, durationDays, tokenQuota, isActive, isDefault);
 
         if (await _subscriptionRepository.PlanCodeExistsAsync(code, null, cancellationToken))
@@ -131,7 +133,6 @@ public class SubscriptionService : ISubscriptionService
         long tokenQuota,
         int sortOrder,
         bool isActive,
-        bool isDefault,
         CancellationToken cancellationToken)
     {
         var plan = await _subscriptionRepository.GetPlanAsync(id, cancellationToken)
@@ -139,13 +140,7 @@ public class SubscriptionService : ISubscriptionService
 
         code = NormalizeCode(code);
         name = StringHelper.NormalizeRequired(name, "Package name");
-        if (plan.IsDefault && !isDefault)
-        {
-            throw new InvalidOperationException(
-                "Select another active free package as default instead of clearing the current default.");
-        }
-
-        ValidatePlan(price, durationDays, tokenQuota, isActive, isDefault);
+        ValidatePlan(price, durationDays, tokenQuota, isActive, plan.IsDefault);
 
         if (await _subscriptionRepository.PlanCodeExistsAsync(code, id, cancellationToken))
         {
@@ -160,7 +155,26 @@ public class SubscriptionService : ISubscriptionService
         plan.TokenQuota = tokenQuota;
         plan.SortOrder = sortOrder;
         plan.IsActive = isActive;
-        plan.IsDefault = isDefault;
+        plan.UpdatedAtUtc = DateTime.UtcNow;
+        await _subscriptionRepository.SavePlanAsync(plan, cancellationToken);
+    }
+
+    public async Task SetDefaultPlanAsync(Guid planId, CancellationToken cancellationToken)
+    {
+        var plan = await _subscriptionRepository.GetPlanAsync(planId, cancellationToken)
+            ?? throw new InvalidOperationException("Subscription package was not found.");
+        if (!plan.IsActive || plan.Price != 0)
+        {
+            throw new InvalidOperationException(
+                "Only an active package priced at 0 VND can be the default package.");
+        }
+
+        if (plan.IsDefault)
+        {
+            return;
+        }
+
+        plan.IsDefault = true;
         plan.UpdatedAtUtc = DateTime.UtcNow;
         await _subscriptionRepository.SavePlanAsync(plan, cancellationToken);
     }

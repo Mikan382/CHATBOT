@@ -89,7 +89,9 @@ public record ChapterSelectDto(Guid Id, Guid CourseId, int Order, string Title);
 public record DocumentIndexPageDto(
     IReadOnlyList<CourseDto> Courses,
     IReadOnlyList<ChapterSelectDto> Chapters,
-    IReadOnlyList<DocumentIndexDto> Documents);
+    IReadOnlyList<DocumentIndexDto> Documents,
+    Guid? SelectedCourseId,
+    Guid? SelectedChapterId);
 
 public record CourseFormDto(
     Guid Id,
