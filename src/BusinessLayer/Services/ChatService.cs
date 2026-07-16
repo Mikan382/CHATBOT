@@ -61,14 +61,10 @@ public class ChatService : IChatService
         var active = await GetActiveSubscriptionAsync(userId, cancellationToken);
         if (active?.Plan is null)
         {
-            return new ChatQuotaStatusDto("No active package", 0, 0, false, false);
+            return new ChatQuotaStatusDto("No active package", 0, 0, null, false);
         }
 
-        var quota = active.MessageQuotaAtActivation;
-        var unlimited = quota == 0;
-        var periodKey = PeriodKey(active.Id);
-        var used = await _chatRepository.GetUsageAsync(userId, periodKey, cancellationToken);
-        return new ChatQuotaStatusDto(active.Plan.Name, quota, used, unlimited, true);
+        return ToQuotaStatus(active);
     }
 
     public async Task<AcceptedChatMessageDto> AcceptUserMessageAsync(
@@ -94,9 +90,11 @@ public class ChatService : IChatService
 
         await _chatRepository.EnsureSessionAsync(sessionId, userId, courseId, cancellationToken);
 
-        var quota = enforceQuota
-            ? await ConsumeMessageUsageAsync(userId, cancellationToken)
-            : null;
+        StudentSubscription? subscription = null;
+        if (enforceQuota)
+        {
+            subscription = await EnsureTokenQuotaAvailableAsync(userId, cancellationToken);
+        }
 
         var userMessage = new ChatMessage
         {
@@ -109,10 +107,19 @@ public class ChatService : IChatService
 
         await _chatRepository.AddMessageAsync(userMessage, cancellationToken);
         await _chatRepository.UpdateSessionTitleFromFirstUserMessageAsync(sessionId, userId, text.Trim(), cancellationToken);
-        return new AcceptedChatMessageDto(ToDto(userMessage), quota);
+        return new AcceptedChatMessageDto(
+            ToDto(userMessage),
+            subscription is null ? null : ToQuotaStatus(subscription),
+            subscription?.Id);
     }
 
-    public async Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken)
+    public async Task<ChatMessageDto> GenerateAssistantReplyAsync(
+        Guid sessionId,
+        Guid userId,
+        Guid courseId,
+        string text,
+        Guid? studentSubscriptionId,
+        CancellationToken cancellationToken)
     {
         var course = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
@@ -121,17 +128,20 @@ public class ChatService : IChatService
         var citations = new List<CitationDto>();
         string answer;
         string? error = null;
+        GeminiGenerationResult? generation = null;
 
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            answer = await GenerateRagAsync(
+            var ragResult = await GenerateRagAsync(
                 course.Id,
                 course.Name,
                 text,
                 history,
                 citations,
                 cancellationToken);
+            answer = ragResult.Text;
+            generation = ragResult.Generation;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -155,7 +165,19 @@ public class ChatService : IChatService
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        await _chatRepository.AddAssistantMessageAndTouchSessionAsync(botMessage, sessionId, userId, cancellationToken);
+        var tokenUsage = generation is not null && studentSubscriptionId.HasValue
+            ? new ChatTokenUsageUpdate(
+                studentSubscriptionId.Value,
+                generation.InputTokens,
+                generation.OutputTokens,
+                generation.TotalTokens)
+            : null;
+        await _chatRepository.AddAssistantMessageAndTouchSessionAsync(
+            botMessage,
+            sessionId,
+            userId,
+            tokenUsage,
+            cancellationToken);
         return ToDto(botMessage, stopwatch.Elapsed.TotalSeconds);
     }
 
@@ -192,7 +214,7 @@ public class ChatService : IChatService
         return await _chatRepository.DeleteSessionAsync(sessionId, userId, cancellationToken);
     }
 
-    private async Task<string> GenerateRagAsync(
+    private async Task<RagGenerationResult> GenerateRagAsync(
         Guid courseId,
         string courseName,
         string text,
@@ -204,11 +226,17 @@ public class ChatService : IChatService
         citations.AddRange(chunks.Select(ToCitation));
         if (chunks.Count == 0)
         {
-            return "The indexed documents do not contain enough relevant information to answer this question accurately.";
+            return new RagGenerationResult(
+                "The indexed documents do not contain enough relevant information to answer this question accurately.",
+                null);
         }
 
         var prompt = RagPromptBuilder.BuildPrompt(text, chunks, history);
-        return await _geminiClient.GenerateAsync(RagPromptBuilder.BuildSystemInstruction(courseName), prompt, cancellationToken);
+        var generation = await _geminiClient.GenerateAsync(
+            RagPromptBuilder.BuildSystemInstruction(courseName),
+            prompt,
+            cancellationToken);
+        return new RagGenerationResult(generation.Text, generation);
     }
 
     private async Task<IReadOnlyList<ChatHistoryMessage>> BuildHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken, bool excludeLatestUserMessage = false)
@@ -233,35 +261,42 @@ public class ChatService : IChatService
         return new CitationDto(chunk.ChunkId, chunk.SourceName, chunk.ChapterTitle, chunk.ChunkIndex, chunk.Content);
     }
 
-    private async Task<ChatQuotaStatusDto> ConsumeMessageUsageAsync(Guid userId, CancellationToken cancellationToken)
+    private async Task<StudentSubscription> EnsureTokenQuotaAvailableAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
     {
         var active = await GetActiveSubscriptionAsync(userId, cancellationToken);
         if (active?.Plan is null)
         {
-            throw new InvalidOperationException("No active subscription package. Activate or purchase a package to continue.");
+            throw new InvalidOperationException(
+                "No active subscription package is available. Ask an Admin to configure a default package.");
         }
 
-        var quota = active.MessageQuotaAtActivation;
-        var periodKey = PeriodKey(active.Id);
-        var consumed = await _chatRepository.TryConsumeUsageAsync(userId, periodKey, quota, cancellationToken);
-        if (!consumed && quota > 0)
+        if (active.TotalTokensUsed >= active.TokenQuotaAtActivation)
         {
             throw new InvalidOperationException(
-                $"You have used all {quota} questions in the {active.Plan.Name} package.");
+                $"You have used all {active.TokenQuotaAtActivation:N0} tokens in the {active.Plan.Name} package.");
         }
 
-        var used = await _chatRepository.GetUsageAsync(userId, periodKey, cancellationToken);
-        return new ChatQuotaStatusDto(active.Plan.Name, quota, used, quota == 0, true);
+        return active;
     }
 
     private Task<StudentSubscription?> GetActiveSubscriptionAsync(Guid userId, CancellationToken cancellationToken)
     {
-        return _subscriptionRepository.GetCurrentForStudentAsync(userId, DateTime.UtcNow, cancellationToken);
+        return _subscriptionRepository.GetOrCreateCurrentForStudentAsync(
+            userId,
+            DateTime.UtcNow,
+            cancellationToken);
     }
 
-    private static string PeriodKey(Guid subscriptionId)
+    private static ChatQuotaStatusDto ToQuotaStatus(StudentSubscription subscription)
     {
-        return $"SUB-{subscriptionId:N}";
+        return new ChatQuotaStatusDto(
+            subscription.Plan?.Name ?? "Subscription",
+            subscription.TokenQuotaAtActivation,
+            subscription.TotalTokensUsed,
+            subscription.ExpiresAtUtc,
+            true);
     }
 
     private static string NormalizeSessionTitle(string title)
@@ -290,4 +325,8 @@ public class ChatService : IChatService
             message.CreatedAtUtc,
             processingSeconds);
     }
+
+    private sealed record RagGenerationResult(
+        string Text,
+        GeminiGenerationResult? Generation);
 }

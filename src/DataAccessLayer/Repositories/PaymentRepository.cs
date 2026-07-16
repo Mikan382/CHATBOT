@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
@@ -14,10 +15,37 @@ public class PaymentRepository : IPaymentRepository
         _db = db;
     }
 
-    public async Task AddAsync(PaymentTransaction transaction, CancellationToken cancellationToken)
+    public async Task<bool> TryAddPendingAsync(
+        PaymentTransaction payment,
+        DateTime pendingSinceUtc,
+        CancellationToken cancellationToken)
     {
-        _db.PaymentTransactions.Add(transaction);
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+        var now = DateTime.UtcNow;
+        await _db.PaymentTransactions
+            .Where(x => x.StudentUserId == payment.StudentUserId
+                && x.Status == PaymentStatusNames.Pending
+                && x.CreatedAtUtc < pendingSinceUtc)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.Status, PaymentStatusNames.Expired)
+                .SetProperty(x => x.UpdatedAtUtc, now), cancellationToken);
+
+        var hasPending = await _db.PaymentTransactions.AnyAsync(
+            x => x.StudentUserId == payment.StudentUserId
+                && x.Status == PaymentStatusNames.Pending,
+            cancellationToken);
+        if (hasPending)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return false;
+        }
+
+        _db.PaymentTransactions.Add(payment);
         await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 
     public async Task<PaymentTransaction?> GetByTxnRefAsync(string providerTxnRef, CancellationToken cancellationToken)
@@ -92,7 +120,7 @@ public class PaymentRepository : IPaymentRepository
                 x.StudentUserId,
                 x.SubscriptionPlanId,
                 x.Amount,
-                x.MessageQuota,
+                x.TokenQuota,
                 x.Status
             })
             .FirstOrDefaultAsync(cancellationToken);
@@ -142,7 +170,7 @@ public class PaymentRepository : IPaymentRepository
             SubscriptionPlanId = info.SubscriptionPlanId,
             Status = SubscriptionStatusNames.Active,
             PriceAtActivation = info.Amount,
-            MessageQuotaAtActivation = info.MessageQuota,
+            TokenQuotaAtActivation = info.TokenQuota,
             StartedAtUtc = startedAtUtc,
             ExpiresAtUtc = expiresAtUtc,
             CreatedAtUtc = startedAtUtc,

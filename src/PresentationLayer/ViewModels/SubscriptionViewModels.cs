@@ -34,16 +34,18 @@ public class SubscriptionPlanInput
     public string? Description { get; set; }
 
     [Range(0, 100000000)]
-    public decimal MonthlyPrice { get; set; }
+    public decimal Price { get; set; }
 
-    [Range(0, 3650)]
+    [Range(1, 3650)]
     public int DurationDays { get; set; } = 30;
 
-    [Range(0, 1000000)]
-    public int MessageQuota { get; set; }
+    [Range(1, 10000000000)]
+    public long TokenQuota { get; set; } = 50000;
 
     [Range(0, 10000)]
     public int SortOrder { get; set; } = 100;
 
     public bool IsActive { get; set; } = true;
+
+    public bool IsDefault { get; set; }
 }

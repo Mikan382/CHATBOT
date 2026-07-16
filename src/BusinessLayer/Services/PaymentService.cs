@@ -52,21 +52,31 @@ public class PaymentService : IPaymentService
             throw new InvalidOperationException("This subscription package is not active.");
         }
 
-        if (plan.MonthlyPrice <= 0)
+        if (plan.Price <= 0)
         {
             throw new InvalidOperationException("This package is free and does not require payment.");
         }
 
-        if (plan.MonthlyPrice != decimal.Truncate(plan.MonthlyPrice))
+        if (plan.Price != decimal.Truncate(plan.Price))
         {
             throw new InvalidOperationException("VNPay packages must use a whole VND amount.");
         }
 
         var now = DateTime.UtcNow;
-        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, now, cancellationToken);
-        if (current?.SubscriptionPlanId == planId)
+        var current = await _subscriptionRepository.GetOrCreateCurrentForStudentAsync(
+            studentUserId,
+            now,
+            cancellationToken);
+        if (current?.Plan is null)
         {
-            throw new InvalidOperationException("This is already your active subscription package.");
+            throw new InvalidOperationException(
+                "No default package is configured. Please contact the administrator.");
+        }
+
+        if (current.PriceAtActivation > 0)
+        {
+            throw new InvalidOperationException(
+                "Your current paid package must expire before you can purchase another package.");
         }
 
         var transaction = new PaymentTransaction
@@ -75,21 +85,29 @@ public class PaymentService : IPaymentService
             StudentUserId = studentUserId,
             SubscriptionPlanId = planId,
             Provider = _gateway.ProviderName,
-            Amount = plan.MonthlyPrice,
+            Amount = plan.Price,
             DurationDays = plan.DurationDays,
-            MessageQuota = plan.MessageQuota,
+            TokenQuota = plan.TokenQuota,
             Status = PaymentStatusNames.Pending,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
         transaction.ProviderTxnRef = transaction.Id.ToString("N");
-        await _paymentRepository.AddAsync(transaction, cancellationToken);
+        var pendingCreated = await _paymentRepository.TryAddPendingAsync(
+            transaction,
+            now.Subtract(_gateway.CheckoutLifetime),
+            cancellationToken);
+        if (!pendingCreated)
+        {
+            throw new InvalidOperationException(
+                "A VNPay checkout is already pending. Complete it or wait for it to expire before trying again.");
+        }
 
         var checkoutExpiresAtUtc = now.Add(_gateway.CheckoutLifetime);
 
         return _gateway.BuildCheckoutUrl(new PaymentCheckoutRequest(
             transaction.ProviderTxnRef,
-            decimal.ToInt64(plan.MonthlyPrice),
+            decimal.ToInt64(plan.Price),
             $"Thanh toan goi {plan.Code} {transaction.ProviderTxnRef}",
             ipAddress,
             returnUrl,
@@ -125,6 +143,11 @@ public class PaymentService : IPaymentService
         if (transaction.Status == PaymentStatusNames.Failed)
         {
             return new PaymentConfirmResult(false, "This payment was already marked as failed.", "02", "Order already confirmed");
+        }
+
+        if (transaction.Status == PaymentStatusNames.Expired)
+        {
+            return new PaymentConfirmResult(false, "This payment checkout has expired.", "02", "Order already confirmed");
         }
 
         var raw = SerializeCallback(callback);

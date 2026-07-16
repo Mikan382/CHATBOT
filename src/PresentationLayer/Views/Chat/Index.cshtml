@@ -49,13 +49,9 @@
                             {
                                 <text>No active package</text>
                             }
-                            else if (Model.Quota.Unlimited)
-                            {
-                                <text>Questions: unlimited</text>
-                            }
                             else
                             {
-                                <text>Questions left: @Model.Quota.Remaining / @Model.Quota.Quota</text>
+                                <text>Tokens left: @Model.Quota.Remaining.ToString("N0")</text>
                             }
                         </span>
                     }
@@ -71,7 +67,7 @@
                     <span id="chatQuotaAlertText">
                         @(!Model.Quota.HasActiveSubscription
                             ? "No active subscription package."
-                            : $"You have used all {Model.Quota.Quota} questions in the {Model.Quota.PlanName} package.")
+                            : $"You have used all {Model.Quota.Quota:N0} tokens in the {Model.Quota.PlanName} package.")
                     </span>
                     <a asp-controller="Subscriptions" asp-action="Index">View packages</a>.
                 </div>

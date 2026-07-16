@@ -4,7 +4,10 @@ namespace DataAccessLayer.Repositories;
 
 public interface IPaymentRepository
 {
-    Task AddAsync(PaymentTransaction transaction, CancellationToken cancellationToken);
+    Task<bool> TryAddPendingAsync(
+        PaymentTransaction transaction,
+        DateTime pendingSinceUtc,
+        CancellationToken cancellationToken);
     Task<PaymentTransaction?> GetByTxnRefAsync(string providerTxnRef, CancellationToken cancellationToken);
     Task<PaymentDashboardSummary> GetDashboardSummaryAsync(
         DateTime monthStartUtc,

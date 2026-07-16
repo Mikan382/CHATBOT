@@ -8,7 +8,7 @@
     <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
             <h2 class="mb-1">Subscription Dashboard</h2>
-            <div class="text-muted">VNPay revenue, active package value, and current package usage.</div>
+            <div class="text-muted">Prepaid package, VNPay payment, and Gemini token usage.</div>
         </div>
     </div>
 
@@ -39,18 +39,19 @@
         </div>
         <div class="card app-card stat-card">
             <div class="card-body">
-                <div class="text-muted small">Revenue this month</div>
-                <div class="stat-value stat-value-money">@Model.Dashboard.RevenueThisMonth.ToString("N0") <span>VND</span></div>
+                <div class="text-muted small">Gross revenue this month</div>
+                <div class="stat-value stat-value-money">
+                    @Model.Dashboard.GrossRevenueThisMonth.ToString("N0") <span>VND</span>
+                </div>
                 <div class="text-muted small">Successful VNPay payments</div>
             </div>
         </div>
         <div class="card app-card stat-card">
             <div class="card-body">
-                <div class="text-muted small">Active quota usage</div>
-                <div class="stat-value">@Model.Dashboard.UsedMessages.ToString("N0")</div>
+                <div class="text-muted small">Active token usage</div>
+                <div class="stat-value">@Model.Dashboard.TotalTokensUsed.ToString("N0")</div>
                 <div class="text-muted small">
-                    Accepted questions / @Model.Dashboard.FiniteMessageQuota.ToString("N0") finite quota
-                    @if (Model.Dashboard.UnlimitedSubscriptions > 0) { <span>/ @Model.Dashboard.UnlimitedSubscriptions unlimited</span> }
+                    of @Model.Dashboard.ActiveTokenQuota.ToString("N0") tokens
                 </div>
             </div>
         </div>
@@ -63,8 +64,8 @@
                     <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
                         <h5 class="card-title mb-0">Payment Summary</h5>
                         <div class="text-end">
-                            <div class="fw-bold">@Model.Dashboard.TotalRevenue.ToString("N0") VND</div>
-                            <div class="text-muted small">All successful VNPay payments</div>
+                            <div class="fw-bold">@Model.Dashboard.TotalGrossRevenue.ToString("N0") VND</div>
+                            <div class="text-muted small">Total gross revenue</div>
                         </div>
                     </div>
                     <dl class="subscription-summary-list mb-0">
@@ -72,9 +73,11 @@
                         <div><dt>Pending</dt><dd>@Model.Dashboard.PendingPayments</dd></div>
                         <div><dt>Failed this month</dt><dd>@Model.Dashboard.FailedPaymentsThisMonth</dd></div>
                         <div><dt>Active package value</dt><dd>@Model.Dashboard.ActivePackageValue.ToString("N0") VND</dd></div>
+                        <div><dt>Input tokens</dt><dd>@Model.Dashboard.InputTokensUsed.ToString("N0")</dd></div>
+                        <div><dt>Output tokens</dt><dd>@Model.Dashboard.OutputTokensUsed.ToString("N0")</dd></div>
                     </dl>
                     <div class="text-muted small mt-3">
-                        Active package value is operational data, not collected revenue. Revoking or cancelling access does not refund a successful payment.
+                        Revenue includes successful payments only. Refunds, recurring billing, and prorating are outside this demo scope.
                     </div>
                 </div>
             </div>
@@ -103,8 +106,18 @@
                                 @foreach (var stat in Model.Dashboard.PlanStats)
                                 {
                                     <tr>
-                                        <td>@stat.PlanCode - @stat.PlanName</td>
-                                        <td><span class="badge @(stat.IsActive ? "text-bg-success" : "text-bg-secondary")">@(stat.IsActive ? "Active" : "Inactive")</span></td>
+                                        <td>
+                                            @stat.PlanCode - @stat.PlanName
+                                            @if (stat.IsDefault)
+                                            {
+                                                <span class="badge text-bg-info ms-1">Default</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge @(stat.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                                                @(stat.IsActive ? "Active" : "Inactive")
+                                            </span>
+                                        </td>
                                         <td class="text-end">@stat.ActiveSubscriptions</td>
                                         <td class="text-end text-nowrap">@stat.ActivePackageValue.ToString("N0") VND</td>
                                     </tr>
@@ -173,7 +186,7 @@
                                 <th>Package</th>
                                 <th>Status</th>
                                 <th>Activated</th>
-                                <th class="text-end">Action</th>
+                                <th>Expires</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -193,15 +206,7 @@
                                         <td>@item.PlanName</td>
                                         <td><span class="badge subscription-status subscription-status-@item.Status.ToLowerInvariant()">@item.Status</span></td>
                                         <td class="small text-nowrap">@item.ActivatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
-                                        <td class="text-end">
-                                            @if (item.Status == "Active")
-                                            {
-                                                <form method="post" asp-controller="Subscriptions" asp-action="RevokeSubscription" asp-route-id="@item.Id" class="subscription-revoke-form">
-                                                    @Html.AntiForgeryToken()
-                                                    <button class="btn btn-sm btn-outline-danger" type="submit">Revoke</button>
-                                                </form>
-                                            }
-                                        </td>
+                                        <td class="small text-nowrap">@item.ExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm") UTC</td>
                                     </tr>
                                 }
                             }
@@ -220,22 +225,20 @@
                 @Html.AntiForgeryToken()
                 <input class="form-control form-control-sm" name="Code" value="@Model.CreatePlan.Code" placeholder="Code" maxlength="32" required />
                 <input class="form-control form-control-sm" name="Name" value="@Model.CreatePlan.Name" placeholder="Name" maxlength="160" required />
-                <input class="form-control form-control-sm" name="MonthlyPrice" value="@Model.CreatePlan.MonthlyPrice.ToString(CultureInfo.InvariantCulture)" type="number" min="0" step="1" placeholder="Price (VND)" required />
-                <input class="form-control form-control-sm" name="DurationDays" value="@Model.CreatePlan.DurationDays" type="number" min="0" max="3650" title="Access duration in days (0 = no expiry)" required />
-                <input class="form-control form-control-sm" name="MessageQuota" value="@Model.CreatePlan.MessageQuota" type="number" min="0" max="1000000" title="Accepted questions per activation (0 = unlimited)" placeholder="Question quota" required />
+                <input class="form-control form-control-sm" name="Price" value="@Model.CreatePlan.Price.ToString(CultureInfo.InvariantCulture)" type="number" min="0" step="1" placeholder="Price (VND)" required />
+                <input class="form-control form-control-sm" name="DurationDays" value="@Model.CreatePlan.DurationDays" type="number" min="1" max="3650" title="Access duration in days" required />
+                <input class="form-control form-control-sm" name="TokenQuota" value="@Model.CreatePlan.TokenQuota" type="number" min="1" max="10000000000" title="Gemini tokens available during this activation" placeholder="Token quota" required />
                 <input class="form-control form-control-sm" name="SortOrder" value="@Model.CreatePlan.SortOrder" type="number" min="0" max="10000" title="Display order" required />
                 <input class="form-control form-control-sm subscription-description-input" name="Description" value="@Model.CreatePlan.Description" placeholder="Description" maxlength="600" />
                 <label class="form-check small subscription-plan-active-field">
-                    @if (Model.CreatePlan.IsActive)
-                    {
-                        <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked />
-                    }
-                    else
-                    {
-                        <input class="form-check-input" type="checkbox" name="IsActive" value="true" />
-                    }
+                    <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked="@Model.CreatePlan.IsActive" />
                     <input type="hidden" name="IsActive" value="false" />
                     <span>Active</span>
+                </label>
+                <label class="form-check small subscription-plan-active-field">
+                    <input class="form-check-input" type="checkbox" name="IsDefault" value="true" checked="@Model.CreatePlan.IsDefault" />
+                    <input type="hidden" name="IsDefault" value="false" />
+                    <span>Default</span>
                 </label>
                 <button class="btn btn-sm btn-primary" type="submit">Create</button>
             </form>
@@ -245,11 +248,13 @@
     <div class="card app-card">
         <div class="card-body">
             <h5 class="card-title">Manage Packages</h5>
-            <div class="text-muted small mb-3">Price, duration, and quota changes apply to future activations only.</div>
+            <div class="text-muted small mb-3">
+                Changes apply to future activations. The default package must be active, free, and unique.
+            </div>
             <div class="subscription-plan-editor">
                 @if (Model.Dashboard.Plans.Count == 0)
                 {
-                    <div class="empty-state">Create a package to start managing subscriptions.</div>
+                    <div class="empty-state">Create an active free default package before creating Student accounts.</div>
                 }
                 else
                 {
@@ -258,10 +263,11 @@
                         <div>Name</div>
                         <div>Price</div>
                         <div>Days</div>
-                        <div>Quota</div>
+                        <div>Tokens</div>
                         <div>Order</div>
                         <div>Description</div>
                         <div>Active</div>
+                        <div>Default</div>
                         <div></div>
                     </div>
                     @foreach (var plan in Model.Dashboard.Plans)
@@ -270,32 +276,31 @@
                         var code = failed?.Code ?? plan.Code;
                         var name = failed?.Name ?? plan.Name;
                         var description = failed?.Description ?? plan.Description;
-                        var monthlyPrice = failed?.MonthlyPrice ?? plan.MonthlyPrice;
+                        var price = failed?.Price ?? plan.Price;
                         var durationDays = failed?.DurationDays ?? plan.DurationDays;
-                        var messageQuota = failed?.MessageQuota ?? plan.MessageQuota;
+                        var tokenQuota = failed?.TokenQuota ?? plan.TokenQuota;
                         var sortOrder = failed?.SortOrder ?? plan.SortOrder;
                         var isActive = failed?.IsActive ?? plan.IsActive;
+                        var isDefault = failed?.IsDefault ?? plan.IsDefault;
                         <form method="post" asp-controller="Subscriptions" asp-action="UpdatePlan" class="subscription-plan-edit-form subscription-plan-grid">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="Id" value="@plan.Id" />
                             <input class="form-control form-control-sm" name="Code" value="@code" maxlength="32" required />
                             <input class="form-control form-control-sm" name="Name" value="@name" maxlength="160" required />
-                            <input class="form-control form-control-sm" name="MonthlyPrice" type="number" min="0" step="1" value="@monthlyPrice.ToString(CultureInfo.InvariantCulture)" required />
-                            <input class="form-control form-control-sm" name="DurationDays" type="number" min="0" max="3650" value="@durationDays" title="Access duration in days (0 = no expiry)" required />
-                            <input class="form-control form-control-sm" name="MessageQuota" type="number" min="0" max="1000000" value="@messageQuota" title="Accepted questions per activation (0 = unlimited)" required />
+                            <input class="form-control form-control-sm" name="Price" type="number" min="0" step="1" value="@price.ToString(CultureInfo.InvariantCulture)" required />
+                            <input class="form-control form-control-sm" name="DurationDays" type="number" min="1" max="3650" value="@durationDays" title="Access duration in days" required />
+                            <input class="form-control form-control-sm" name="TokenQuota" type="number" min="1" max="10000000000" value="@tokenQuota" title="Gemini tokens per activation" required />
                             <input class="form-control form-control-sm" name="SortOrder" type="number" min="0" max="10000" value="@sortOrder" title="Display order" required />
                             <input class="form-control form-control-sm subscription-description-input" name="Description" value="@description" maxlength="600" />
                             <label class="form-check small subscription-plan-active-field">
-                                @if (isActive)
-                                {
-                                    <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked />
-                                }
-                                else
-                                {
-                                    <input class="form-check-input" type="checkbox" name="IsActive" value="true" />
-                                }
+                                <input class="form-check-input" type="checkbox" name="IsActive" value="true" checked="@isActive" />
                                 <input type="hidden" name="IsActive" value="false" />
                                 <span>Active</span>
+                            </label>
+                            <label class="form-check small subscription-plan-active-field">
+                                <input class="form-check-input" type="checkbox" name="IsDefault" value="true" checked="@isDefault" />
+                                <input type="hidden" name="IsDefault" value="false" />
+                                <span>Default</span>
                             </label>
                             <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
                         </form>
@@ -305,16 +310,3 @@
         </div>
     </div>
 </div>
-
-@section Scripts {
-    <script>
-        document.querySelectorAll(".subscription-revoke-form").forEach((form) => {
-            form.addEventListener("submit", (event) => {
-                const message = "Revoke this subscription? Access ends immediately and the VNPay payment is not refunded.";
-                if (!confirm(message)) {
-                    event.preventDefault();
-                }
-            });
-        });
-    </script>
-}

@@ -18,7 +18,6 @@ public class AppDbContext : DbContext
     public DbSet<DocumentChunkEmbedding> DocumentChunkEmbeddings => Set<DocumentChunkEmbedding>();
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
-    public DbSet<ChatMessageUsage> ChatMessageUsages => Set<ChatMessageUsage>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
     public DbSet<StudentSubscription> StudentSubscriptions => Set<StudentSubscription>();
@@ -116,12 +115,6 @@ public class AppDbContext : DbContext
             entity.Property(x => x.Role).HasConversion<string>().HasMaxLength(32);
         });
 
-        modelBuilder.Entity<ChatMessageUsage>(entity =>
-        {
-            entity.HasIndex(x => new { x.StudentUserId, x.PeriodKey }).IsUnique();
-            entity.Property(x => x.PeriodKey).HasMaxLength(64);
-        });
-
         modelBuilder.Entity<SystemSetting>(entity =>
         {
             entity.HasKey(x => x.Key);
@@ -132,10 +125,22 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SubscriptionPlan>(entity =>
         {
             entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.IsDefault)
+                .HasFilter("[IsDefault] = 1")
+                .IsUnique();
             entity.Property(x => x.Code).HasMaxLength(32);
             entity.Property(x => x.Name).HasMaxLength(160);
             entity.Property(x => x.Description).HasMaxLength(600);
-            entity.Property(x => x.MonthlyPrice).HasPrecision(18, 2);
+            entity.Property(x => x.Price).HasPrecision(18, 2);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_SubscriptionPlans_Price", "[Price] >= 0");
+                table.HasCheckConstraint("CK_SubscriptionPlans_DurationDays", "[DurationDays] > 0");
+                table.HasCheckConstraint("CK_SubscriptionPlans_TokenQuota", "[TokenQuota] > 0");
+                table.HasCheckConstraint(
+                    "CK_SubscriptionPlans_Default",
+                    "[IsDefault] = 0 OR ([IsActive] = 1 AND [Price] = 0)");
+            });
         });
 
         modelBuilder.Entity<StudentSubscription>(entity =>
@@ -146,6 +151,15 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => new { x.SubscriptionPlanId, x.Status });
             entity.Property(x => x.Status).HasMaxLength(32);
             entity.Property(x => x.PriceAtActivation).HasPrecision(18, 2);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_StudentSubscriptions_TokenQuotaAtActivation",
+                    "[TokenQuotaAtActivation] > 0");
+                table.HasCheckConstraint(
+                    "CK_StudentSubscriptions_TokenUsage",
+                    "[InputTokensUsed] >= 0 AND [OutputTokensUsed] >= 0 AND [TotalTokensUsed] >= 0");
+            });
             entity.HasOne(x => x.Student)
                 .WithMany()
                 .HasForeignKey(x => x.StudentUserId)

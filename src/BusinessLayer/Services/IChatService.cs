@@ -15,7 +15,13 @@ public interface IChatService
         string text,
         bool enforceQuota,
         CancellationToken cancellationToken);
-    Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken);
+    Task<ChatMessageDto> GenerateAssistantReplyAsync(
+        Guid sessionId,
+        Guid userId,
+        Guid courseId,
+        string text,
+        Guid? studentSubscriptionId,
+        CancellationToken cancellationToken);
     Task ClearAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<SessionListDto>> ListSessionsAsync(Guid userId, string? searchTerm, CancellationToken cancellationToken);
     Task<string?> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken);

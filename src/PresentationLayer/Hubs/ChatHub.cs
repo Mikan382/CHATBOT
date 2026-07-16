@@ -58,11 +58,8 @@ public class ChatHub : Hub
         try
         {
             var userId = CurrentUserId();
-            // Once the send is accepted, persist the user message, quota, and assistant reply
-            // independently of the connection. If the client navigates away or refreshes, the
-            // SignalR connection aborts; tying persistence to it would cancel generation mid-way
-            // and lose the reply (while quota was already spent). CancellationToken.None keeps
-            // the work running so the reply is saved and shows up after a reload.
+            // Once accepted, keep generation independent of the connection so a refresh does not
+            // lose the persisted reply. Token usage is recorded only after Gemini succeeds.
             var persistToken = CancellationToken.None;
             var accepted = await _chatService.AcceptUserMessageAsync(
                 parsedSessionId,
@@ -83,8 +80,14 @@ public class ChatHub : Hub
                 userId,
                 parsedCourseId,
                 text,
+                accepted.StudentSubscriptionId,
                 persistToken);
             await Clients.Group(SessionGroup(parsedSessionId)).SendAsync("MessageReceived", botMessage);
+            if (IsStudent())
+            {
+                var quota = await _chatService.GetQuotaStatusAsync(userId, persistToken);
+                await Clients.Caller.SendAsync("QuotaUpdated", quota);
+            }
         }
         catch (InvalidOperationException ex)
         {

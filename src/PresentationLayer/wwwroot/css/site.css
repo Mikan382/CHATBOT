@@ -1087,7 +1087,6 @@ h6 {
   color: #166534;
 }
 
-.subscription-status-cancelled,
 .subscription-status-expired,
 .subscription-status-replaced {
   border-color: #fecaca;
@@ -1173,7 +1172,17 @@ h6 {
 .subscription-plan-form,
 .subscription-plan-grid {
   display: grid;
-  grid-template-columns: minmax(90px, 0.65fr) minmax(140px, 1fr) minmax(110px, 0.75fr) minmax(76px, 0.5fr) minmax(76px, 0.5fr) minmax(76px, 0.5fr) minmax(280px, 1.8fr) 92px 96px;
+  grid-template-columns:
+    minmax(90px, 0.65fr)
+    minmax(140px, 1fr)
+    minmax(110px, 0.75fr)
+    minmax(76px, 0.5fr)
+    minmax(110px, 0.7fr)
+    minmax(70px, 0.45fr)
+    minmax(240px, 1.6fr)
+    82px
+    82px
+    90px;
   gap: 8px;
   align-items: center;
 }

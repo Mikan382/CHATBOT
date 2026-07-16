@@ -23,71 +23,17 @@ public class SubscriptionService : ISubscriptionService
         _paymentGateway = paymentGateway;
     }
 
-    public async Task ActivateFreePlanAsync(
-        Guid studentUserId,
-        Guid planId,
-        CancellationToken cancellationToken)
-    {
-        var plan = await _subscriptionRepository.GetPlanAsync(planId, cancellationToken)
-            ?? throw new InvalidOperationException("Subscription package was not found.");
-        if (!plan.IsActive || plan.MonthlyPrice != 0)
-        {
-            throw new InvalidOperationException("Only an active free package can be activated without payment.");
-        }
-
-        var now = DateTime.UtcNow;
-        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, now, cancellationToken);
-        if (current is not null)
-        {
-            throw new InvalidOperationException("Your current package must expire or be revoked before activating a free package.");
-        }
-
-        await _subscriptionRepository.ActivateFreePlanAsync(new StudentSubscription
-        {
-            Id = Guid.NewGuid(),
-            StudentUserId = studentUserId,
-            SubscriptionPlanId = plan.Id,
-            Status = SubscriptionStatusNames.Active,
-            PriceAtActivation = 0,
-            MessageQuotaAtActivation = plan.MessageQuota,
-            StartedAtUtc = now,
-            ExpiresAtUtc = plan.DurationDays > 0 ? now.AddDays(plan.DurationDays) : null,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
-        }, now, cancellationToken);
-    }
-
     public async Task<StudentSubscriptionPageDto> GetStudentPageAsync(Guid studentUserId, CancellationToken cancellationToken)
     {
         var plans = await _subscriptionRepository.ListPlansAsync(includeInactive: false, cancellationToken);
-        var current = await _subscriptionRepository.GetCurrentForStudentAsync(studentUserId, DateTime.UtcNow, cancellationToken);
+        var current = await _subscriptionRepository.GetOrCreateCurrentForStudentAsync(
+            studentUserId,
+            DateTime.UtcNow,
+            cancellationToken);
         return new StudentSubscriptionPageDto(
             ToStudentSubscriptionDto(current),
             plans.Select(ToPlanDto).ToList(),
             _paymentGateway.IsConfigured);
-    }
-
-    public async Task RevokeSubscriptionAsync(Guid subscriptionId, CancellationToken cancellationToken)
-    {
-        var subscription = await _subscriptionRepository.GetForDecisionAsync(subscriptionId, cancellationToken)
-            ?? throw new InvalidOperationException("Subscription was not found.");
-
-        if (subscription.Status != SubscriptionStatusNames.Active)
-        {
-            throw new InvalidOperationException("Only an active subscription can be revoked.");
-        }
-
-        if (subscription.ExpiresAtUtc.HasValue && subscription.ExpiresAtUtc <= DateTime.UtcNow)
-        {
-            subscription.Status = SubscriptionStatusNames.Expired;
-            subscription.UpdatedAtUtc = DateTime.UtcNow;
-            await _subscriptionRepository.SaveChangesAsync(cancellationToken);
-            throw new InvalidOperationException("This subscription has already expired.");
-        }
-
-        subscription.Status = SubscriptionStatusNames.Cancelled;
-        subscription.UpdatedAtUtc = DateTime.UtcNow;
-        await _subscriptionRepository.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<SubscriptionDashboardDto> GetDashboardAsync(CancellationToken cancellationToken)
@@ -98,7 +44,7 @@ public class SubscriptionService : ISubscriptionService
         var plans = await _subscriptionRepository.ListPlansAsync(includeInactive: true, cancellationToken);
         var counts = await _subscriptionRepository.CountActiveByPlanAsync(now, cancellationToken);
         var payments = await _paymentRepository.GetDashboardSummaryAsync(monthStart, pendingSince, cancellationToken);
-        var chatUsage = await _subscriptionRepository.GetActiveChatUsageAsync(now, cancellationToken);
+        var tokenUsage = await _subscriptionRepository.GetActiveTokenUsageAsync(now, cancellationToken);
         var statsByPlan = counts.ToDictionary(x => x.PlanId);
         var recent = await _subscriptionRepository.ListRecentSubscriptionsAsync(12, cancellationToken);
         var planStats = plans.Select(plan =>
@@ -109,6 +55,7 @@ public class SubscriptionService : ISubscriptionService
                 plan.Name,
                 plan.Code,
                 plan.IsActive,
+                plan.IsDefault,
                 stats?.Count ?? 0,
                 stats?.ActiveValue ?? 0m);
         }).ToList();
@@ -123,9 +70,10 @@ public class SubscriptionService : ISubscriptionService
             payments.RevenueThisMonth,
             payments.TotalRevenue,
             planStats.Sum(x => x.ActivePackageValue),
-            chatUsage.UsedMessages,
-            chatUsage.FiniteQuota,
-            chatUsage.UnlimitedSubscriptions,
+            tokenUsage.InputTokens,
+            tokenUsage.OutputTokens,
+            tokenUsage.TotalTokens,
+            tokenUsage.TokenQuota,
             planStats,
             recent.Select(x => ToRecentDto(x, now)).ToList(),
             (await _paymentRepository.ListRecentAsync(12, cancellationToken))
@@ -138,16 +86,17 @@ public class SubscriptionService : ISubscriptionService
         string code,
         string name,
         string? description,
-        decimal monthlyPrice,
+        decimal price,
         int durationDays,
-        int messageQuota,
+        long tokenQuota,
         int sortOrder,
         bool isActive,
+        bool isDefault,
         CancellationToken cancellationToken)
     {
         code = NormalizeCode(code);
         name = StringHelper.NormalizeRequired(name, "Package name");
-        ValidatePlan(monthlyPrice, durationDays, messageQuota);
+        ValidatePlan(price, durationDays, tokenQuota, isActive, isDefault);
 
         if (await _subscriptionRepository.PlanCodeExistsAsync(code, null, cancellationToken))
         {
@@ -161,11 +110,12 @@ public class SubscriptionService : ISubscriptionService
             Code = code,
             Name = name,
             Description = description?.Trim() ?? "",
-            MonthlyPrice = monthlyPrice,
+            Price = price,
             DurationDays = durationDays,
-            MessageQuota = messageQuota,
+            TokenQuota = tokenQuota,
             SortOrder = sortOrder,
             IsActive = isActive,
+            IsDefault = isDefault,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         }, cancellationToken);
@@ -176,11 +126,12 @@ public class SubscriptionService : ISubscriptionService
         string code,
         string name,
         string? description,
-        decimal monthlyPrice,
+        decimal price,
         int durationDays,
-        int messageQuota,
+        long tokenQuota,
         int sortOrder,
         bool isActive,
+        bool isDefault,
         CancellationToken cancellationToken)
     {
         var plan = await _subscriptionRepository.GetPlanAsync(id, cancellationToken)
@@ -188,7 +139,13 @@ public class SubscriptionService : ISubscriptionService
 
         code = NormalizeCode(code);
         name = StringHelper.NormalizeRequired(name, "Package name");
-        ValidatePlan(monthlyPrice, durationDays, messageQuota);
+        if (plan.IsDefault && !isDefault)
+        {
+            throw new InvalidOperationException(
+                "Select another active free package as default instead of clearing the current default.");
+        }
+
+        ValidatePlan(price, durationDays, tokenQuota, isActive, isDefault);
 
         if (await _subscriptionRepository.PlanCodeExistsAsync(code, id, cancellationToken))
         {
@@ -198,35 +155,47 @@ public class SubscriptionService : ISubscriptionService
         plan.Code = code;
         plan.Name = name;
         plan.Description = description?.Trim() ?? "";
-        plan.MonthlyPrice = monthlyPrice;
+        plan.Price = price;
         plan.DurationDays = durationDays;
-        plan.MessageQuota = messageQuota;
+        plan.TokenQuota = tokenQuota;
         plan.SortOrder = sortOrder;
         plan.IsActive = isActive;
+        plan.IsDefault = isDefault;
         plan.UpdatedAtUtc = DateTime.UtcNow;
-        await _subscriptionRepository.SaveChangesAsync(cancellationToken);
+        await _subscriptionRepository.SavePlanAsync(plan, cancellationToken);
     }
 
-    private static void ValidatePlan(decimal monthlyPrice, int durationDays, int messageQuota)
+    private static void ValidatePlan(
+        decimal price,
+        int durationDays,
+        long tokenQuota,
+        bool isActive,
+        bool isDefault)
     {
-        if (monthlyPrice < 0)
+        if (price < 0)
         {
-            throw new InvalidOperationException("Monthly price cannot be negative.");
+            throw new InvalidOperationException("Package price cannot be negative.");
         }
 
-        if (monthlyPrice != decimal.Truncate(monthlyPrice))
+        if (price != decimal.Truncate(price))
         {
             throw new InvalidOperationException("Package price must be a whole VND amount.");
         }
 
-        if (durationDays < 0)
+        if (durationDays <= 0)
         {
-            throw new InvalidOperationException("Duration days cannot be negative.");
+            throw new InvalidOperationException("Duration days must be greater than zero.");
         }
 
-        if (messageQuota < 0)
+        if (tokenQuota <= 0)
         {
-            throw new InvalidOperationException("Message quota cannot be negative.");
+            throw new InvalidOperationException("Token quota must be greater than zero.");
+        }
+
+        if (isDefault && (!isActive || price != 0))
+        {
+            throw new InvalidOperationException(
+                "The default package must be active and have a price of 0 VND.");
         }
     }
 
@@ -242,11 +211,12 @@ public class SubscriptionService : ISubscriptionService
             plan.Code,
             plan.Name,
             plan.Description,
-            plan.MonthlyPrice,
+            plan.Price,
             plan.DurationDays,
-            plan.MessageQuota,
+            plan.TokenQuota,
             plan.SortOrder,
-            plan.IsActive);
+            plan.IsActive,
+            plan.IsDefault);
     }
 
     private static StudentSubscriptionDto? ToStudentSubscriptionDto(StudentSubscription? subscription)
@@ -262,7 +232,12 @@ public class SubscriptionService : ISubscriptionService
             subscription.Plan.Name,
             subscription.Plan.Code,
             subscription.Status,
-            subscription.MessageQuotaAtActivation,
+            subscription.PriceAtActivation == 0,
+            subscription.PriceAtActivation,
+            subscription.TokenQuotaAtActivation,
+            subscription.InputTokensUsed,
+            subscription.OutputTokensUsed,
+            subscription.TotalTokensUsed,
             subscription.StartedAtUtc,
             subscription.ExpiresAtUtc);
     }

@@ -484,16 +484,18 @@
     if (quotaStatus) {
       quotaStatus.classList.toggle("assistant-status-warning", quota.exhausted);
       quotaStatus.classList.toggle("assistant-status-ready", !quota.exhausted);
-      quotaStatus.textContent = quota.unlimited
-        ? "Questions: unlimited"
-        : `Questions left: ${quota.remaining} / ${quota.quota}`;
+      quotaStatus.textContent = `Tokens left: ${Number(quota.remaining).toLocaleString()}`;
     }
 
     if (quotaAlert) {
       quotaAlert.classList.toggle("d-none", !quota.exhausted);
     }
     if (quotaAlertText && quota.exhausted) {
-      quotaAlertText.textContent = `You have used all ${quota.quota} questions in the ${quota.planName} package.`;
+      const resetText = quota.expiresAtUtc
+        ? ` Access resets after ${parseUtc(quota.expiresAtUtc).toLocaleString()}.`
+        : "";
+      quotaAlertText.textContent =
+        `You have used all ${Number(quota.quota).toLocaleString()} tokens in the ${quota.planName} package.${resetText}`;
     }
   });
 

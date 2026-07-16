@@ -5,28 +5,28 @@ namespace BusinessLayer.Services;
 public interface ISubscriptionService
 {
     Task<StudentSubscriptionPageDto> GetStudentPageAsync(Guid studentUserId, CancellationToken cancellationToken);
-    Task ActivateFreePlanAsync(Guid studentUserId, Guid planId, CancellationToken cancellationToken);
-    Task RevokeSubscriptionAsync(Guid subscriptionId, CancellationToken cancellationToken);
     Task<SubscriptionDashboardDto> GetDashboardAsync(CancellationToken cancellationToken);
     Task CreatePlanAsync(
         string code,
         string name,
         string? description,
-        decimal monthlyPrice,
+        decimal price,
         int durationDays,
-        int messageQuota,
+        long tokenQuota,
         int sortOrder,
         bool isActive,
+        bool isDefault,
         CancellationToken cancellationToken);
     Task UpdatePlanAsync(
         Guid id,
         string code,
         string name,
         string? description,
-        decimal monthlyPrice,
+        decimal price,
         int durationDays,
-        int messageQuota,
+        long tokenQuota,
         int sortOrder,
         bool isActive,
+        bool isDefault,
         CancellationToken cancellationToken);
 }

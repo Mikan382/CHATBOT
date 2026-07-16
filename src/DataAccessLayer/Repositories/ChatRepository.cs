@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Data.SqlClient;
 using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
@@ -90,17 +89,56 @@ public class ChatRepository : IChatRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task AddAssistantMessageAndTouchSessionAsync(ChatMessage message, Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    public async Task AddAssistantMessageAndTouchSessionAsync(
+        ChatMessage message,
+        Guid sessionId,
+        Guid userId,
+        ChatTokenUsageUpdate? tokenUsage,
+        CancellationToken cancellationToken)
     {
-        _db.ChatMessages.Add(message);
+        if (tokenUsage is null)
+        {
+            _db.ChatMessages.Add(message);
+            var currentSession = await _db.ChatSessions
+                .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+            if (currentSession is not null)
+            {
+                currentSession.UpdatedAtUtc = DateTime.UtcNow;
+            }
 
-        var session = await _db.ChatSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (tokenUsage.InputTokens < 0 || tokenUsage.OutputTokens < 0 || tokenUsage.TotalTokens <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tokenUsage), "Token usage must contain non-negative counts and a positive total.");
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var updatedSubscription = await _db.StudentSubscriptions
+            .Where(x => x.Id == tokenUsage.StudentSubscriptionId && x.StudentUserId == userId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.InputTokensUsed, x => x.InputTokensUsed + tokenUsage.InputTokens)
+                .SetProperty(x => x.OutputTokensUsed, x => x.OutputTokensUsed + tokenUsage.OutputTokens)
+                .SetProperty(x => x.TotalTokensUsed, x => x.TotalTokensUsed + tokenUsage.TotalTokens)
+                .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
+        if (updatedSubscription == 0)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException("The subscription used for this chat request was not found.");
+        }
+
+        _db.ChatMessages.Add(message);
+        var session = await _db.ChatSessions
+            .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
         if (session is not null)
         {
             session.UpdatedAtUtc = DateTime.UtcNow;
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
@@ -179,79 +217,6 @@ public class ChatRepository : IChatRepository
         _db.ChatSessions.Remove(session);
         await _db.SaveChangesAsync(cancellationToken);
         return true;
-    }
-
-    public async Task<int> GetUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken)
-    {
-        return await _db.ChatMessageUsages
-            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
-            .Select(x => x.Count)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-
-    public async Task<bool> TryConsumeUsageAsync(
-        Guid studentUserId,
-        string periodKey,
-        int quota,
-        CancellationToken cancellationToken)
-    {
-        if (quota < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(quota));
-        }
-
-        var usageQuery = _db.ChatMessageUsages
-            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey);
-        if (quota > 0)
-        {
-            usageQuery = usageQuery.Where(x => x.Count < quota);
-        }
-
-        var updated = await usageQuery
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
-                .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
-        if (updated > 0)
-        {
-            return true;
-        }
-
-        if (await _db.ChatMessageUsages.AnyAsync(
-                x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey,
-                cancellationToken))
-        {
-            return false;
-        }
-
-        var usage = new ChatMessageUsage
-        {
-            Id = Guid.NewGuid(),
-            StudentUserId = studentUserId,
-            PeriodKey = periodKey,
-            Count = 1,
-            UpdatedAtUtc = DateTime.UtcNow
-        };
-
-        try
-        {
-            _db.ChatMessageUsages.Add(usage);
-            await _db.SaveChangesAsync(cancellationToken);
-            return true;
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
-        {
-            _db.Entry(usage).State = EntityState.Detached;
-            usageQuery = _db.ChatMessageUsages
-                .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey);
-            if (quota > 0)
-            {
-                usageQuery = usageQuery.Where(x => x.Count < quota);
-            }
-
-            updated = await usageQuery
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
-                    .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
-            return updated > 0;
-        }
     }
 
     private static string TruncateSessionTitle(string text)

@@ -38,42 +38,6 @@ public class SubscriptionsController : BaseController
         });
     }
 
-    [Authorize(Roles = "Student")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ActivateFree(Guid planId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.ActivateFreePlanAsync(CurrentUserId(), planId, cancellationToken);
-            SetFlashSuccess("Free package was activated.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Index");
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RevokeSubscription(Guid id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.RevokeSubscriptionAsync(id, cancellationToken);
-            SetFlashSuccess("Subscription was revoked.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Dashboard");
-    }
-
     [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
@@ -100,11 +64,12 @@ public class SubscriptionsController : BaseController
                 input.Code,
                 input.Name,
                 input.Description,
-                input.MonthlyPrice,
+                input.Price,
                 input.DurationDays,
-                input.MessageQuota,
+                input.TokenQuota,
                 input.SortOrder,
                 input.IsActive,
+                input.IsDefault,
                 cancellationToken);
             SetFlashSuccess("Subscription package was created.");
         }
@@ -139,11 +104,12 @@ public class SubscriptionsController : BaseController
                 input.Code,
                 input.Name,
                 input.Description,
-                input.MonthlyPrice,
+                input.Price,
                 input.DurationDays,
-                input.MessageQuota,
+                input.TokenQuota,
                 input.SortOrder,
                 input.IsActive,
+                input.IsDefault,
                 cancellationToken);
             SetFlashSuccess("Subscription package was updated.");
         }

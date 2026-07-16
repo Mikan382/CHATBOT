@@ -19,18 +19,19 @@ public record ChatHistoryMessage(string Role, string Content);
 
 public record ChatQuotaStatusDto(
     string PlanName,
-    int Quota,
-    int Used,
-    bool Unlimited,
+    long Quota,
+    long Used,
+    DateTime? ExpiresAtUtc,
     bool HasActiveSubscription)
 {
-    public bool Exhausted => !HasActiveSubscription || (!Unlimited && Used >= Quota);
-    public int Remaining => Unlimited ? 0 : Math.Max(0, Quota - Used);
+    public bool Exhausted => !HasActiveSubscription || Used >= Quota;
+    public long Remaining => Math.Max(0, Quota - Used);
 }
 
 public record AcceptedChatMessageDto(
     ChatMessageDto Message,
-    ChatQuotaStatusDto? Quota);
+    ChatQuotaStatusDto? Quota,
+    Guid? StudentSubscriptionId);
 
 public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Summary);
 
@@ -113,11 +114,12 @@ public record SubscriptionPlanDto(
     string Code,
     string Name,
     string Description,
-    decimal MonthlyPrice,
+    decimal Price,
     int DurationDays,
-    int MessageQuota,
+    long TokenQuota,
     int SortOrder,
-    bool IsActive);
+    bool IsActive,
+    bool IsDefault);
 
 public record StudentSubscriptionDto(
     Guid Id,
@@ -125,7 +127,12 @@ public record StudentSubscriptionDto(
     string PlanName,
     string PlanCode,
     string Status,
-    int MessageQuota,
+    bool IsFreePackage,
+    decimal PriceAtActivation,
+    long TokenQuota,
+    long InputTokensUsed,
+    long OutputTokensUsed,
+    long TotalTokensUsed,
     DateTime StartedAtUtc,
     DateTime? ExpiresAtUtc);
 
@@ -139,6 +146,7 @@ public record SubscriptionPlanStatsDto(
     string PlanName,
     string PlanCode,
     bool IsActive,
+    bool IsDefault,
     int ActiveSubscriptions,
     decimal ActivePackageValue);
 
@@ -167,12 +175,13 @@ public record SubscriptionDashboardDto(
     int PaidPaymentsThisMonth,
     int FailedPaymentsThisMonth,
     int PendingPayments,
-    decimal RevenueThisMonth,
-    decimal TotalRevenue,
+    decimal GrossRevenueThisMonth,
+    decimal TotalGrossRevenue,
     decimal ActivePackageValue,
-    int UsedMessages,
-    int FiniteMessageQuota,
-    int UnlimitedSubscriptions,
+    long InputTokensUsed,
+    long OutputTokensUsed,
+    long TotalTokensUsed,
+    long ActiveTokenQuota,
     IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
     IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
     IReadOnlyList<RecentPaymentDto> RecentPayments,

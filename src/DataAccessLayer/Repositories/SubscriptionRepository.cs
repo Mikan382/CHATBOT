@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using DataAccessLayer.Data;
@@ -25,7 +26,7 @@ public class SubscriptionRepository : ISubscriptionRepository
 
         return await query
             .OrderBy(x => x.SortOrder)
-            .ThenBy(x => x.MonthlyPrice)
+            .ThenBy(x => x.Price)
             .ThenBy(x => x.Name)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
@@ -34,6 +35,15 @@ public class SubscriptionRepository : ISubscriptionRepository
     public async Task<SubscriptionPlan?> GetPlanAsync(Guid id, CancellationToken cancellationToken)
     {
         return await _db.SubscriptionPlans.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<SubscriptionPlan?> GetDefaultPlanAsync(CancellationToken cancellationToken)
+    {
+        return await _db.SubscriptionPlans
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                x => x.IsDefault && x.IsActive && x.Price == 0,
+                cancellationToken);
     }
 
     public async Task<bool> PlanCodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken)
@@ -46,8 +56,36 @@ public class SubscriptionRepository : ISubscriptionRepository
 
     public async Task AddPlanAsync(SubscriptionPlan plan, CancellationToken cancellationToken)
     {
+        if (!plan.IsDefault)
+        {
+            _db.SubscriptionPlans.Add(plan);
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+        await ClearOtherDefaultsAsync(plan.Id, cancellationToken);
         _db.SubscriptionPlans.Add(plan);
         await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task SavePlanAsync(SubscriptionPlan plan, CancellationToken cancellationToken)
+    {
+        if (!plan.IsDefault)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+        await ClearOtherDefaultsAsync(plan.Id, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<StudentSubscription?> GetCurrentForStudentAsync(
@@ -61,22 +99,36 @@ public class SubscriptionRepository : ISubscriptionRepository
                 && x.Status == SubscriptionStatusNames.Active
                 && (!x.ExpiresAtUtc.HasValue || x.ExpiresAtUtc > nowUtc))
             .OrderByDescending(x => x.StartedAtUtc)
+            .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task ActivateFreePlanAsync(
-        StudentSubscription subscription,
+    public async Task<StudentSubscription?> GetOrCreateCurrentForStudentAsync(
+        Guid studentUserId,
         DateTime nowUtc,
         CancellationToken cancellationToken)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-        var activeRows = await _db.StudentSubscriptions
-            .Where(x => x.StudentUserId == subscription.StudentUserId
-                && x.Status == SubscriptionStatusNames.Active)
-            .ToListAsync(cancellationToken);
-        if (activeRows.Any(x => !x.ExpiresAtUtc.HasValue || x.ExpiresAtUtc > nowUtc))
+        var current = await GetCurrentForStudentAsync(studentUserId, nowUtc, cancellationToken);
+        if (current is not null)
         {
-            throw new InvalidOperationException("An active subscription already exists.");
+            return current;
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+        var activeRows = await _db.StudentSubscriptions
+            .Include(x => x.Plan)
+            .Where(x => x.StudentUserId == studentUserId
+                && x.Status == SubscriptionStatusNames.Active)
+            .OrderByDescending(x => x.StartedAtUtc)
+            .ToListAsync(cancellationToken);
+        current = activeRows.FirstOrDefault(
+            x => !x.ExpiresAtUtc.HasValue || x.ExpiresAtUtc > nowUtc);
+        if (current is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return current;
         }
 
         foreach (var expired in activeRows)
@@ -85,27 +137,45 @@ public class SubscriptionRepository : ISubscriptionRepository
             expired.UpdatedAtUtc = nowUtc;
         }
 
+        var defaultPlan = await _db.SubscriptionPlans
+            .FirstOrDefaultAsync(
+                x => x.IsDefault && x.IsActive && x.Price == 0,
+                cancellationToken);
+        if (defaultPlan is null)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return null;
+        }
+
+        var subscription = new StudentSubscription
+        {
+            Id = Guid.NewGuid(),
+            StudentUserId = studentUserId,
+            SubscriptionPlanId = defaultPlan.Id,
+            Plan = defaultPlan,
+            Status = SubscriptionStatusNames.Active,
+            PriceAtActivation = defaultPlan.Price,
+            TokenQuotaAtActivation = defaultPlan.TokenQuota,
+            StartedAtUtc = nowUtc,
+            ExpiresAtUtc = nowUtc.AddDays(defaultPlan.DurationDays),
+            CreatedAtUtc = nowUtc,
+            UpdatedAtUtc = nowUtc
+        };
+
         _db.StudentSubscriptions.Add(subscription);
         try
         {
             await _db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            return subscription;
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
             await transaction.RollbackAsync(cancellationToken);
-            throw new InvalidOperationException("An active subscription already exists.", ex);
+            _db.ChangeTracker.Clear();
+            return await GetCurrentForStudentAsync(studentUserId, nowUtc, cancellationToken);
         }
-    }
-
-    public async Task<StudentSubscription?> GetForDecisionAsync(
-        Guid subscriptionId,
-        CancellationToken cancellationToken)
-    {
-        return await _db.StudentSubscriptions
-            .Include(x => x.Student)
-            .Include(x => x.Plan)
-            .FirstOrDefaultAsync(x => x.Id == subscriptionId, cancellationToken);
     }
 
     public async Task<int> CountStudentsAsync(CancellationToken cancellationToken)
@@ -131,27 +201,19 @@ public class SubscriptionRepository : ISubscriptionRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<ActiveChatUsageSummary> GetActiveChatUsageAsync(
+    public async Task<ActiveTokenUsageSummary> GetActiveTokenUsageAsync(
         DateTime nowUtc,
         CancellationToken cancellationToken)
     {
-        var active = await ActiveSubscriptions(nowUtc)
-            .Select(x => new { x.Id, x.MessageQuotaAtActivation })
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
-        if (active.Count == 0)
-        {
-            return new ActiveChatUsageSummary(0, 0, 0);
-        }
-
-        var periodKeys = active.Select(x => $"SUB-{x.Id:N}").ToList();
-        var used = await _db.ChatMessageUsages
-            .Where(x => periodKeys.Contains(x.PeriodKey))
-            .SumAsync(x => (int?)x.Count, cancellationToken) ?? 0;
-        return new ActiveChatUsageSummary(
-            used,
-            active.Where(x => x.MessageQuotaAtActivation > 0).Sum(x => x.MessageQuotaAtActivation),
-            active.Count(x => x.MessageQuotaAtActivation == 0));
+        return await ActiveSubscriptions(nowUtc)
+            .GroupBy(_ => 1)
+            .Select(group => new ActiveTokenUsageSummary(
+                group.Sum(x => x.InputTokensUsed),
+                group.Sum(x => x.OutputTokensUsed),
+                group.Sum(x => x.TotalTokensUsed),
+                group.Sum(x => x.TokenQuotaAtActivation)))
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? new ActiveTokenUsageSummary(0, 0, 0, 0);
     }
 
     public async Task<IReadOnlyList<StudentSubscription>> ListRecentSubscriptionsAsync(int take, CancellationToken cancellationToken)
@@ -165,9 +227,14 @@ public class SubscriptionRepository : ISubscriptionRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    private async Task ClearOtherDefaultsAsync(Guid planId, CancellationToken cancellationToken)
     {
-        await _db.SaveChangesAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+        await _db.SubscriptionPlans
+            .Where(x => x.Id != planId && x.IsDefault)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.IsDefault, false)
+                .SetProperty(x => x.UpdatedAtUtc, now), cancellationToken);
     }
 
     private IQueryable<StudentSubscription> ActiveSubscriptions(DateTime nowUtc)

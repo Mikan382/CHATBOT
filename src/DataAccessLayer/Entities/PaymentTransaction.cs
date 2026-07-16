@@ -15,9 +15,9 @@ public class PaymentTransaction
     public string ProviderTxnRef { get; set; } = "";
     public decimal Amount { get; set; }
     public int DurationDays { get; set; }
-    public int MessageQuota { get; set; }
+    public long TokenQuota { get; set; }
 
-    // Pending / Paid / Failed; stale Pending rows are displayed as Expired.
+    // Pending / Paid / Failed / Expired.
     public string Status { get; set; } = "";
 
     // Gateway-side transaction id (vnp_TransactionNo) and result code (vnp_ResponseCode).

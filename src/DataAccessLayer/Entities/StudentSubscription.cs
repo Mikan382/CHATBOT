@@ -7,7 +7,10 @@ public class StudentSubscription
     public Guid SubscriptionPlanId { get; set; }
     public string Status { get; set; } = "";
     public decimal PriceAtActivation { get; set; }
-    public int MessageQuotaAtActivation { get; set; }
+    public long TokenQuotaAtActivation { get; set; }
+    public long InputTokensUsed { get; set; }
+    public long OutputTokensUsed { get; set; }
+    public long TotalTokensUsed { get; set; }
     public DateTime StartedAtUtc { get; set; }
     public DateTime? ExpiresAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
