@@ -35,7 +35,7 @@ public class UserAdminService : IUserAdminService
         return users.Select(u => new UserListDto(u.Id, u.Email, u.DisplayName, u.Role, u.IsLockedOut)).ToList();
     }
 
-    public async Task CreateAsync(
+    public async Task<Guid> CreateAsync(
         string email,
         string fullName,
         string role,
@@ -71,6 +71,7 @@ public class UserAdminService : IUserAdminService
             ? await CreateDefaultSubscriptionAsync(user.Id, now, cancellationToken)
             : null;
         await _userRepository.AddAsync(user, defaultSubscription, cancellationToken);
+        return user.Id;
     }
 
     public async Task<bool> UpdateAsync(
