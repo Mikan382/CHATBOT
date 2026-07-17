@@ -140,6 +140,15 @@ button, input, select, textarea { font: inherit; }
 .type-code { margin: 24px 0 0; padding: 14px 16px; border-radius: var(--radius-sm); background: var(--color-ink); color: #f5f7ff; font: 500 0.84rem "JetBrains Mono", monospace; overflow: auto; }
 .rhythm-row { min-height: 150px; padding: 20px; border: 1px solid var(--color-border); background: var(--color-surface); display: flex; align-items: flex-end; gap: 24px; }
 .rhythm-row span { width: max(28px, var(--size)); height: max(28px, var(--size)); border-radius: 5px; background: var(--color-primary-soft); color: var(--color-primary); display: grid; place-items: center; font-size: 0.7rem; font-weight: 700; }
+.workshop-route-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.workshop-route-grid a { min-height: 210px; padding: 22px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-ink); display: flex; flex-direction: column; text-decoration: none; transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
+.workshop-route-grid a:hover { border-color: var(--color-primary); transform: translateY(-3px); box-shadow: var(--shadow-raised); }
+.workshop-route-grid span { color: var(--color-primary); font: 500 0.72rem "JetBrains Mono", monospace; }
+.workshop-route-grid strong { margin-top: auto; font: 700 1.65rem "Source Serif 4", Georgia, serif; }
+.workshop-route-grid small { margin-top: 8px; color: var(--color-muted); line-height: 1.45; }
+.workshop-rule { margin-top: 64px; padding: 36px; border-radius: var(--radius-lg); background: var(--color-ink); color: #fff; }
+.workshop-rule h2 { max-width: 18ch; margin: 8px 0 28px; font: 700 clamp(2rem, 5vw, 4rem)/1 "Source Serif 4", Georgia, serif; }
+.workshop-rule ol { max-width: 64ch; margin: 0; padding-left: 20px; color: #cbd2e3; line-height: 1.8; }
 
 @media (max-width: 620px) {
     .lab-placeholder { margin-top: 10vh; }
@@ -148,4 +157,5 @@ button, input, select, textarea { font: inherit; }
     .swatch-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .section-heading { grid-template-columns: 1fr; gap: 8px; }
     .rhythm-row { gap: 10px; overflow-x: auto; }
+    .workshop-route-grid { grid-template-columns: 1fr; }
 }
