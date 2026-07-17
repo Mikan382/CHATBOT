@@ -20,7 +20,8 @@
 - Done: added authenticated UI-lab API projections, role-aware page bindings, live SignalR chat, explicit 401/403/offline states, and the narrow account proxy needed by the existing Razor login form.
 - Done: verified the real PresentationLayer against LocalDB. Current database snapshot has 3 users, 1 course, and 0 documents/chat sessions/benchmark runs.
 - Done: solution build, UI-lab build, JavaScript syntax, adapter contract, and diff checks pass with zero build warnings/errors.
-- Next step: publish the verified feature branch for review and merge.
+- Done: implementation commit `5dffd0d` pushed and PR #18 opened against `main`.
+- Next step: merge PR #18 and verify the remote main commit.
 - Blocked on: none
 
 ## Open questions
