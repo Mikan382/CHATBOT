@@ -324,8 +324,15 @@ button, input, select, textarea { font: inherit; }
 @keyframes pulse { 50% { opacity: .25; transform: translateY(-2px); } }
 .message-error { padding: 14px; border: 1px solid #f2b8b2; border-radius: var(--radius-sm); background: #fff0ef; color: var(--color-danger); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; }
 .message-error span { font-size: 0.76rem; }.message-error button { grid-column: 2; grid-row: 1 / 3; }
-.composer-frame { margin: 0 clamp(20px,5vw,72px) 20px; padding: 10px; border: 1px solid #bec6d5; border-radius: var(--radius-md); background: #fff; box-shadow: 0 12px 30px rgba(26,31,43,0.07); display: flex; align-items: end; gap: 10px; }
-.composer-frame textarea { flex: 1; min-height: 48px; max-height: 150px; padding: 10px; border: 0; outline: 0; resize: vertical; }
+.composer-frame { margin: 0 clamp(20px,5vw,72px) 20px; padding: 10px; border: 1px solid #bec6d5; border-radius: var(--radius-md); background: #fff; box-shadow: 0 12px 30px rgba(26,31,43,0.07); display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 6px 10px; }
+.composer-frame:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(46,91,255,.13), 0 12px 30px rgba(26,31,43,.07); }
+.composer-frame textarea { width: 100%; min-height: 42px; max-height: 150px; padding: 9px; border: 0; outline: 0; resize: none; overflow-y: auto; }
+.composer-meta { padding: 0 9px 4px; display: flex; flex-wrap: wrap; gap: 8px; color: var(--color-muted); font-size: 0.6rem; }
+.composer-meta span + span::before { content: "·"; margin-right: 8px; }
+.composer-frame > .ui-button { grid-column: 2; grid-row: 1 / 3; }
+.composer-frame textarea:disabled { cursor: not-allowed; background: #fff; }
+.composer-alert { margin: 0 clamp(20px,5vw,72px) 8px; padding: 11px 13px; border: 1px solid #efd09b; border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-warning); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 3px 12px; }
+.composer-alert span { font-size: 0.72rem; }.composer-alert a { grid-column: 2; grid-row: 1 / 3; align-self: center; color: inherit; font-size: 0.74rem; font-weight: 800; }
 
 @media (max-width: 620px) {
     .lab-placeholder { margin-top: 10vh; }
@@ -361,4 +368,6 @@ button, input, select, textarea { font: inherit; }
     .conversation-actions .ui-badge { font-size: 0; width: 30px; justify-content: center; }
     .message-scroll { padding: 20px 14px; }
     .composer-frame { margin: 0 10px 10px; }
+    .composer-meta span:last-child { display: none; }
+    .composer-alert { margin: 0 10px 8px; grid-template-columns: 1fr; }.composer-alert a { grid-column: 1; grid-row: auto; }
 }

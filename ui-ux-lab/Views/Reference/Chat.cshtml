@@ -26,7 +26,7 @@
             <button class="ui-icon-button session-mobile-toggle" type="button" data-session-toggle aria-controls="sessionRail" aria-expanded="false" aria-label="Open sessions">☷</button>
             <div class="conversation-course"><span>Current course</span><button type="button">PRN222 · .NET Development⌄</button></div>
             <div class="conversation-heading"><h2 id="conversation-title">Advanced MVC patterns</h2><p>Messages are grounded in the selected course.</p></div>
-            <div class="conversation-actions"><span class="ui-badge ui-badge-success"><i></i>Connected</span><button class="ui-button ui-button-quiet" type="button">Clear</button></div>
+            <div class="conversation-actions"><span class="ui-badge @(state == "disconnected" ? "ui-badge-danger" : "ui-badge-success")"><i></i>@(state == "disconnected" ? "Disconnected" : "Connected")</span><button class="ui-button ui-button-quiet" type="button">Clear</button></div>
         </header>
         <div class="message-scroll" aria-live="polite">
             @if (state == "empty")
@@ -67,7 +67,15 @@ public class EmailTagHelper : TagHelper
                 </div>
             }
         </div>
-        <footer class="composer-frame"><textarea rows="2" placeholder="Ask about PRN222…" aria-label="Message"></textarea><button class="ui-button ui-button-primary" type="button">Send</button></footer>
+        @if (state == "quota" || state == "disconnected")
+        {
+            <div class="composer-alert" role="status"><strong>@(state == "quota" ? "Message quota exhausted" : "Assistant disconnected")</strong><span>@(state == "quota" ? "You have used 15 of 15 messages. Upgrade the current subscription to continue." : "Your draft is safe. Reconnect before sending another question.")</span><a href="#">@(state == "quota" ? "View subscription" : "Check connection")</a></div>
+        }
+        <form class="composer-frame" data-composer-demo>
+            <textarea rows="1" maxlength="4000" placeholder="Ask about PRN222…" aria-label="Message" data-composer-input @((state == "quota" || state == "disconnected" || state == "generating") ? "disabled" : "")></textarea>
+            <div class="composer-meta"><span>RAG standard</span><span>PRN222</span><span>Enter to send · Shift+Enter for line break</span></div>
+            <button class="ui-button ui-button-primary" type="submit" @((state == "quota" || state == "disconnected" || state == "generating") ? "disabled" : "")><span>@(state == "generating" ? "Working…" : "Send")</span></button>
+        </form>
     </section>
 </div>
 

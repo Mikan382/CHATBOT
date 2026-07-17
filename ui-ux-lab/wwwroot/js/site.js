@@ -104,3 +104,23 @@ document.querySelectorAll("[data-session-delete]").forEach((button) => {
     });
 });
 document.querySelector("[data-confirm-session-delete]")?.addEventListener("click", () => { pendingSessionDelete?.remove(); pendingSessionDelete = null; });
+
+const composer = document.querySelector("[data-composer-demo]");
+const composerInput = document.querySelector("[data-composer-input]");
+const resizeComposer = () => {
+    if (!(composerInput instanceof HTMLTextAreaElement)) return;
+    composerInput.style.height = "auto";
+    composerInput.style.height = `${Math.min(composerInput.scrollHeight, 150)}px`;
+};
+composerInput?.addEventListener("input", resizeComposer);
+composerInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); composer?.requestSubmit(); }
+});
+composer?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!(composerInput instanceof HTMLTextAreaElement) || !composerInput.value.trim()) { composerInput?.focus(); return; }
+    const button = composer.querySelector("button[type='submit']");
+    const label = button?.querySelector("span");
+    button?.setAttribute("disabled", ""); composerInput.setAttribute("disabled", "");
+    if (label) label.textContent = "Preview sent";
+});
