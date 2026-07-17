@@ -294,6 +294,36 @@ button, input, select, textarea { font: inherit; }
 .chat-stage-note span { color: var(--color-primary); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 .chat-stage-note h3 { margin: 10px 0; font: 700 clamp(2rem,5vw,4rem)/1 "Source Serif 4", Georgia, serif; }
 .chat-stage-note p { color: var(--color-muted); line-height: 1.65; }
+.message-list { width: min(820px, 100%); margin: 0 auto; display: grid; gap: 24px; }
+.chat-message { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; }
+.message-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--color-ink); color: #fff; display: grid; place-items: center; font-size: 0.68rem; font-weight: 800; }
+.message-avatar-assistant { border-radius: 10px; background: var(--color-primary); }
+.chat-message header { min-height: 30px; display: flex; align-items: center; gap: 8px; }
+.chat-message header strong { font-size: 0.78rem; }
+.chat-message header time { margin-left: auto; color: var(--color-muted); font-size: 0.66rem; }
+.chat-message-user > div:last-child { max-width: 620px; padding: 12px 14px; border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md); background: var(--color-ink); color: #fff; }
+.chat-message-user header time { color: #aab3c5; }
+.chat-message-user p { margin: 5px 0 0; line-height: 1.6; }
+.chat-message-assistant > div:last-child { min-width: 0; }
+.assistant-answer { color: #333b49; line-height: 1.72; }
+.assistant-answer h3 { margin: 8px 0 14px; color: var(--color-ink); font: 700 1.8rem "Source Serif 4", Georgia, serif; }
+.assistant-answer h4 { margin: 24px 0 8px; color: var(--color-ink); font: 700 1.15rem "Source Serif 4", Georgia, serif; }
+.assistant-answer code { font-family: "JetBrains Mono", monospace; font-size: 0.85em; }
+.assistant-answer pre { max-width: 100%; padding: 18px; border-radius: var(--radius-sm); background: var(--color-ink); color: #eef1fa; overflow: auto; font-size: 0.76rem; line-height: 1.65; }
+.citation-list { margin-top: 22px; display: grid; gap: 8px; }
+.citation-list details { border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fff; }
+.citation-list summary { min-height: 46px; padding: 9px 11px; cursor: pointer; display: grid; grid-template-columns: 26px minmax(0,1fr) auto; align-items: center; gap: 8px; }
+.citation-list summary span { color: var(--color-primary); font: 500 0.68rem "JetBrains Mono", monospace; }
+.citation-list summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; }
+.citation-list summary small { color: var(--color-muted); font-size: 0.64rem; }
+.citation-list details p { margin: 0; padding: 0 12px 12px 45px; color: var(--color-muted); font-size: 0.76rem; line-height: 1.55; }
+.generating-state { padding-top: 8px; display: flex; align-items: center; gap: 5px; }
+.generating-state > span { width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); animation: pulse 1s ease infinite; }
+.generating-state > span:nth-child(2) { animation-delay: 160ms; }.generating-state > span:nth-child(3) { animation-delay: 320ms; }
+.generating-state p { margin: 0 0 0 8px; color: var(--color-muted); font-size: 0.76rem; }
+@keyframes pulse { 50% { opacity: .25; transform: translateY(-2px); } }
+.message-error { padding: 14px; border: 1px solid #f2b8b2; border-radius: var(--radius-sm); background: #fff0ef; color: var(--color-danger); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; }
+.message-error span { font-size: 0.76rem; }.message-error button { grid-column: 2; grid-row: 1 / 3; }
 .composer-frame { margin: 0 clamp(20px,5vw,72px) 20px; padding: 10px; border: 1px solid #bec6d5; border-radius: var(--radius-md); background: #fff; box-shadow: 0 12px 30px rgba(26,31,43,0.07); display: flex; align-items: end; gap: 10px; }
 .composer-frame textarea { flex: 1; min-height: 48px; max-height: 150px; padding: 10px; border: 0; outline: 0; resize: vertical; }
 

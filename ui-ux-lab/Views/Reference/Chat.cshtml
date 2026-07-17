@@ -1,6 +1,7 @@
 @{
     Layout = "_ReferenceLayout";
     ViewData["Title"] = "Chat workspace reference";
+    var state = ViewData["State"]?.ToString() ?? "active";
 }
 
 <div class="chat-workspace" data-chat-workspace>
@@ -28,7 +29,43 @@
             <div class="conversation-actions"><span class="ui-badge ui-badge-success"><i></i>Connected</span><button class="ui-button ui-button-quiet" type="button">Clear</button></div>
         </header>
         <div class="message-scroll" aria-live="polite">
-            <div class="chat-stage-note"><span>Conversation surface</span><h3>Long-form answers stay readable and sourced.</h3><p>Phase 12 will add the complete message, citation, generating, and failure contracts.</p></div>
+            @if (state == "empty")
+            {
+                <div class="chat-stage-note"><span>Start a grounded conversation</span><h3>What would you like to understand?</h3><p>Ask about the selected course. Answers cite the uploaded learning material.</p></div>
+            }
+            else
+            {
+                <div class="message-list">
+                    <article class="chat-message chat-message-user"><div class="message-avatar">AJ</div><div><header><strong>You</strong><time>14:02</time></header><p>How do Tag Helpers participate in rendering HTML elements in ASP.NET Core MVC?</p></div></article>
+                    <article class="chat-message chat-message-assistant"><div class="message-avatar message-avatar-assistant">✦</div><div><header><strong>Assistant</strong><span class="ui-badge ui-badge-success"><i></i>3 sources</span><time>14:03 · 2.1s</time></header><div class="assistant-answer">
+                        <h3>Tag Helpers connect Razor markup to server-side behavior</h3>
+                        <p>In ASP.NET Core, a Tag Helper is a server-side component that participates in rendering an HTML element inside a Razor View. It makes element-level behavior look and feel like ordinary HTML instead of embedding long C# expressions in the page.</p>
+                        <h4>Implementation path</h4><ol><li>Create a class that inherits from <code>TagHelper</code>.</li><li>Target an element or attribute with <code>HtmlTargetElement</code>.</li><li>Override <code>Process</code> or <code>ProcessAsync</code> to change the output.</li></ol>
+                        <pre><code>[HtmlTargetElement("email")]
+public class EmailTagHelper : TagHelper
+{
+    public string MailTo { get; set; } = "";
+    public override void Process(TagHelperContext context,
+                                 TagHelperOutput output) { }
+}</code></pre>
+                        <p>The Razor engine discovers registered Tag Helpers, binds their attributes, and invokes them while the view is rendered.</p>
+                    </div>
+                    <div class="citation-list" aria-label="Answer sources">
+                        <details open><summary><span>01</span><strong>Lecture 04 · Razor Views</strong><small>Chunk 12</small></summary><p>Tag Helpers enable server-side code to participate in creating and rendering HTML elements in Razor files.</p></details>
+                        <details><summary><span>02</span><strong>ASP.NET Core lab notes</strong><small>Chunk 07</small></summary><p>Use HtmlTargetElement to describe the element or attribute that activates the helper.</p></details>
+                        <details><summary><span>03</span><strong>PRN222 reference guide</strong><small>Chunk 19</small></summary><p>Process and ProcessAsync receive the current context and an output object that may be modified.</p></details>
+                    </div>
+                    </div></article>
+                    @if (state == "generating")
+                    {
+                        <article class="chat-message chat-message-assistant"><div class="message-avatar message-avatar-assistant">✦</div><div class="generating-state"><span></span><span></span><span></span><p>Searching course documents and preparing a sourced answer…</p></div></article>
+                    }
+                    @if (state == "error")
+                    {
+                        <div class="message-error" role="alert"><strong>The assistant could not finish this answer.</strong><span>Your question is still in the composer. Check the connection and try again.</span><button class="ui-button ui-button-secondary">Retry</button></div>
+                    }
+                </div>
+            }
         </div>
         <footer class="composer-frame"><textarea rows="2" placeholder="Ask about PRN222…" aria-label="Message"></textarea><button class="ui-button ui-button-primary" type="button">Send</button></footer>
     </section>
