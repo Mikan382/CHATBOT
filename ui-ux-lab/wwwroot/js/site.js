@@ -56,3 +56,51 @@ sessionToggle?.addEventListener("click", () => {
     const open = sessionRail?.classList.toggle("open") ?? false;
     sessionToggle.setAttribute("aria-expanded", String(open));
 });
+
+const sessionSearch = document.querySelector("[data-session-search]");
+const sessionItems = [...document.querySelectorAll("[data-session-title]")];
+const sessionEmpty = document.querySelector("[data-session-empty]");
+sessionSearch?.addEventListener("input", () => {
+    const query = sessionSearch.value.trim().toLowerCase();
+    let visible = 0;
+    sessionItems.forEach((item) => {
+        const match = item.dataset.sessionTitle.toLowerCase().includes(query);
+        item.hidden = !match;
+        if (match) visible += 1;
+    });
+    if (sessionEmpty) sessionEmpty.hidden = visible > 0;
+});
+
+document.querySelectorAll("[data-session-rename]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const item = button.closest("[data-session-title]");
+        const title = item?.querySelector("strong");
+        if (!item || !title || item.querySelector("input")) return;
+        const input = document.createElement("input");
+        input.className = "session-rename-input";
+        input.value = item.dataset.sessionTitle;
+        title.parentElement.hidden = true;
+        item.prepend(input);
+        input.focus(); input.select();
+        const finish = () => {
+            const next = input.value.trim() || item.dataset.sessionTitle;
+            item.dataset.sessionTitle = next; title.textContent = next;
+            title.parentElement.hidden = false; input.remove();
+        };
+        input.addEventListener("blur", finish, { once: true });
+        input.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === "Escape") input.blur(); });
+    });
+});
+
+let pendingSessionDelete = null;
+const sessionDeleteElement = document.getElementById("sessionDeleteModal");
+const sessionDeleteModal = sessionDeleteElement && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(sessionDeleteElement) : null;
+document.querySelectorAll("[data-session-delete]").forEach((button) => {
+    button.addEventListener("click", () => {
+        pendingSessionDelete = button.closest("[data-session-title]");
+        const copy = document.querySelector("[data-session-delete-copy]");
+        if (copy && pendingSessionDelete) copy.textContent = `“${pendingSessionDelete.dataset.sessionTitle}” and its saved citations will be removed.`;
+        sessionDeleteModal?.show();
+    });
+});
+document.querySelector("[data-confirm-session-delete]")?.addEventListener("click", () => { pendingSessionDelete?.remove(); pendingSessionDelete = null; });

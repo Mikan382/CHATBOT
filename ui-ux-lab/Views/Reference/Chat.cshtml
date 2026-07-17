@@ -6,8 +6,18 @@
 <div class="chat-workspace" data-chat-workspace>
     <aside class="session-rail" id="sessionRail" aria-label="Saved chat sessions">
         <div class="session-rail-header"><div><p class="lab-eyebrow">Phase 10 · Chat</p><h1>Sessions</h1></div><button class="ui-button ui-button-primary" type="button">+ New</button></div>
-        <label class="session-search"><span class="visually-hidden">Search sessions</span><input type="search" placeholder="Search sessions…" /></label>
-        <div class="session-list-placeholder"><p>Session management arrives in Phase 11.</p></div>
+        <label class="session-search"><span class="visually-hidden">Search sessions</span><input type="search" placeholder="Search sessions…" data-session-search /></label>
+        <div class="session-groups" data-session-list>
+            <section><h2>Today</h2>
+                <article class="session-item active" data-session-title="Advanced MVC patterns"><a href="#" aria-current="page"><strong>Advanced MVC patterns</strong><small>12 minutes ago</small></a><div><button type="button" data-session-rename aria-label="Rename Advanced MVC patterns">✎</button><button type="button" data-session-delete aria-label="Delete Advanced MVC patterns">×</button></div></article>
+                <article class="session-item" data-session-title="Dependency injection lifecycle"><a href="#"><strong>Dependency injection lifecycle</strong><small>1 hour ago</small></a><div><button type="button" data-session-rename aria-label="Rename Dependency injection lifecycle">✎</button><button type="button" data-session-delete aria-label="Delete Dependency injection lifecycle">×</button></div></article>
+            </section>
+            <section><h2>Previous 7 days</h2>
+                <article class="session-item" data-session-title="Entity Framework migrations"><a href="#"><strong>Entity Framework migrations</strong><small>Yesterday</small></a><div><button type="button" data-session-rename aria-label="Rename Entity Framework migrations">✎</button><button type="button" data-session-delete aria-label="Delete Entity Framework migrations">×</button></div></article>
+                <article class="session-item" data-session-title="Razor views and Web API"><a href="#"><strong>Razor views and Web API</strong><small>3 days ago</small></a><div><button type="button" data-session-rename aria-label="Rename Razor views and Web API">✎</button><button type="button" data-session-delete aria-label="Delete Razor views and Web API">×</button></div></article>
+            </section>
+            <p class="session-empty" data-session-empty hidden>No sessions match this search.</p>
+        </div>
     </aside>
 
     <section class="conversation" aria-labelledby="conversation-title">
@@ -23,3 +33,5 @@
         <footer class="composer-frame"><textarea rows="2" placeholder="Ask about PRN222…" aria-label="Message"></textarea><button class="ui-button ui-button-primary" type="button">Send</button></footer>
     </section>
 </div>
+
+<div class="modal fade" id="sessionDeleteModal" tabindex="-1" aria-labelledby="sessionDeleteTitle"><div class="modal-dialog modal-dialog-centered"><div class="modal-content ui-dialog"><div class="modal-body"><p class="lab-eyebrow">Delete session</p><h2 id="sessionDeleteTitle">Delete this session?</h2><p data-session-delete-copy>The saved messages and citations will be removed.</p><div class="ui-dialog-actions"><button class="ui-button ui-button-quiet" data-bs-dismiss="modal">Keep session</button><button class="ui-button ui-button-danger" data-confirm-session-delete data-bs-dismiss="modal">Delete session</button></div></div></div></div></div>

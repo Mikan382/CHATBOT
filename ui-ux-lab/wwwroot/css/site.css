@@ -264,6 +264,21 @@ button, input, select, textarea { font: inherit; }
 .session-search { margin-top: 18px; }
 .session-search input { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-subtle); }
 .session-list-placeholder { margin: 18px 0; padding: 18px; border: 1px dashed var(--color-border); color: var(--color-muted); font-size: 0.78rem; line-height: 1.5; }
+.session-groups { min-height: 0; margin-top: 16px; overflow-y: auto; }
+.session-groups section + section { margin-top: 22px; }
+.session-groups h2 { margin: 0 8px 7px; color: var(--color-muted); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.session-item { min-height: 58px; padding: 7px 6px 7px 10px; border-left: 3px solid transparent; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; display: flex; align-items: center; gap: 6px; }
+.session-item:hover { background: var(--color-surface-subtle); }
+.session-item.active { border-left-color: var(--color-primary); background: var(--color-primary-soft); }
+.session-item > a { min-width: 0; flex: 1; color: var(--color-ink); display: grid; text-decoration: none; }
+.session-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; }
+.session-item small { margin-top: 3px; color: var(--color-muted); font-size: 0.65rem; }
+.session-item > div { display: flex; opacity: 0; transition: opacity 120ms ease; }
+.session-item:hover > div, .session-item:focus-within > div { opacity: 1; }
+.session-item > div button { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--color-muted); }
+.session-item > div button:hover { background: #fff; color: var(--color-primary); }
+.session-rename-input { width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid var(--color-primary); border-radius: 6px; }
+.session-empty { padding: 18px; border: 1px dashed var(--color-border); color: var(--color-muted); font-size: 0.78rem; }
 .conversation { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--color-canvas); }
 .conversation-header { min-height: 92px; padding: 14px 20px; border-bottom: 1px solid var(--color-border); background: #fff; display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) auto; align-items: center; gap: 18px; }
 .conversation-course { display: grid; gap: 3px; }
