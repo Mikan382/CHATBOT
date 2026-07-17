@@ -37,4 +37,10 @@ public sealed class ReferenceController : Controller
         ViewData["State"] = state;
         return View();
     }
+
+    public IActionResult Benchmark(string state = "ready")
+    {
+        ViewData["State"] = state;
+        return View();
+    }
 }

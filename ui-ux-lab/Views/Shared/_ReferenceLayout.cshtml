@@ -20,7 +20,7 @@
                 <a class="@(currentAction == "Chat" ? "active" : null)" asp-controller="Reference" asp-action="Chat" aria-current="@(currentAction == "Chat" ? "page" : null)"><span aria-hidden="true">✦</span><b>Chat</b></a>
                 <a class="@(currentAction is "Documents" or "DocumentDetails" ? "active" : null)" asp-controller="Reference" asp-action="Documents" aria-current="@(currentAction is "Documents" or "DocumentDetails" ? "page" : null)"><span aria-hidden="true">▤</span><b>Documents</b></a>
                 <a class="@(currentAction == "Courses" ? "active" : null)" asp-controller="Reference" asp-action="Courses" aria-current="@(currentAction == "Courses" ? "page" : null)"><span aria-hidden="true">◇</span><b>Courses</b></a>
-                <a href="#"><span aria-hidden="true">⌁</span><b>Benchmark</b></a>
+                <a class="@(currentAction == "Benchmark" ? "active" : null)" asp-controller="Reference" asp-action="Benchmark" aria-current="@(currentAction == "Benchmark" ? "page" : null)"><span aria-hidden="true">⌁</span><b>Benchmark</b></a>
                 <a href="#"><span aria-hidden="true">◎</span><b>Users</b></a>
                 <a href="#"><span aria-hidden="true">⚙</span><b>Settings</b></a>
             </nav>
