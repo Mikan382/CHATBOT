@@ -1,0 +1,46 @@
+@{
+    Layout = "_ReferenceLayout";
+    ViewData["Title"] = "Courses and chapters reference";
+    var role = ViewData["Role"]?.ToString() ?? "teacher";
+    var state = ViewData["State"]?.ToString() ?? "ready";
+    var canManage = role is "teacher" or "admin";
+}
+
+<div class="course-reference">
+    <header class="reference-page-heading">
+        <div><p class="lab-eyebrow">Phase 16 · Curriculum</p><h1>Courses &amp; chapters</h1><p>Shape the learning structure that connects conversations, source documents, and benchmarks.</p></div>
+        <div class="course-heading-actions"><span class="ui-badge @(canManage ? "ui-badge-success" : "ui-badge-warning")"><i></i>@(canManage ? "Editor access" : "Student view")</span>@if (canManage) { <button class="ui-button ui-button-primary" type="button" data-bs-toggle="modal" data-bs-target="#courseModal">New course</button> }</div>
+    </header>
+
+    <div class="course-layout">
+        <aside class="course-catalog" aria-label="Course catalog">
+            <label class="ui-field course-search"><span>Find a course</span><input type="search" placeholder="Code or title…" /></label>
+            <div class="course-card active"><span class="course-code">PRN222</span><strong>Advanced .NET Programming</strong><small>8 chapters · 18 sources</small><span class="ui-badge ui-badge-success"><i></i>Published</span></div>
+            <div class="course-card"><span class="course-code">SWE201</span><strong>Software Engineering</strong><small>6 chapters · 11 sources</small><span class="ui-badge ui-badge-warning"><i></i>Draft</span></div>
+            <div class="course-card"><span class="course-code">DBI202</span><strong>Introduction to Databases</strong><small>10 chapters · 24 sources</small><span class="ui-badge ui-badge-success"><i></i>Published</span></div>
+        </aside>
+
+        <section class="chapter-workspace" aria-labelledby="course-title">
+            <header class="chapter-workspace-heading"><div><p class="lab-eyebrow">Selected course</p><h2 id="course-title">PRN222 · Advanced .NET Programming</h2><p>Spring 2026 · 42 enrolled learners</p></div>@if (canManage) { <div><button class="ui-button ui-button-secondary" type="button">Edit details</button><button class="ui-button ui-button-danger" type="button" data-bs-toggle="modal" data-bs-target="#archiveModal">Archive</button></div> }</header>
+
+            @if (state == "empty")
+            {
+                <div class="chapter-empty"><span>◇</span><h3>No chapters yet</h3><p>Add the first chapter before attaching course documents.</p>@if (canManage) { <button class="ui-button ui-button-primary">Add first chapter</button> }</div>
+            }
+            else
+            {
+                <div class="chapter-list-heading"><div><strong>Course outline</strong><small>Drag handles show the intended ordering interaction.</small></div>@if (canManage) { <button class="ui-button ui-button-primary" type="button">Add chapter</button> }</div>
+                <ol class="chapter-list">
+                    <li><span class="chapter-drag" aria-hidden="true">⋮⋮</span><span class="chapter-index">01</span><div><strong>ASP.NET Core foundations</strong><small>3 sources · 5 conversations</small></div><span class="ui-badge ui-badge-success"><i></i>Ready</span>@if (canManage) { <button class="ui-icon-button" aria-label="Edit chapter 1">•••</button> }</li>
+                    <li><span class="chapter-drag" aria-hidden="true">⋮⋮</span><span class="chapter-index">02</span><div><strong>Dependency injection and configuration</strong><small>4 sources · 12 conversations</small></div><span class="ui-badge ui-badge-success"><i></i>Ready</span>@if (canManage) { <button class="ui-icon-button" aria-label="Edit chapter 2">•••</button> }</li>
+                    <li class="selected"><span class="chapter-drag" aria-hidden="true">⋮⋮</span><span class="chapter-index">03</span><div><strong>Middleware and request pipeline</strong><small>2 sources · 8 conversations</small></div><span class="ui-badge ui-badge-warning"><i></i>Review</span>@if (canManage) { <button class="ui-icon-button" aria-label="Edit chapter 3">•••</button> }</li>
+                    <li><span class="chapter-drag" aria-hidden="true">⋮⋮</span><span class="chapter-index">04</span><div><strong>MVC and Razor Views</strong><small>5 sources · 19 conversations</small></div><span class="ui-badge ui-badge-success"><i></i>Ready</span>@if (canManage) { <button class="ui-icon-button" aria-label="Edit chapter 4">•••</button> }</li>
+                    <li class="chapter-draft"><span class="chapter-drag" aria-hidden="true">⋮⋮</span><span class="chapter-index">05</span><div><strong>Authentication and authorization</strong><small>No sources attached</small></div><span class="ui-badge ui-badge-warning"><i></i>Draft</span>@if (canManage) { <button class="ui-icon-button" aria-label="Edit chapter 5">•••</button> }</li>
+                </ol>
+            }
+        </section>
+    </div>
+</div>
+
+<div class="modal fade" id="courseModal" tabindex="-1" aria-labelledby="courseModalTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content ui-dialog"><div class="modal-body"><p class="lab-eyebrow">Course details</p><h2 id="courseModalTitle">Create a course</h2><form class="course-form"><label class="ui-field"><span>Course code</span><input value="PRN" maxlength="12" /></label><label class="ui-field"><span>Course title</span><input placeholder="e.g. Web Application Development" /></label><label class="ui-field"><span>Description</span><textarea rows="3" placeholder="Short scope for learners and teachers"></textarea></label></form><div class="ui-dialog-actions"><button class="ui-button ui-button-quiet" data-bs-dismiss="modal">Cancel</button><button class="ui-button ui-button-primary" data-bs-dismiss="modal">Create preview</button></div></div></div></div></div>
+<div class="modal fade" id="archiveModal" tabindex="-1" aria-labelledby="archiveModalTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content ui-dialog"><div class="modal-body"><p class="lab-eyebrow">Destructive action</p><h2 id="archiveModalTitle">Archive PRN222?</h2><p>Students lose access to new conversations. Existing sessions and indexed sources remain available to administrators.</p><div class="ui-dialog-actions"><button class="ui-button ui-button-quiet" data-bs-dismiss="modal">Keep active</button><button class="ui-button ui-button-danger" data-bs-dismiss="modal">Archive course</button></div></div></div></div></div>

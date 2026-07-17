@@ -30,4 +30,11 @@ public sealed class ReferenceController : Controller
         ViewData["State"] = state;
         return View();
     }
+
+    public IActionResult Courses(string role = "teacher", string state = "ready")
+    {
+        ViewData["Role"] = role;
+        ViewData["State"] = state;
+        return View();
+    }
 }
