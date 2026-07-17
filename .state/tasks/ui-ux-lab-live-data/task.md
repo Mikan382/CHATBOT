@@ -13,15 +13,16 @@
 - Cross-harness primary: this harness
 
 ## Rollup (derived, not proof)
-- Status: implementation verified
-- Summary: `?mode=live` now uses authenticated REST and SignalR through the existing application; fixture mode remains the default.
+- Status: complete
+- Summary: PR #18 merged `?mode=live` authenticated REST and SignalR support into `main`; fixture mode remains the default.
 
 ## Progress
 - Done: added authenticated UI-lab API projections, role-aware page bindings, live SignalR chat, explicit 401/403/offline states, and the narrow account proxy needed by the existing Razor login form.
 - Done: verified the real PresentationLayer against LocalDB. Current database snapshot has 3 users, 1 course, and 0 documents/chat sessions/benchmark runs.
 - Done: solution build, UI-lab build, JavaScript syntax, adapter contract, and diff checks pass with zero build warnings/errors.
-- Done: implementation commit `5dffd0d` pushed and PR #18 opened against `main`.
-- Next step: merge PR #18 and verify the remote main commit.
+- Done: implementation commit `5dffd0d` and delivery-state commit `5005d26` merged through PR #18.
+- Done: verified `origin/main` at merge commit `1618f4d` contains the implementation.
+- Next step: none for this task.
 - Blocked on: none
 
 ## Open questions

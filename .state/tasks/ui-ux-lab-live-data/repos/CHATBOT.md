@@ -16,7 +16,7 @@
 
 ## Delivery state
 - Pushed: yes, implementation commit `5dffd0d`
-- PR: https://github.com/Mikan382/CHATBOT/pull/18
+- PR: https://github.com/Mikan382/CHATBOT/pull/18 (merged)
 - Gate: passed locally
 - Gate evidence: `dotnet build Prn222Chatbot.sln --nologo`; `dotnet build ui-ux-lab/Prn222.UiLab.csproj --nologo`; Node syntax checks; `ui-ux-lab/tools/verify-adapter.ps1`; `git diff --check` on 2026-07-17.
 
@@ -24,7 +24,8 @@
 - Done: live-data contract and role boundaries traced through existing services and repositories.
 - Done: authenticated API projections and live DOM bindings implemented without adding a DbContext or connection string to the isolated lab.
 - Done: real app connected to LocalDB; unauthenticated proxy API returned 401 as designed and the proxied login POST reached the existing AccountController.
-- Next repo step: merge PR #18 and verify `origin/main` contains the live-data implementation.
+- Done: PR #18 merged as `1618f4d`; `origin/main` contains `5005d26` and the live-data implementation.
+- Next repo step: none for this task.
 - Blocked on: none
 
 ## Shared path ownership
