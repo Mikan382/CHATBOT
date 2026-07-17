@@ -24,3 +24,17 @@ document.querySelectorAll("[data-tab-target]").forEach((tab) => {
         });
     });
 });
+
+const shell = document.querySelector("[data-reference-shell]");
+const rail = document.getElementById("globalRail");
+const railToggle = document.querySelector("[data-rail-toggle]");
+railToggle?.addEventListener("click", () => {
+    const open = rail?.classList.toggle("open") ?? false;
+    railToggle.setAttribute("aria-expanded", String(open));
+});
+
+document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
+    if (!shell) return;
+    const next = shell.getAttribute("data-contrast") === "soft-dark" ? "" : "soft-dark";
+    if (next) shell.setAttribute("data-contrast", next); else shell.removeAttribute("data-contrast");
+});
