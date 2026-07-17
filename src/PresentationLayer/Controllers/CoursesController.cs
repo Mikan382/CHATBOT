@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLayer.Services;
+using DataAccessLayer.Enums;
 using PresentationLayer.ViewModels;
 
 namespace PresentationLayer.Controllers;
@@ -10,11 +11,16 @@ public class CoursesController : BaseController
 {
     private readonly ICourseService _courseService;
     private readonly IChapterService _chapterService;
+    private readonly IUserAdminService _userAdminService;
 
-    public CoursesController(ICourseService courseService, IChapterService chapterService)
+    public CoursesController(
+        ICourseService courseService,
+        IChapterService chapterService,
+        IUserAdminService userAdminService)
     {
         _courseService = courseService;
         _chapterService = chapterService;
+        _userAdminService = userAdminService;
     }
 
     [HttpGet]
@@ -61,6 +67,46 @@ public class CoursesController : BaseController
             model.Error = UserFacingError(ex);
             model.Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken);
             return View(model);
+        }
+    }
+
+    // Returns JSON so the course form can add the new Teacher in place. A normal POST would
+    // navigate away and discard the course fields the Admin has already typed.
+    // Routed under /api so an expired cookie yields 401 instead of a redirect to the login
+    // page, which fetch would follow and hand back as unparseable HTML (Program.cs).
+    [HttpPost("/api/courses/teachers")]
+    [Authorize(Roles = "Admin")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateTeacher(
+        [FromBody] CreateTeacherInput input,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            var validationError = ModelState.Values
+                .SelectMany(state => state.Errors)
+                .Select(error => error.ErrorMessage)
+                .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
+            return BadRequest(new { success = false, error = validationError ?? "Please check the teacher fields." });
+        }
+
+        try
+        {
+            var teacherId = await _userAdminService.CreateAsync(
+                input.Email,
+                input.FullName,
+                UserRoleNames.Teacher,
+                input.Password,
+                cancellationToken);
+            var created = (await _courseService.ListTeacherOptionsAsync(cancellationToken))
+                .FirstOrDefault(teacher => teacher.Id == teacherId);
+            return created is not null
+                ? Ok(new { success = true, teacher = created })
+                : BadRequest(new { success = false, error = "The teacher was created but could not be loaded." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message });
         }
     }
 
