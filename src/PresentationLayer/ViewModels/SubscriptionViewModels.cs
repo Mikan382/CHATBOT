@@ -16,6 +16,7 @@ public class SubscriptionDashboardViewModel
     public SubscriptionPlanInput CreatePlan { get; set; } = new();
     public SubscriptionPlanInput? FailedPlanUpdate { get; set; }
     public string? Error { get; set; }
+    public int PeriodDays { get; set; } = 30;
 }
 
 public class SubscriptionPlanInput

@@ -1274,6 +1274,15 @@ h6 {
   line-height: 1.2;
 }
 
+.kpi-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.kpi-clickable:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 .stat-card .stat-value-money {
   font-size: 28px;
   white-space: nowrap;

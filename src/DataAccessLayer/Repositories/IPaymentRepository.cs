@@ -14,6 +14,21 @@ public interface IPaymentRepository
         DateTime pendingSinceUtc,
         CancellationToken cancellationToken);
     Task<IReadOnlyList<PaymentTransaction>> ListRecentAsync(int take, CancellationToken cancellationToken);
+    Task<PaymentDashboardSummary> GetDashboardSummaryForRangeAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        DateTime pendingSinceUtc,
+        CancellationToken cancellationToken);
+    Task<IReadOnlyList<PaymentTransaction>> ListFailedPaymentsAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        int take,
+        CancellationToken cancellationToken);
+    Task<int> CountFailedPaymentsAsync(DateTime sinceUtc, DateTime untilUtc, CancellationToken cancellationToken);
+    Task<IReadOnlyList<DailyRevenueSummary>> GetDailyRevenueAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        CancellationToken cancellationToken);
 
     // Pending -> Failed. Returns false if the row was already finalised (idempotent no-op).
     Task<bool> MarkFailedAsync(Guid id, string? responseCode, string? rawResponse, CancellationToken cancellationToken);
@@ -38,3 +53,5 @@ public record PaymentDashboardSummary(
     int Pending,
     decimal RevenueThisMonth,
     decimal TotalRevenue);
+
+public record DailyRevenueSummary(DateOnly Date, decimal Revenue, int PaidActivations);

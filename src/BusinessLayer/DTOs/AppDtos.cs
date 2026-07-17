@@ -173,18 +173,72 @@ public record RecentPaymentDto(
 public record SubscriptionDashboardDto(
     int TotalStudents,
     int ActiveSubscriptions,
-    int ActivationsThisMonth,
-    int PaidPaymentsThisMonth,
-    int FailedPaymentsThisMonth,
-    int PendingPayments,
-    decimal GrossRevenueThisMonth,
-    decimal TotalGrossRevenue,
-    decimal ActivePackageValue,
-    long InputTokensUsed,
-    long OutputTokensUsed,
+    int PaidActivations,
+    decimal Revenue,
     long TotalTokensUsed,
     long ActiveTokenQuota,
+    decimal TokenUtilization,
+    int NeedsAttentionCount,
+    IReadOnlyList<SubscriptionTrendPointDto> Trend,
+    IReadOnlyList<PackagePerformanceDto> PackagePerformance,
+    IReadOnlyList<ExpiringSubscriptionDto> ExpiringSubscriptions,
+    int ExpiringSubscriptionsTotal,
+    IReadOnlyList<FailedPaymentDto> FailedPayments,
+    int FailedPaymentsTotal,
+    IReadOnlyList<UserTokenUsageDto> UsersNearTokenLimit,
     IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
     IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
     IReadOnlyList<RecentPaymentDto> RecentPayments,
     IReadOnlyList<SubscriptionPlanDto> Plans);
+
+public record SubscriptionTrendPointDto(DateOnly Date, decimal Revenue, int PaidActivations);
+
+public record PackagePerformanceDto(
+    Guid PackageId,
+    string PackageCode,
+    string PackageName,
+    int ActiveUsers,
+    int PaidActivations,
+    decimal Revenue,
+    long TokenUsed,
+    long TokenQuota,
+    decimal? Utilization);
+
+public record ExpiringSubscriptionDto(
+    Guid SubscriptionId,
+    string StudentName,
+    string StudentEmail,
+    string PackageName,
+    DateTime ExpiresAtUtc,
+    int DaysLeft);
+
+public record FailedPaymentDto(
+    Guid PaymentId,
+    string StudentName,
+    string StudentEmail,
+    string PackageName,
+    decimal Amount,
+    DateTime FailedAtUtc);
+
+public record UserTokenUsageDto(
+    Guid StudentId,
+    string StudentName,
+    string StudentEmail,
+    string PackageName,
+    long TokensUsed,
+    long TokenQuota,
+    long TokensRemaining,
+    decimal Utilization);
+
+public record ActiveSubscriptionDetailDto(
+    Guid SubscriptionId,
+    string StudentName,
+    string StudentEmail,
+    string PackageCode,
+    string PackageName,
+    long TokensUsed,
+    long TokenQuota,
+    long TokensRemaining,
+    decimal Utilization,
+    DateTime ActivatedAtUtc,
+    DateTime? ExpiresAtUtc);
