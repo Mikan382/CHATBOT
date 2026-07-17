@@ -24,4 +24,10 @@ public sealed class ReferenceController : Controller
         ViewData["State"] = state;
         return View();
     }
+
+    public IActionResult DocumentDetails(string state = "ready")
+    {
+        ViewData["State"] = state;
+        return View();
+    }
 }
