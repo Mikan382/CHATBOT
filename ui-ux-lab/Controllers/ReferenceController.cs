@@ -6,6 +6,12 @@ public sealed class ReferenceController : Controller
 {
     public IActionResult Shell() => View();
 
+    public IActionResult Chat(string state = "active")
+    {
+        ViewData["State"] = state;
+        return View();
+    }
+
     public IActionResult Login(string state = "default")
     {
         ViewData["State"] = state;

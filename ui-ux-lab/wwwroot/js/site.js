@@ -49,3 +49,10 @@ document.querySelector("[data-auth-demo]")?.addEventListener("submit", (event) =
     button?.setAttribute("aria-busy", "true");
     if (label) label.textContent = "Preview only";
 });
+
+const sessionRail = document.getElementById("sessionRail");
+const sessionToggle = document.querySelector("[data-session-toggle]");
+sessionToggle?.addEventListener("click", () => {
+    const open = sessionRail?.classList.toggle("open") ?? false;
+    sessionToggle.setAttribute("aria-expanded", String(open));
+});
