@@ -307,6 +307,13 @@ h6 {
   margin-bottom: 12px;
 }
 
+.teacher-assignment-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .teacher-selected-count {
   flex: 0 0 auto;
   padding: 4px 8px;
@@ -315,6 +322,14 @@ h6 {
   color: #334155;
   font-size: 12px;
   font-weight: 700;
+}
+
+.teacher-create-panel {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
 }
 
 .teacher-search {
