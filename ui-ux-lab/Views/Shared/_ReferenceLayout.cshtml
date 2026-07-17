@@ -1,3 +1,4 @@
+@{ var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty; }
 <!doctype html>
 <html lang="en">
 <head>
@@ -10,8 +11,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body class="reference-body">
-    @{ var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty; }
+<body class="reference-body" data-live-page="@currentAction.ToLowerInvariant()">
     <a class="skip-link" href="#reference-main">Skip to content</a>
     <div class="reference-shell" data-reference-shell>
         <aside class="global-rail" id="globalRail" aria-label="Primary navigation">
@@ -35,6 +35,7 @@
             <span class="ui-badge ui-badge-warning" data-adapter-state><i></i>Fixture preview</span>
         </header>
         <main class="reference-main" id="reference-main" tabindex="-1">
+            <div class="live-data-banner" data-live-banner role="status" hidden></div>
             @RenderBody()
         </main>
     </div>
@@ -42,6 +43,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/live-adapter.js" asp-append-version="true"></script>
+    <script src="~/js/live-pages.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

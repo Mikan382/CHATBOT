@@ -55,3 +55,17 @@ This file stores repeatable project-specific recovery knowledge. Add an entry wh
 - Durable fix: resolve and stop only the `Prn222.UiLab` process whose executable path is inside this repo, run the build gate, then restart the hidden review server after delivery.
 - Verification: the repeated standalone lab build completes with 0 warnings and 0 errors.
 - Reuse when: Windows reports an apphost or executable lock immediately after local UI testing.
+
+### Real database mode must stay behind the application boundary
+- Symptom: a request to “use the real DB” can tempt an isolated UI project to copy the production connection string or add its own EF Core context.
+- Cause: direct database access looks faster than defining a narrow UI-facing contract, but it duplicates authorization and business rules.
+- Durable fix: add authenticated read projections to the existing presentation layer, call existing services, forward them through the lab's same-origin proxy, and keep fixture content visibly labeled when live mode is unavailable.
+- Verification: the API controller contains `[Authorize]`, role-restricted endpoints retain Admin boundaries, the lab contains no `AppDbContext` or connection string, and live pages replace fixture rows only after an authenticated response.
+- Reuse when: a prototype or reference UI needs current data from an established server application.
+
+### Proxied Razor login forms post to their generated root path
+- Symptom: the login page loads through `/backend/Account/Login`, but submitting it stays unauthenticated because the Razor form action is `/Account/Login`.
+- Cause: YARP removes `/backend` before the existing MVC app renders HTML, so Tag Helpers correctly generate the existing app's root-relative action without the lab prefix.
+- Durable fix: proxy the narrow `/Account/{**catch-all}` route to the same application cluster in addition to `/backend/{**catch-all}`; keep all other existing-app routes behind `/backend`.
+- Verification: GET through `/backend/Account/Login` supplies the antiforgery cookie, POST to `/Account/Login` reaches the real AccountController, and its local return URL lands back on the lab live page.
+- Reuse when: server-rendered forms are displayed through a prefixed reverse proxy but emit root-relative form actions.
