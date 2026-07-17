@@ -13,3 +13,14 @@ document.querySelectorAll("[data-busy-demo]").forEach((button) => {
         }, 1400);
     });
 });
+
+document.querySelectorAll("[data-tab-target]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+        const group = tab.closest("[role='tablist']");
+        if (!group) return;
+        group.querySelectorAll("[role='tab']").forEach((item) => item.setAttribute("aria-selected", String(item === tab)));
+        document.querySelectorAll(".ui-tab-panel").forEach((panel) => {
+            panel.hidden = panel.id !== tab.dataset.tabTarget;
+        });
+    });
+});

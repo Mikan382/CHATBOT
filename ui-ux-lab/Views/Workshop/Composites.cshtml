@@ -1,4 +1,43 @@
 @{
     ViewData["Title"] = "Composites";
 }
-<main class="workshop-page"><header class="workshop-heading"><p class="lab-eyebrow">Workshop · Composites</p><h1>Structured components</h1><p>Phase 07 will populate this route with panels, dialogs, tables, tabs, and loading states.</p></header></main>
+<main class="workshop-page">
+    <header class="workshop-heading"><p class="lab-eyebrow">Phase 07 · Composites</p><h1>Structured components</h1><p>Panels, confirmation, tabs, dense data, empty content, and loading all reuse the same primitive contracts.</p></header>
+
+    <section class="preview-section" aria-labelledby="composite-panels">
+        <div class="section-heading"><h2 id="composite-panels">Panels</h2><p>Border-led depth keeps dense workspaces calm.</p></div>
+        <div class="composite-grid">
+            <article class="ui-panel"><header><span class="ui-badge ui-badge-success"><i></i>Indexed</span><button class="ui-icon-button" aria-label="Document menu">•••</button></header><h3>Dependency Injection Notes.pdf</h3><p>12 sections · Paragraph chunks · PRN222</p><footer><button class="ui-button ui-button-secondary">View details</button></footer></article>
+            <article class="ui-panel ui-panel-empty"><span aria-hidden="true">⌕</span><h3>No matching sessions</h3><p>Try a shorter title or clear the current search.</p><button class="ui-button ui-button-quiet">Clear search</button></article>
+            <article class="ui-panel" aria-label="Loading document"><div class="ui-skeleton ui-skeleton-short"></div><div class="ui-skeleton"></div><div class="ui-skeleton"></div><div class="ui-skeleton ui-skeleton-medium"></div></article>
+        </div>
+    </section>
+
+    <section class="preview-section" aria-labelledby="composite-tabs">
+        <div class="section-heading"><h2 id="composite-tabs">Tabs and data</h2><p>Native buttons own selection; the table has a narrow-screen scroll owner.</p></div>
+        <div class="preview-surface">
+            <div class="ui-tabs" role="tablist" aria-label="Document detail sections">
+                <button role="tab" aria-selected="true" data-tab-target="summary">Summary</button>
+                <button role="tab" aria-selected="false" data-tab-target="chunks">Chunks</button>
+                <button role="tab" aria-selected="false" data-tab-target="indexing">Indexing</button>
+            </div>
+            <div class="ui-tab-panel" id="summary" role="tabpanel"><p>The document is fully indexed with multilingual-e5-base embeddings.</p></div>
+            <div class="ui-tab-panel" id="chunks" role="tabpanel" hidden>
+                <div class="ui-table-scroll"><table class="ui-table"><thead><tr><th>Chunk</th><th>Strategy</th><th>Characters</th><th>Status</th></tr></thead><tbody><tr><td>#01</td><td>Paragraph</td><td>1,284</td><td><span class="ui-badge ui-badge-success"><i></i>Ready</span></td></tr><tr><td>#02</td><td>Paragraph</td><td>978</td><td><span class="ui-badge ui-badge-success"><i></i>Ready</span></td></tr></tbody></table></div>
+            </div>
+            <div class="ui-tab-panel" id="indexing" role="tabpanel" hidden><p>Text extracted → chunks saved → embeddings created → finalized.</p></div>
+        </div>
+    </section>
+
+    <section class="preview-section" aria-labelledby="composite-dialog">
+        <div class="section-heading"><h2 id="composite-dialog">Confirmation</h2><p>Destructive actions name the object and consequence.</p></div>
+        <button class="ui-button ui-button-danger" type="button" data-bs-toggle="modal" data-bs-target="#deletePreview">Preview delete dialog</button>
+    </section>
+</main>
+
+<div class="modal fade" id="deletePreview" tabindex="-1" aria-labelledby="deletePreviewTitle" aria-describedby="deletePreviewDescription">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content ui-dialog"><div class="modal-body">
+        <p class="lab-eyebrow">Delete session</p><h2 id="deletePreviewTitle">Remove “Advanced MVC Patterns”?</h2><p id="deletePreviewDescription">The saved messages and citations in this session will be permanently removed.</p>
+        <div class="ui-dialog-actions"><button class="ui-button ui-button-quiet" type="button" data-bs-dismiss="modal">Keep session</button><button class="ui-button ui-button-danger" type="button" data-bs-dismiss="modal">Delete session</button></div>
+    </div></div></div>
+</div>

@@ -178,6 +178,34 @@ button, input, select, textarea { font: inherit; }
 .ui-badge-danger { border-color: #f2b8b2; background: #fff0ef; color: var(--color-danger); }
 .ui-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--color-ink); color: #fff; display: grid; place-items: center; font-size: 0.78rem; font-weight: 800; }
 .ui-icon-button { width: 42px; height: 42px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fff; color: var(--color-muted); font-weight: 800; letter-spacing: 0.05em; }
+.composite-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ui-panel { min-height: 250px; padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); display: flex; flex-direction: column; }
+.ui-panel header { display: flex; align-items: center; justify-content: space-between; }
+.ui-panel h3 { margin: 30px 0 8px; font: 700 1.35rem "Source Serif 4", Georgia, serif; }
+.ui-panel p { margin: 0; color: var(--color-muted); line-height: 1.55; }
+.ui-panel footer { margin-top: auto; }
+.ui-panel-empty { text-align: center; align-items: center; justify-content: center; }
+.ui-panel-empty > span { font-size: 2rem; color: var(--color-primary); }
+.ui-panel-empty h3 { margin-top: 14px; }
+.ui-panel-empty .ui-button { margin-top: 14px; }
+.ui-skeleton { height: 14px; margin: 8px 0; border-radius: 4px; background: linear-gradient(90deg,#edf0f5 25%,#f8f9fb 45%,#edf0f5 65%); background-size: 240% 100%; animation: skeleton 1.3s ease infinite; }
+.ui-skeleton-short { width: 38%; margin-bottom: 42px; }
+.ui-skeleton-medium { width: 70%; }
+@keyframes skeleton { to { background-position: -240% 0; } }
+.ui-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--color-border); }
+.ui-tabs button { padding: 10px 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--color-muted); font-weight: 700; }
+.ui-tabs button[aria-selected="true"] { border-bottom-color: var(--color-primary); color: var(--color-primary); }
+.ui-tab-panel { padding-top: 20px; }
+.ui-tab-panel p { max-width: 70ch; margin: 0; color: var(--color-muted); line-height: 1.7; }
+.ui-table-scroll { max-width: 100%; overflow-x: auto; }
+.ui-table { width: 100%; min-width: 620px; border-collapse: collapse; }
+.ui-table th, .ui-table td { padding: 12px; border-bottom: 1px solid var(--color-border); text-align: left; }
+.ui-table th { color: var(--color-muted); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.ui-dialog { border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-raised); }
+.ui-dialog .modal-body { padding: 28px; }
+.ui-dialog h2 { margin: 8px 0 10px; font: 700 1.85rem "Source Serif 4", Georgia, serif; }
+.ui-dialog p:not(.lab-eyebrow) { color: var(--color-muted); line-height: 1.6; }
+.ui-dialog-actions { margin-top: 24px; display: flex; justify-content: flex-end; gap: 8px; }
 
 @media (max-width: 620px) {
     .lab-placeholder { margin-top: 10vh; }
@@ -188,4 +216,5 @@ button, input, select, textarea { font: inherit; }
     .rhythm-row { gap: 10px; overflow-x: auto; }
     .workshop-route-grid { grid-template-columns: 1fr; }
     .field-grid { grid-template-columns: 1fr; }
+    .composite-grid { grid-template-columns: 1fr; }
 }
