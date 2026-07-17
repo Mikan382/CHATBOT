@@ -21,6 +21,10 @@ public interface ISubscriptionRepository
     Task<IReadOnlyList<SubscriptionPlanCount>> CountActiveByPlanAsync(DateTime nowUtc, CancellationToken cancellationToken);
     Task<ActiveTokenUsageSummary> GetActiveTokenUsageAsync(DateTime nowUtc, CancellationToken cancellationToken);
     Task<IReadOnlyList<StudentSubscription>> ListRecentSubscriptionsAsync(int take, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudentSubscription>> ListActiveSubscriptionsAsync(DateTime nowUtc, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudentSubscription>> ListExpiringSubscriptionsAsync(DateTime nowUtc, int withinDays, int take, CancellationToken cancellationToken);
+    Task<int> CountExpiringSubscriptionsAsync(DateTime nowUtc, int withinDays, CancellationToken cancellationToken);
+    Task<int> CountPaidActivationsAsync(DateTime sinceUtc, DateTime untilUtc, CancellationToken cancellationToken);
 }
 
 public record ActiveTokenUsageSummary(

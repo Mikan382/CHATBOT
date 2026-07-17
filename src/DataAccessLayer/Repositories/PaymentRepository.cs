@@ -87,6 +87,75 @@ public class PaymentRepository : IPaymentRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<PaymentDashboardSummary> GetDashboardSummaryForRangeAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        DateTime pendingSinceUtc,
+        CancellationToken cancellationToken)
+    {
+        var paid = _db.PaymentTransactions.Where(x => x.Status == PaymentStatusNames.Paid);
+        var paidInRange = paid.Where(x => x.PaidAtUtc >= sinceUtc && x.PaidAtUtc < untilUtc);
+        return new PaymentDashboardSummary(
+            await paidInRange.CountAsync(cancellationToken),
+            await _db.PaymentTransactions.CountAsync(
+                x => x.Status == PaymentStatusNames.Failed && x.UpdatedAtUtc >= sinceUtc && x.UpdatedAtUtc < untilUtc,
+                cancellationToken),
+            await _db.PaymentTransactions.CountAsync(
+                x => x.Status == PaymentStatusNames.Pending && x.CreatedAtUtc >= pendingSinceUtc,
+                cancellationToken),
+            await paidInRange.SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m,
+            await paid.SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m);
+    }
+
+    public async Task<IReadOnlyList<PaymentTransaction>> ListFailedPaymentsAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        return await _db.PaymentTransactions
+            .Include(x => x.Student)
+            .Include(x => x.Plan)
+            .Where(x => x.Status == PaymentStatusNames.Failed
+                && x.UpdatedAtUtc >= sinceUtc && x.UpdatedAtUtc < untilUtc)
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .Take(take)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> CountFailedPaymentsAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        CancellationToken cancellationToken)
+    {
+        return await _db.PaymentTransactions.CountAsync(
+            x => x.Status == PaymentStatusNames.Failed
+                && x.UpdatedAtUtc >= sinceUtc && x.UpdatedAtUtc < untilUtc,
+            cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DailyRevenueSummary>> GetDailyRevenueAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        CancellationToken cancellationToken)
+    {
+        // EF Core cannot translate GroupBy on DateTime.Date to SQL,
+        // so we materialize the lightweight projection first, then group in memory.
+        var rows = await _db.PaymentTransactions
+            .Where(x => x.Status == PaymentStatusNames.Paid
+                && x.PaidAtUtc >= sinceUtc && x.PaidAtUtc < untilUtc
+                && x.PaidAtUtc.HasValue)
+            .Select(x => new { Date = x.PaidAtUtc!.Value, x.Amount })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(x => DateOnly.FromDateTime(x.Date))
+            .Select(g => new DailyRevenueSummary(g.Key, g.Sum(x => x.Amount), g.Count()))
+            .OrderBy(x => x.Date)
+            .ToList();
+    }
+
     public async Task<bool> MarkFailedAsync(Guid id, string? responseCode, string? rawResponse, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;

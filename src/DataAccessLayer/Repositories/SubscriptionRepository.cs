@@ -227,6 +227,59 @@ public class SubscriptionRepository : ISubscriptionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<StudentSubscription>> ListActiveSubscriptionsAsync(
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        return await ActiveSubscriptions(nowUtc)
+            .Include(x => x.Student)
+            .Include(x => x.Plan)
+            .OrderByDescending(x => x.StartedAtUtc)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<StudentSubscription>> ListExpiringSubscriptionsAsync(
+        DateTime nowUtc,
+        int withinDays,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        var cutoff = nowUtc.AddDays(withinDays);
+        return await ActiveSubscriptions(nowUtc)
+            .Include(x => x.Student)
+            .Include(x => x.Plan)
+            .Where(x => x.ExpiresAtUtc.HasValue && x.ExpiresAtUtc <= cutoff)
+            .OrderBy(x => x.ExpiresAtUtc)
+            .Take(take)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> CountExpiringSubscriptionsAsync(
+        DateTime nowUtc,
+        int withinDays,
+        CancellationToken cancellationToken)
+    {
+        var cutoff = nowUtc.AddDays(withinDays);
+        return await ActiveSubscriptions(nowUtc)
+            .Where(x => x.ExpiresAtUtc.HasValue && x.ExpiresAtUtc <= cutoff)
+            .CountAsync(cancellationToken);
+    }
+
+    public async Task<int> CountPaidActivationsAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        CancellationToken cancellationToken)
+    {
+        return await _db.StudentSubscriptions
+            .Where(x => x.PriceAtActivation > 0
+                && x.StartedAtUtc >= sinceUtc && x.StartedAtUtc < untilUtc
+                && (x.Status == SubscriptionStatusNames.Active
+                    || x.Status == SubscriptionStatusNames.Replaced))
+            .CountAsync(cancellationToken);
+    }
+
     private async Task ClearOtherDefaultsAsync(Guid planId, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;

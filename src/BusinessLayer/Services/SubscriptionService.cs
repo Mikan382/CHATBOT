@@ -36,50 +36,174 @@ public class SubscriptionService : ISubscriptionService
             _paymentGateway.IsConfigured);
     }
 
-    public async Task<SubscriptionDashboardDto> GetDashboardAsync(CancellationToken cancellationToken)
+    public async Task<SubscriptionDashboardDto> GetDashboardAsync(int periodDays, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
-        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var sinceUtc = periodDays > 0
+            ? now.AddDays(-periodDays)
+            : new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var untilUtc = now;
         var pendingSince = now.Subtract(_paymentGateway.CheckoutLifetime);
+
+        // Core data
         var plans = await _subscriptionRepository.ListPlansAsync(includeInactive: true, cancellationToken);
+        var activeSubscriptions = await _subscriptionRepository.ListActiveSubscriptionsAsync(now, cancellationToken);
+        var activeCount = activeSubscriptions.Count;
+
+        // Time-filtered KPIs
+        var paidActivations = await _subscriptionRepository.CountPaidActivationsAsync(sinceUtc, untilUtc, cancellationToken);
+        var payments = await _paymentRepository.GetDashboardSummaryForRangeAsync(sinceUtc, untilUtc, pendingSince, cancellationToken);
+
+        // Token usage from active subscriptions
+        long totalTokensUsed = activeSubscriptions.Sum(x => x.TotalTokensUsed);
+        long totalTokenQuota = activeSubscriptions.Sum(x => x.TokenQuotaAtActivation);
+        decimal tokenUtilization = totalTokenQuota > 0
+            ? Math.Round((decimal)totalTokensUsed / totalTokenQuota * 100, 1)
+            : 0m;
+
+        // Trend data
+        var dailyRevenue = await _paymentRepository.GetDailyRevenueAsync(sinceUtc, untilUtc, cancellationToken);
+        var trend = dailyRevenue.Select(d =>
+            new SubscriptionTrendPointDto(d.Date, d.Revenue, d.PaidActivations)).ToList();
+
+        // Package performance
+        var activeByPlan = activeSubscriptions
+            .GroupBy(x => x.SubscriptionPlanId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Get paid activations and revenue per plan for the time range
+        var paidSubsInRange = await GetPaidSubscriptionsInRangeAsync(sinceUtc, untilUtc, cancellationToken);
+
+        var packagePerformance = plans.Select(plan =>
+        {
+            var planActiveSubs = activeByPlan.GetValueOrDefault(plan.Id)
+                ?? new List<StudentSubscription>();
+            var planActiveUsers = planActiveSubs.Count;
+            var planTokenUsed = planActiveSubs.Sum(s => s.TotalTokensUsed);
+            var planTokenQuota = planActiveSubs.Sum(s => s.TokenQuotaAtActivation);
+            decimal? utilization = planTokenQuota > 0
+                ? Math.Round((decimal)planTokenUsed / planTokenQuota * 100, 1)
+                : null;
+
+            var planPaidActivations = paidSubsInRange.Count(s => s.SubscriptionPlanId == plan.Id);
+            var planRevenue = paidSubsInRange
+                .Where(s => s.SubscriptionPlanId == plan.Id)
+                .Sum(s => s.PriceAtActivation);
+
+            return new PackagePerformanceDto(
+                plan.Id, plan.Code, plan.Name,
+                planActiveUsers, planPaidActivations, planRevenue,
+                planTokenUsed, planTokenQuota, utilization);
+        }).ToList();
+
+        // Needs attention
+        var expiringTotal = await _subscriptionRepository.CountExpiringSubscriptionsAsync(now, 7, cancellationToken);
+        var expiringList = await _subscriptionRepository.ListExpiringSubscriptionsAsync(now, 7, 5, cancellationToken);
+        var expiring = expiringList.Select(s => new ExpiringSubscriptionDto(
+            s.Id,
+            s.Student?.DisplayName ?? "",
+            s.Student?.Email ?? "",
+            s.Plan?.Name ?? "",
+            s.ExpiresAtUtc!.Value,
+            Math.Max(0, (int)(s.ExpiresAtUtc!.Value - now).TotalDays)
+        )).ToList();
+
+        var failedTotal = await _paymentRepository.CountFailedPaymentsAsync(sinceUtc, untilUtc, cancellationToken);
+        var failedList = await _paymentRepository.ListFailedPaymentsAsync(sinceUtc, untilUtc, 5, cancellationToken);
+        var failed = failedList.Select(p => new FailedPaymentDto(
+            p.Id,
+            p.Student?.DisplayName ?? "",
+            p.Student?.Email ?? "",
+            p.Plan?.Name ?? "",
+            p.Amount,
+            p.UpdatedAtUtc
+        )).ToList();
+
+        var usersNearLimit = activeSubscriptions
+            .Where(s => s.TokenQuotaAtActivation > 0
+                && (decimal)s.TotalTokensUsed / s.TokenQuotaAtActivation >= 0.8m)
+            .Select(s =>
+            {
+                var remaining = Math.Max(0, s.TokenQuotaAtActivation - s.TotalTokensUsed);
+                var util = Math.Round((decimal)s.TotalTokensUsed / s.TokenQuotaAtActivation * 100, 1);
+                return new UserTokenUsageDto(
+                    s.StudentUserId,
+                    s.Student?.DisplayName ?? "",
+                    s.Student?.Email ?? "",
+                    s.Plan?.Name ?? "",
+                    s.TotalTokensUsed,
+                    s.TokenQuotaAtActivation,
+                    remaining,
+                    util);
+            })
+            .OrderByDescending(u => u.Utilization)
+            .Take(5)
+            .ToList();
+
+        var needsAttentionCount = expiringTotal + failedTotal + usersNearLimit.Count;
+
+        // Plan stats (kept for compatibility)
         var counts = await _subscriptionRepository.CountActiveByPlanAsync(now, cancellationToken);
-        var payments = await _paymentRepository.GetDashboardSummaryAsync(monthStart, pendingSince, cancellationToken);
-        var tokenUsage = await _subscriptionRepository.GetActiveTokenUsageAsync(now, cancellationToken);
         var statsByPlan = counts.ToDictionary(x => x.PlanId);
-        var recent = await _subscriptionRepository.ListRecentSubscriptionsAsync(12, cancellationToken);
         var planStats = plans.Select(plan =>
         {
             var stats = statsByPlan.GetValueOrDefault(plan.Id);
             return new SubscriptionPlanStatsDto(
-                plan.Id,
-                plan.Name,
-                plan.Code,
-                plan.IsActive,
-                plan.IsDefault,
-                stats?.Count ?? 0,
-                stats?.ActiveValue ?? 0m);
+                plan.Id, plan.Name, plan.Code, plan.IsActive, plan.IsDefault,
+                stats?.Count ?? 0, stats?.ActiveValue ?? 0m);
         }).ToList();
+
+        // Recent activity
+        var recent = await _subscriptionRepository.ListRecentSubscriptionsAsync(10, cancellationToken);
+        var recentPayments = (await _paymentRepository.ListRecentAsync(10, cancellationToken))
+            .Select(x => ToRecentPaymentDto(x, pendingSince)).ToList();
 
         return new SubscriptionDashboardDto(
             await _subscriptionRepository.CountStudentsAsync(cancellationToken),
-            await _subscriptionRepository.CountActiveSubscriptionsAsync(now, cancellationToken),
-            await _subscriptionRepository.CountActivationsSinceAsync(monthStart, cancellationToken),
-            payments.PaidThisMonth,
-            payments.FailedThisMonth,
-            payments.Pending,
+            activeCount,
+            paidActivations,
             payments.RevenueThisMonth,
-            payments.TotalRevenue,
-            planStats.Sum(x => x.ActivePackageValue),
-            tokenUsage.InputTokens,
-            tokenUsage.OutputTokens,
-            tokenUsage.TotalTokens,
-            tokenUsage.TokenQuota,
+            totalTokensUsed,
+            totalTokenQuota,
+            tokenUtilization,
+            needsAttentionCount,
+            trend,
+            packagePerformance,
+            expiring,
+            expiringTotal,
+            failed,
+            failedTotal,
+            usersNearLimit,
             planStats,
             recent.Select(x => ToRecentDto(x, now)).ToList(),
-            (await _paymentRepository.ListRecentAsync(12, cancellationToken))
-                .Select(x => ToRecentPaymentDto(x, pendingSince))
-                .ToList(),
+            recentPayments,
             plans.Select(ToPlanDto).ToList());
+    }
+
+    public async Task<IReadOnlyList<ActiveSubscriptionDetailDto>> GetActiveSubscriptionDetailsAsync(
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var active = await _subscriptionRepository.ListActiveSubscriptionsAsync(now, cancellationToken);
+        return active.Select(s =>
+        {
+            var remaining = Math.Max(0, s.TokenQuotaAtActivation - s.TotalTokensUsed);
+            var utilization = s.TokenQuotaAtActivation > 0
+                ? Math.Round((decimal)s.TotalTokensUsed / s.TokenQuotaAtActivation * 100, 1)
+                : 0m;
+            return new ActiveSubscriptionDetailDto(
+                s.Id,
+                s.Student?.DisplayName ?? "",
+                s.Student?.Email ?? "",
+                s.Plan?.Code ?? "",
+                s.Plan?.Name ?? "",
+                s.TotalTokensUsed,
+                s.TokenQuotaAtActivation,
+                remaining,
+                utilization,
+                s.StartedAtUtc,
+                s.ExpiresAtUtc);
+        }).ToList();
     }
 
     public async Task CreatePlanAsync(
@@ -177,6 +301,20 @@ public class SubscriptionService : ISubscriptionService
         plan.IsDefault = true;
         plan.UpdatedAtUtc = DateTime.UtcNow;
         await _subscriptionRepository.SavePlanAsync(plan, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<StudentSubscription>> GetPaidSubscriptionsInRangeAsync(
+        DateTime sinceUtc,
+        DateTime untilUtc,
+        CancellationToken cancellationToken)
+    {
+        // Get active subscriptions that were paid (PriceAtActivation > 0) and activated in the time range.
+        // For demo-scale data, querying all active subs is acceptable.
+        var activeSubs = await _subscriptionRepository.ListActiveSubscriptionsAsync(DateTime.UtcNow, cancellationToken);
+        return activeSubs
+            .Where(s => s.PriceAtActivation > 0
+                && s.StartedAtUtc >= sinceUtc && s.StartedAtUtc < untilUtc)
+            .ToList();
     }
 
     private static void ValidatePlan(
