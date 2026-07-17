@@ -47,6 +47,11 @@
                 </div>
                 <button class="btn btn-primary w-100" type="submit">Sign in</button>
             </form>
+
+            <p class="text-muted small mt-3 mb-0">
+                No account yet?
+                <a asp-controller="Account" asp-action="Register" asp-route-returnUrl="@Model.ReturnUrl">Create a Student account</a>
+            </p>
         </div>
     </div>
 </div>

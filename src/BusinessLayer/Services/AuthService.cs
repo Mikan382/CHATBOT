@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using BusinessLayer.DTOs;
 using DataAccessLayer.Entities;
+using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Services;
@@ -9,13 +10,16 @@ public class AuthService : IAuthService
 {
     private readonly IUserAdminRepository _userRepository;
     private readonly IPasswordHasher<ApplicationUser> _passwordHasher;
+    private readonly IUserAdminService _userAdminService;
 
     public AuthService(
         IUserAdminRepository userRepository,
-        IPasswordHasher<ApplicationUser> passwordHasher)
+        IPasswordHasher<ApplicationUser> passwordHasher,
+        IUserAdminService userAdminService)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
+        _userAdminService = userAdminService;
     }
 
     public async Task<AuthenticatedUserDto> AuthenticateAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -49,6 +53,28 @@ public class AuthService : IAuthService
             await _userRepository.SaveChangesAsync(cancellationToken);
         }
 
+        return ToDto(user);
+    }
+
+    // Self sign-up. The role is fixed here instead of being a parameter: this is the only
+    // user-creation path reachable without authentication, so a caller-supplied role would
+    // let anyone register themselves as Admin. Creation itself is delegated so the Student
+    // default-package rules stay in one place.
+    public async Task<AuthenticatedUserDto> RegisterAsync(
+        string email,
+        string fullName,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = await _userAdminService.CreateAsync(
+            email,
+            fullName,
+            UserRoleNames.Student,
+            password,
+            cancellationToken);
+
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("The account was created but could not be loaded.");
         return ToDto(user);
     }
 
