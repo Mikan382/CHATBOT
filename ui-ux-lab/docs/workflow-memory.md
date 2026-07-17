@@ -41,3 +41,17 @@ This file stores repeatable project-specific recovery knowledge. Add an entry wh
 - Durable fix: use an independent ASP.NET Core MVC project with Razor Views, CSS, and browser JavaScript; keep it out of the existing solution and runtime path.
 - Verification: the lab project builds on its own, the existing solution build remains unchanged, and the React/Vite scaffold never reaches a commit.
 - Reuse when: the user asks for an isolated reference implementation inside a server-rendered .NET repository.
+
+### Optional live proxy must fail back quickly
+- Symptom: `?mode=live` remained on “Checking live app…” when the existing application was offline, making the standalone lab look stalled.
+- Cause: the reverse proxy and browser fetch could wait much longer than a design-review interaction should.
+- Durable fix: retain fixture as the default, bound the YARP request activity to five seconds, and abort the browser probe after 3.5 seconds before labeling the fixture fallback.
+- Verification: with port 5096 offline, the top-bar status changes from “Checking live app…” to “Fixture fallback” and the fixture sessions remain available.
+- Reuse when: an optional integration preview depends on a local service that reviewers may not be running.
+
+### Windows build output is locked while the lab is running
+- Symptom: the final lab build reports `MSB3027`/`MSB3021` because `Prn222.UiLab.exe` cannot be replaced.
+- Cause: the browser-QA server is still running from the same Debug output directory.
+- Durable fix: resolve and stop only the `Prn222.UiLab` process whose executable path is inside this repo, run the build gate, then restart the hidden review server after delivery.
+- Verification: the repeated standalone lab build completes with 0 warnings and 0 errors.
+- Reuse when: Windows reports an apphost or executable lock immediately after local UI testing.

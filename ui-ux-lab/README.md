@@ -22,4 +22,24 @@ dotnet run --project .\ui-ux-lab\Prn222.UiLab.csproj
 
 Open `http://127.0.0.1:5177`.
 
+## Review routes
+
+| Reference | URL |
+|---|---|
+| Sign-in states | `/Reference/Login?state=default` |
+| Chat, sessions, citations, composer | `/Reference/Chat` |
+| Document library and detail | `/Reference/Documents` and `/Reference/DocumentDetails` |
+| Courses and chapters | `/Reference/Courses` |
+| Benchmark dashboard | `/Reference/Benchmark?state=running` |
+| User administration | `/Reference/Admin` |
+| Architecture and integration boundary | `/Reference/Architecture` |
+
+Fixture mode is always the default. Start the existing application separately on `http://localhost:5096`, sign in there, then add `?mode=live` to a lab reference URL to probe the existing REST and SignalR contracts through `/backend`. A failed live probe returns to fixtures within a few seconds and labels that state in the top bar.
+
+Run the adapter contract gate with:
+
+```powershell
+.\ui-ux-lab\tools\verify-adapter.ps1
+```
+
 See [docs/roadmap.md](docs/roadmap.md) for the 20-phase delivery plan.

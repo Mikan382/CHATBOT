@@ -19,9 +19,12 @@
         mode: wantsLive ? "live" : "fixture",
         async listSessions() {
             if (!wantsLive) return fixtures.sessions;
+            const abortController = new AbortController();
+            const timeoutId = window.setTimeout(() => abortController.abort(), 3500);
             try {
                 const response = await fetch("/backend/api/chat/sessions", {
                     credentials: "include",
+                    signal: abortController.signal,
                     headers: { Accept: "application/json" }
                 });
                 if (!response.ok) throw new Error(`REST probe returned ${response.status}`);
@@ -33,6 +36,8 @@
                 adapter.lastError = error instanceof Error ? error.message : String(error);
                 setStatus("Fixture fallback", "warning");
                 return fixtures.sessions;
+            } finally {
+                window.clearTimeout(timeoutId);
             }
         },
         createChatConnection() {
