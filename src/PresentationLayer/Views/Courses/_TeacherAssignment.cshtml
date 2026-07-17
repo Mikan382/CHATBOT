@@ -6,42 +6,71 @@
             <label class="form-label mb-0" asp-for="TeacherIds">Teachers</label>
             <div class="text-muted small">Select active Teacher accounts that can manage this course.</div>
         </div>
-        <span class="teacher-selected-count" data-teacher-selected-count>0 selected</span>
+        <div class="teacher-assignment-actions">
+            <span class="teacher-selected-count" data-teacher-selected-count>0 selected</span>
+            <button class="btn btn-sm btn-outline-primary" type="button" data-teacher-add-toggle>Add teacher</button>
+        </div>
     </div>
 
-    @if (Model.Teachers.Count == 0)
-    {
-        <div class="empty-state teacher-empty-state">
-            No active Teacher accounts are available.
+    @* Not a <form>: this partial renders inside the course form and HTML forbids nested forms.
+       Inputs carry no name attribute so they are never posted with the course. *@
+    <div class="teacher-create-panel" hidden data-teacher-create-panel>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label small mb-1" for="new-teacher-email">Email</label>
+                <input class="form-control form-control-sm" type="email" id="new-teacher-email"
+                       autocomplete="off" data-teacher-new-email />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small mb-1" for="new-teacher-name">Display name</label>
+                <input class="form-control form-control-sm" type="text" id="new-teacher-name"
+                       autocomplete="off" data-teacher-new-name />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small mb-1" for="new-teacher-password">Password</label>
+                <input class="form-control form-control-sm" type="password" id="new-teacher-password"
+                       autocomplete="new-password" data-teacher-new-password />
+            </div>
         </div>
-    }
-    else
-    {
-        <input class="form-control form-control-sm teacher-search"
-               type="search"
-               placeholder="Search teacher name or email"
-               aria-label="Search teachers"
-               data-teacher-search />
+        <div class="text-muted small mt-1">
+            At least 8 characters with an uppercase letter, a lowercase letter, and a digit.
+        </div>
+        <div class="alert alert-danger small mt-2 mb-0" hidden data-teacher-create-error></div>
+        <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-primary" type="button" data-teacher-create-submit>Create teacher</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-teacher-create-cancel>Cancel</button>
+        </div>
+    </div>
 
-        <div class="teacher-option-list" data-teacher-list>
-            @foreach (var teacher in Model.Teachers)
-            {
-                <label class="teacher-option" data-teacher-option>
-                    <input class="form-check-input"
-                           type="checkbox"
-                           name="TeacherIds"
-                           value="@teacher.Id"
-                           checked="@(Model.TeacherIds.Contains(teacher.Id))" />
-                    <span class="teacher-option-content">
-                        <strong>@teacher.DisplayName</strong>
-                        <small>@teacher.Email</small>
-                    </span>
-                </label>
-            }
-        </div>
+    <input class="form-control form-control-sm teacher-search"
+           type="search"
+           placeholder="Search teacher name or email"
+           aria-label="Search teachers"
+           hidden="@(Model.Teachers.Count == 0)"
+           data-teacher-search />
 
-        <div class="empty-state teacher-no-results" hidden data-teacher-no-results>
-            No teachers match the search.
-        </div>
-    }
+    <div class="teacher-option-list" data-teacher-list hidden="@(Model.Teachers.Count == 0)">
+        @foreach (var teacher in Model.Teachers)
+        {
+            <label class="teacher-option" data-teacher-option>
+                <input class="form-check-input"
+                       type="checkbox"
+                       name="TeacherIds"
+                       value="@teacher.Id"
+                       checked="@(Model.TeacherIds.Contains(teacher.Id))" />
+                <span class="teacher-option-content">
+                    <strong>@teacher.DisplayName</strong>
+                    <small>@teacher.Email</small>
+                </span>
+            </label>
+        }
+    </div>
+
+    <div class="empty-state teacher-empty-state" hidden="@(Model.Teachers.Count > 0)" data-teacher-empty-state>
+        No active Teacher accounts are available.
+    </div>
+
+    <div class="empty-state teacher-no-results" hidden data-teacher-no-results>
+        No teachers match the search.
+    </div>
 </div>
