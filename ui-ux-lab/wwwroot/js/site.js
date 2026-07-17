@@ -38,3 +38,14 @@ document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
     const next = shell.getAttribute("data-contrast") === "soft-dark" ? "" : "soft-dark";
     if (next) shell.setAttribute("data-contrast", next); else shell.removeAttribute("data-contrast");
 });
+
+document.querySelector("[data-auth-demo]")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!(form instanceof HTMLFormElement) || !form.reportValidity()) return;
+    const button = form.querySelector("button[type='submit']");
+    const label = button?.querySelector("span");
+    button?.setAttribute("disabled", "");
+    button?.setAttribute("aria-busy", "true");
+    if (label) label.textContent = "Preview only";
+});
