@@ -17,7 +17,7 @@
 
 ## Progress
 - Done: repo and branch verified; Stitch direction accepted; all 20 phases implemented; fixture/live adapter bounded; desktop/mobile browser QA and both builds passed.
-- Next step: merge the pull request into `main`; future design work must resume the recorded Stitch project and extend `ui-ux-lab/` only.
+- Next step: future design work must resume the recorded Stitch project and extend `ui-ux-lab/` only; no further delivery work remains for this task.
 - Blocked on: none
 
 ## Open questions

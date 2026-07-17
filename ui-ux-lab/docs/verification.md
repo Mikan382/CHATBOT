@@ -1,6 +1,6 @@
 # Phase 20 Verification
 
-Verified on 2026-07-17 against `origin/main` at `1f39a6a`.
+Verified on 2026-07-17 against `origin/main` at `1f39a6a`; PR #16 was then merged as `3d9341a`.
 
 ## Automated gates
 
