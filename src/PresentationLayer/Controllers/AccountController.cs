@@ -55,6 +55,8 @@ public class AccountController : BaseController
         catch (Exception ex)
         {
             model.Error = UserFacingError(ex);
+            model.Password = "";
+            ModelState.Remove(nameof(LoginViewModel.Password));
             return View(model);
         }
     }
@@ -100,6 +102,12 @@ public class AccountController : BaseController
         if (!success)
         {
             model.Error = error ?? "Password change failed.";
+            model.CurrentPassword = "";
+            model.NewPassword = "";
+            model.ConfirmPassword = "";
+            ModelState.Remove(nameof(ChangePasswordViewModel.CurrentPassword));
+            ModelState.Remove(nameof(ChangePasswordViewModel.NewPassword));
+            ModelState.Remove(nameof(ChangePasswordViewModel.ConfirmPassword));
             return View(model);
         }
 

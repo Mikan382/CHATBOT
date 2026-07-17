@@ -1,159 +1,143 @@
 # PRN222 Course Assistant
 
-An ASP.NET Core MVC application for managing PRN222 course materials and answering
-student questions with retrieval-augmented generation (RAG). Built as a three-layer
-(Presentation / Business / Data Access) solution on .NET 8 and SQL Server.
+ASP.NET Core MVC assignment for managing course materials and answering student
+questions with retrieval-augmented generation (RAG).
 
-> Internal / educational project. No real payment is processed and it is not intended for production deployment.
-
-## Table of Contents
-
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-- [Configuration](#configuration)
-- [Demo Accounts](#demo-accounts)
-- [Roles & Routes](#roles--routes)
-- [Project Structure](#project-structure)
-- [Database & Migrations](#database--migrations)
-- [Scope](#scope)
+> Internal demo only. VNPay uses the sandbox; there is no production deployment or real-money workflow.
 
 ## Features
 
-- **Authentication & roles** — cookie login with `Student`, `Teacher`, and `Admin` roles.
-- **Course management** — course/chapter CRUD and teacher-to-course assignment.
-- **Document indexing** — synchronous text extraction, duplicate detection, and chunking. The chunking strategy used for each document is recorded and shown in the UI.
-- **RAG chat** — SignalR-based chat with citations and searchable, renameable, clearable session history.
-- **Configurable chunking** — admin-selectable global strategy: `paragraph`, configurable `fixed`, or `sentence`.
-- **RAG benchmark** — compare chunking strategies and Hugging Face embedding models against a curated ground-truth set; toggle questions active/inactive to control which run.
-- **Subscriptions** — students request packages for admin approval; each package sets a **monthly chat-message quota** that is enforced in chat. Admins approve/reject/revoke, manage packages, and see an estimated monthly value (price is snapshotted at activation, so later price edits do not rewrite existing subscriptions).
+- Cookie authentication with `Student`, `Teacher`, and `Admin` roles.
+- Course/chapter CRUD and many-to-many Teacher assignment.
+- Synchronous PDF, DOCX, PPTX, TXT, and MD indexing with duplicate-content detection.
+- Admin-configured `paragraph`, `fixed`, or `sentence` chunking for new uploads.
+- Vector retrieval with Hugging Face embeddings, Gemini answers, and document citations.
+- SignalR chat with searchable, renamable, clearable, and deletable sessions.
+- Ground-truth benchmark for comparing chunking strategies and embedding models.
+- Default free package, Gemini token quota, VNPay sandbox checkout, and an Admin dashboard.
 
-## Tech Stack
-
-| Area | Technology |
-|---|---|
-| Runtime | .NET 8 (ASP.NET Core MVC) |
-| Real-time | SignalR |
-| Data | Entity Framework Core 8, SQL Server / LocalDB |
-| Frontend | Razor Views, Bootstrap 5, vanilla JS |
-| AI | Google Gemini (chat), Hugging Face (embeddings) |
+There is no Razor Pages endpoint, background worker, indexing queue, lexical/hybrid
+retrieval, fine-tuned model, wallet, recurring billing, refund, or proration workflow.
 
 ## Architecture
 
+The solution uses a traditional three-layer architecture:
+
 ```text
-User
-  -> PresentationLayer   (MVC Controllers, Razor Views, SignalR Hub, ViewModels)
-  -> BusinessLayer       (services, DTOs, AI clients, parsing / indexing / retrieval)
-  -> DataAccessLayer     (repositories, EF Core, AppDbContext, SQL Server)
+Runtime:
+User -> PresentationLayer -> BusinessLayer -> DataAccessLayer -> SQL Server
+                          -> External AI/payment APIs
+
+Project references:
+PresentationLayer -> BusinessLayer
+PresentationLayer -> DataAccessLayer  (Program.cs composition root)
+BusinessLayer     -> DataAccessLayer
+DataAccessLayer   -> no upper layer
 ```
 
-- `Program.cs` is the composition root: it wires Business/Data Access implementations and initializes the database. All other Presentation code depends on Business **interfaces and DTOs**, never on EF Core entities.
-- Interfaces live at layer boundaries (repositories, external AI clients, replaceable chunking strategies). One-off internal orchestrators stay concrete.
-- External AI calls go through client abstractions. Document upload/indexing is synchronous inside the Business layer (no background worker or queue).
+`Program.cs` registers dependencies. Controllers and `ChatHub` call Business
+interfaces. Business services orchestrate repositories and external clients.
+Repositories and `AppDbContext` own persistence.
 
-## Prerequisites
+## Requirements
 
-- The .NET SDK pinned by [`global.json`](global.json)
-- SQL Server LocalDB (or any SQL Server instance)
-- A Google Gemini API key (required for chat replies)
-- A Hugging Face API key (optional for chat; **required** to run a benchmark)
+- .NET SDK specified by [`global.json`](global.json)
+- SQL Server LocalDB or SQL Server
+- Gemini API key for chat and benchmark answer generation
+- Hugging Face API key for indexing, retrieval, and embedding benchmarks
+- Optional VNPay sandbox credentials for paid packages
 
-## Getting Started
-
-### 1. Clone and restore
+## First Run
 
 ```powershell
-git clone <repository-url>
-cd CHATBOT
 dotnet restore .\Prn222Chatbot.sln
-```
 
-### 2. Configure secrets
+dotnet user-secrets set "BootstrapAdmin:Email" "admin@example.local" --project .\src\PresentationLayer
+dotnet user-secrets set "BootstrapAdmin:FullName" "System Admin" --project .\src\PresentationLayer
+dotnet user-secrets set "BootstrapAdmin:Password" "ChangeMe123" --project .\src\PresentationLayer
 
-Keep secrets out of tracked configuration with User Secrets:
-
-```powershell
 dotnet user-secrets set "Gemini:ApiKey" "YOUR_GEMINI_KEY" --project .\src\PresentationLayer
 dotnet user-secrets set "HuggingFace:ApiKey" "YOUR_HUGGINGFACE_KEY" --project .\src\PresentationLayer
-dotnet user-secrets set "SeedUsers:Admin:Password" "YOUR_ADMIN_PASSWORD" --project .\src\PresentationLayer
-```
 
-### 3. Run
-
-```powershell
-dotnet build .\Prn222Chatbot.sln --no-restore
 dotnet run --project .\src\PresentationLayer
 ```
 
-Open <http://localhost:5096> (default `http` profile).
+Open <http://localhost:5096> with the default HTTP launch profile.
 
-On startup the app applies pending EF Core migrations and seeds required settings. Demo data is inserted **only when the database is empty**, so later seed-configuration changes never overwrite stored data.
+Startup applies pending migrations and creates one bootstrap Admin only when the
+`ApplicationUsers` table is empty. It does not recreate demo users, courses, plans,
+or subscriptions on later runs. After first login:
+
+1. Create an active free package and mark it as `Default`.
+2. Create Student/Teacher accounts in `/AdminUsers`.
+3. Create courses, assign Teachers, add chapters, and upload documents.
+
+Add VNPay sandbox credentials only when payment needs to be demonstrated:
+
+```powershell
+dotnet user-secrets set "VnPay:TmnCode" "YOUR_TMNCODE" --project .\src\PresentationLayer
+dotnet user-secrets set "VnPay:HashSecret" "YOUR_HASH_SECRET" --project .\src\PresentationLayer
+```
 
 ## Configuration
 
 | Key | Purpose |
 |---|---|
-| `ConnectionStrings:DefaultConnection` | SQL Server connection string (override in `appsettings.json`, User Secrets, or the `ConnectionStrings__DefaultConnection` env var) |
-| `Gemini:ApiKey` | Google Gemini key used for chat generation |
-| `HuggingFace:ApiKey` | Hugging Face key used for embeddings and benchmarks |
-| `HuggingFace:Models` | Benchmark embedding models — each needs its model URL and any query/passage prefixes |
-| `SeedUsers:{Role}:Password` | Optional seed password per demo role |
+| `ConnectionStrings:DefaultConnection` | SQL Server connection |
+| `BootstrapAdmin:Email/FullName/Password` | First Admin for an empty database |
+| `Gemini:ApiKey`, `Gemini:Model`, `Gemini:MaxOutputTokens` | Gemini generation |
+| `Rag:TopK`, `Rag:MinimumSimilarityScore` | Vector retrieval limits |
+| `Rag:HistoryMessageCount` | Recent chat messages included in the prompt |
+| `HuggingFace:ApiKey`, `HuggingFace:ModelName` | Runtime embedding |
+| `HuggingFace:Models` | Embedding models available to benchmarks |
+| `VnPay:TmnCode`, `VnPay:HashSecret` | Sandbox merchant credentials |
+| `VnPay:BaseUrl`, `VnPay:PaymentTimeoutMinutes` | Checkout endpoint and pending lifetime |
 
-Retrieval falls back to lexical search when Hugging Face is not configured, so normal chat works with Gemini alone. Benchmarks re-embed a temporary corpus on every run, so provider usage limits apply. The default benchmark compares `intfloat/multilingual-e5-base` and `intfloat/multilingual-e5-small`.
+The VNPay return URL is generated from the current request host. VNPay cannot call
+the IPN endpoint on `localhost`; local demos confirm payment through the signed
+browser return.
 
-## Demo Accounts
+## Subscription Rules
 
-Fresh databases seed the PRN222 course (`Course Introduction` at order `0` and Chapters 01–08) and the accounts below. When no seed password secret is set, the default password is `Prn222@123`.
+- Exactly one active free plan can be marked `Default`; no plan code is hardcoded.
+- A Student receives the default package when the account is created or when no
+  unexpired package exists.
+- Quota uses Gemini `totalTokenCount` for successful Student chat generations.
+  Input and output token counts are also stored for reporting.
+- No relevant document means Gemini is not called and no token usage is charged.
+- Clearing or deleting chat history does not restore token quota.
+- Free-to-paid activation is immediate after a verified VNPay callback.
+- A paid package must expire before another paid checkout can be created.
+- Only one non-expired VNPay checkout may be pending for a Student.
+- Price, duration, and token quota are snapshotted at activation/payment time.
+- Revenue is gross successful VNPay payment value. Expiry or replacement does not
+  remove revenue because refund processing is outside the demo scope.
 
-| Role | Email |
-|---|---|
-| Student | `student@prn222.local` |
-| Teacher | `teacher@prn222.local` |
-| Admin | `admin@prn222.local` |
-
-## Roles & Routes
+## Main Routes
 
 | Route | Access | Purpose |
 |---|---|---|
-| `/chat` | All roles | RAG chat and session history (quota-limited for students) |
-| `/documents` | All roles | Browse/filter; Teacher/Admin can upload and delete |
-| `/courses` | Teacher/Admin | Assigned courses or full management |
-| `/AdminUsers` | Admin | User CRUD, lockout, roles, and password reset |
-| `/settings` | Admin | Global chunking strategy |
-| `/benchmark` | Admin | Run experiments and compare RAG metrics |
-| `/benchmark/questions` | Admin | Ground-truth question CRUD and active/inactive toggle |
-| `/subscriptions` | Student | View packages and request a subscription |
-| `/subscriptions/dashboard` | Admin | Approve/reject/revoke requests, manage packages, view statistics |
+| `/chat` | All roles | RAG chat and session history |
+| `/documents` | All roles | Browse; assigned Teacher/Admin can upload and delete |
+| `/courses` | Teacher/Admin | Assigned-course or full course management |
+| `/AdminUsers` | Admin | Accounts, roles, lockout, password reset, deletion |
+| `/settings` | Admin | Global chunking configuration |
+| `/benchmark` | Admin | Ground-truth and RAG experiments |
+| `/subscriptions` | Student | Current package and VNPay checkout |
+| `/subscriptions/dashboard` | Admin | Plans, subscriptions, payments, revenue, token usage |
 
-## Project Structure
+## EF Core Migrations
 
-```text
-src/
-  PresentationLayer/    Controllers/  Hubs/  ViewModels/  Views/  wwwroot/
-  BusinessLayer/        Services/  DTOs/  AI/  Parsing/  Indexing/  Retrieval/
-  DataAccessLayer/      Entities/  Enums/  Repositories/  Data/
-assets/
-  prn222-ground-truth.json   # 50 curated benchmark questions (reference data, not auto-imported)
-```
-
-## Database & Migrations
-
-Startup applies pending migrations automatically. To run them without launching the web app:
+`AppDbContextFactory` is used only by `dotnet ef` and requires an explicit
+connection string:
 
 ```powershell
-dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer --context AppDbContext
+$env:ConnectionStrings__DefaultConnection = "Server=(localdb)\MSSQLLocalDB;Database=Prn222RagChatbot;Trusted_Connection=True;TrustServerCertificate=True"
+dotnet ef migrations add MigrationName --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer
+dotnet ef database update --project .\src\DataAccessLayer --startup-project .\src\DataAccessLayer
 ```
 
-`AppDbContextFactory` provides the design-time context for this command. Migration files are append-only history; older migration names do not necessarily reflect current runtime behavior.
-
-Notes:
-
-- Embeddings are stored as JSON in SQL Server (assignment/demo scope).
-- Benchmark runs re-chunk `Document.ContentText` in memory and embed both corpus chunks and questions with the selected model. Only ground truth, completed runs, and result metrics are persisted; production chat indexes are untouched.
-- The versioned document-hash bootstrap keeps the earliest document when a chapter contains duplicate normalized content.
-
-## Scope
-
-Payment processing, deployment, background workers, and fine-tuned models are out of scope. Subscriptions gate chat usage through message quotas but do not represent real billing.
+Migration files are append-only history. Embeddings are stored as JSON in SQL Server
+because this assignment uses a small course dataset and in-memory cosine similarity.
+Benchmark runs call external AI APIs and consume provider quota, but do not consume a
+Student subscription quota.

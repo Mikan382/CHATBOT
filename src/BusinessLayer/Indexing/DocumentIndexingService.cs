@@ -1,7 +1,6 @@
 using System.Text.Json;
 using DataAccessLayer.Entities;
 using BusinessLayer.AI;
-using BusinessLayer.Retrieval;
 using BusinessLayer.Services;
 
 namespace BusinessLayer.Indexing;
@@ -26,6 +25,11 @@ public class DocumentIndexingService
 
     public async Task PopulateChunksAsync(Document document, CancellationToken cancellationToken)
     {
+        if (!_embeddingClient.IsConfigured)
+        {
+            throw new InvalidOperationException("Hugging Face embedding is required to index documents.");
+        }
+
         var settings = await _chunkingSettingsService.GetAsync(cancellationToken);
         var chunker = settings.CurrentStrategy == "fixed"
             ? new FixedSizeChunker(settings.FixedChunkSize, settings.FixedChunkOverlap)
@@ -44,7 +48,6 @@ public class DocumentIndexingService
                 DocumentId = document.Id,
                 ChunkIndex = index + 1,
                 Content = content,
-                NormalizedContent = TextNormalizer.Normalize(content),
                 SourceName = document.OriginalFileName,
                 CreatedAtUtc = DateTime.UtcNow
             })
@@ -61,21 +64,18 @@ public class DocumentIndexingService
                 $"Document creates {chunks.Count} sections; the limit is {DocumentUploadLimits.MaxChunksPerDocument}.");
         }
 
-        if (_embeddingClient.IsConfigured)
+        foreach (var chunk in chunks)
         {
-            foreach (var chunk in chunks)
+            var vector = await _embeddingClient.EmbedPassageAsync(chunk.Content, cancellationToken);
+            chunk.Embeddings.Add(new DocumentChunkEmbedding
             {
-                var vector = await _embeddingClient.EmbedPassageAsync(chunk.Content, cancellationToken);
-                chunk.Embeddings.Add(new DocumentChunkEmbedding
-                {
-                    Id = Guid.NewGuid(),
-                    DocumentChunkId = chunk.Id,
-                    ModelName = _embeddingClient.ModelName,
-                    Dimensions = vector.Length,
-                    VectorJson = JsonSerializer.Serialize(vector),
-                    CreatedAtUtc = DateTime.UtcNow
-                });
-            }
+                Id = Guid.NewGuid(),
+                DocumentChunkId = chunk.Id,
+                ModelName = _embeddingClient.ModelName,
+                Dimensions = vector.Length,
+                VectorJson = JsonSerializer.Serialize(vector),
+                CreatedAtUtc = DateTime.UtcNow
+            });
         }
 
         foreach (var chunk in chunks)

@@ -45,7 +45,22 @@ public class DocumentService : IDocumentService
             .OrderBy(x => x.Course?.Code)
             .ThenBy(x => x.Order)
             .ToList();
-        var documents = await _documentRepository.ListWithChapterAndChunksAsync(searchTerm, courseId, chapterId, teacherId, cancellationToken);
+        var selectedCourseId = courseId.HasValue && courses.Any(x => x.Id == courseId.Value)
+            ? courseId
+            : null;
+        var selectedChapter = chapterId.HasValue
+            ? chapters.FirstOrDefault(x => x.Id == chapterId.Value)
+            : null;
+        Guid? selectedChapterId = selectedChapter is not null
+            && (!selectedCourseId.HasValue || selectedChapter.CourseId == selectedCourseId.Value)
+                ? selectedChapter.Id
+                : null;
+        var documents = await _documentRepository.ListWithChapterAndChunksAsync(
+            searchTerm,
+            selectedCourseId,
+            selectedChapterId,
+            teacherId,
+            cancellationToken);
 
         var chapterDtos = chapters
             .Select(c => new ChapterSelectDto(c.Id, c.CourseId, c.Order, c.Title))
@@ -53,7 +68,12 @@ public class DocumentService : IDocumentService
         var documentDtos = documents.Select(ToIndexDto).ToList();
         var courseDtos = courses.Select(ToCourseDto).ToList();
 
-        return new DocumentIndexPageDto(courseDtos, chapterDtos, documentDtos);
+        return new DocumentIndexPageDto(
+            courseDtos,
+            chapterDtos,
+            documentDtos,
+            selectedCourseId,
+            selectedChapterId);
     }
 
     public async Task<DocumentDetailsDto> GetDetailsAsync(Guid id, CancellationToken cancellationToken)

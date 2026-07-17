@@ -111,21 +111,4 @@ public class DocumentRepository : IDocumentRepository
         return true;
     }
 
-    public async Task<IReadOnlyList<DocumentChunk>> ListIndexedChunksAsync(Guid? courseId, CancellationToken cancellationToken)
-    {
-        var query = _db.DocumentChunks
-            .Include(x => x.Document)
-            .ThenInclude(x => x!.Chapter)
-            .ThenInclude(x => x!.Course)
-            .AsQueryable();
-
-        if (courseId.HasValue)
-        {
-            query = query.Where(x => x.Document!.Chapter!.CourseId == courseId.Value);
-        }
-
-        return await query
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
-    }
 }

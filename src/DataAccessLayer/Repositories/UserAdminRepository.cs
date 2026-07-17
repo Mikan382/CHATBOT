@@ -72,15 +72,25 @@ public class UserAdminRepository : IUserAdminRepository
             cancellationToken);
     }
 
-    public async Task AddAsync(ApplicationUser user, CancellationToken cancellationToken = default)
+    public async Task AddAsync(
+        ApplicationUser user,
+        StudentSubscription? defaultSubscription,
+        CancellationToken cancellationToken = default)
     {
         _db.Users.Add(user);
+        if (defaultSubscription is not null)
+        {
+            _db.StudentSubscriptions.Add(defaultSubscription);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task SaveUserAsync(
         ApplicationUser user,
         bool removeTeachingAssignments,
+        bool expireStudentSubscriptions,
+        StudentSubscription? defaultSubscription,
         CancellationToken cancellationToken = default)
     {
         if (removeTeachingAssignments)
@@ -91,6 +101,24 @@ public class UserAdminRepository : IUserAdminRepository
             _db.CourseTeachers.RemoveRange(assignments);
         }
 
+        if (expireStudentSubscriptions)
+        {
+            var now = DateTime.UtcNow;
+            var subscriptions = await _db.StudentSubscriptions
+                .Where(x => x.StudentUserId == user.Id && x.Status == SubscriptionStatusNames.Active)
+                .ToListAsync(cancellationToken);
+            foreach (var subscription in subscriptions)
+            {
+                subscription.Status = SubscriptionStatusNames.Expired;
+                subscription.UpdatedAtUtc = now;
+            }
+        }
+
+        if (defaultSubscription is not null)
+        {
+            _db.StudentSubscriptions.Add(defaultSubscription);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
     }
 
@@ -99,6 +127,15 @@ public class UserAdminRepository : IUserAdminRepository
         return await _db.Users.CountAsync(
             x => x.Role == UserRoleNames.Admin && !x.IsLockedOut,
             cancellationToken);
+    }
+
+    public async Task<bool> HasRelatedDataAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _db.StudentSubscriptions.AnyAsync(x => x.StudentUserId == userId, cancellationToken)
+            || await _db.PaymentTransactions.AnyAsync(x => x.StudentUserId == userId, cancellationToken)
+            || await _db.ChatSessions.AnyAsync(x => x.UserId == userId, cancellationToken)
+            || await _db.Documents.AnyAsync(x => x.UploadedByUserId == userId, cancellationToken)
+            || await _db.CourseTeachers.AnyAsync(x => x.TeacherUserId == userId, cancellationToken);
     }
 
     public async Task DeleteAsync(ApplicationUser user, CancellationToken cancellationToken = default)

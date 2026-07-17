@@ -6,24 +6,25 @@ public interface ISubscriptionRepository
 {
     Task<IReadOnlyList<SubscriptionPlan>> ListPlansAsync(bool includeInactive, CancellationToken cancellationToken);
     Task<SubscriptionPlan?> GetPlanAsync(Guid id, CancellationToken cancellationToken);
+    Task<SubscriptionPlan?> GetDefaultPlanAsync(CancellationToken cancellationToken);
     Task<bool> PlanCodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
     Task AddPlanAsync(SubscriptionPlan plan, CancellationToken cancellationToken);
+    Task SavePlanAsync(SubscriptionPlan plan, CancellationToken cancellationToken);
     Task<StudentSubscription?> GetCurrentForStudentAsync(Guid studentUserId, DateTime nowUtc, CancellationToken cancellationToken);
-    Task<StudentSubscription?> GetPendingForStudentAsync(Guid studentUserId, CancellationToken cancellationToken);
-    Task<StudentSubscription?> GetForDecisionAsync(Guid subscriptionId, CancellationToken cancellationToken);
-    Task AddRequestAsync(StudentSubscription subscription, CancellationToken cancellationToken);
-    Task ActivatePendingAsync(
-        StudentSubscription subscription,
-        DateTime startedAtUtc,
-        DateTime? expiresAtUtc,
-        decimal priceAtActivation,
+    Task<StudentSubscription?> GetOrCreateCurrentForStudentAsync(
+        Guid studentUserId,
+        DateTime nowUtc,
         CancellationToken cancellationToken);
-    Task<SubscriptionPlan?> GetPlanByCodeAsync(string code, CancellationToken cancellationToken);
     Task<int> CountStudentsAsync(CancellationToken cancellationToken);
     Task<int> CountActiveSubscriptionsAsync(DateTime nowUtc, CancellationToken cancellationToken);
-    Task<int> CountRequestsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken);
+    Task<int> CountActivationsSinceAsync(DateTime sinceUtc, CancellationToken cancellationToken);
     Task<IReadOnlyList<SubscriptionPlanCount>> CountActiveByPlanAsync(DateTime nowUtc, CancellationToken cancellationToken);
-    Task<IReadOnlyList<StudentSubscription>> ListPendingSubscriptionsAsync(CancellationToken cancellationToken);
+    Task<ActiveTokenUsageSummary> GetActiveTokenUsageAsync(DateTime nowUtc, CancellationToken cancellationToken);
     Task<IReadOnlyList<StudentSubscription>> ListRecentSubscriptionsAsync(int take, CancellationToken cancellationToken);
-    Task SaveChangesAsync(CancellationToken cancellationToken);
 }
+
+public record ActiveTokenUsageSummary(
+    long InputTokens,
+    long OutputTokens,
+    long TotalTokens,
+    long TokenQuota);

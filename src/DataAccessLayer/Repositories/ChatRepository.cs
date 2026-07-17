@@ -89,17 +89,56 @@ public class ChatRepository : IChatRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task AddAssistantMessageAndTouchSessionAsync(ChatMessage message, Guid sessionId, Guid userId, CancellationToken cancellationToken)
+    public async Task AddAssistantMessageAndTouchSessionAsync(
+        ChatMessage message,
+        Guid sessionId,
+        Guid userId,
+        ChatTokenUsageUpdate? tokenUsage,
+        CancellationToken cancellationToken)
     {
-        _db.ChatMessages.Add(message);
+        if (tokenUsage is null)
+        {
+            _db.ChatMessages.Add(message);
+            var currentSession = await _db.ChatSessions
+                .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+            if (currentSession is not null)
+            {
+                currentSession.UpdatedAtUtc = DateTime.UtcNow;
+            }
 
-        var session = await _db.ChatSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (tokenUsage.InputTokens < 0 || tokenUsage.OutputTokens < 0 || tokenUsage.TotalTokens <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tokenUsage), "Token usage must contain non-negative counts and a positive total.");
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        var updatedSubscription = await _db.StudentSubscriptions
+            .Where(x => x.Id == tokenUsage.StudentSubscriptionId && x.StudentUserId == userId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.InputTokensUsed, x => x.InputTokensUsed + tokenUsage.InputTokens)
+                .SetProperty(x => x.OutputTokensUsed, x => x.OutputTokensUsed + tokenUsage.OutputTokens)
+                .SetProperty(x => x.TotalTokensUsed, x => x.TotalTokensUsed + tokenUsage.TotalTokens)
+                .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
+        if (updatedSubscription == 0)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw new InvalidOperationException("The subscription used for this chat request was not found.");
+        }
+
+        _db.ChatMessages.Add(message);
+        var session = await _db.ChatSessions
+            .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, cancellationToken);
         if (session is not null)
         {
             session.UpdatedAtUtc = DateTime.UtcNow;
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task ClearMessagesAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
@@ -178,49 +217,6 @@ public class ChatRepository : IChatRepository
         _db.ChatSessions.Remove(session);
         await _db.SaveChangesAsync(cancellationToken);
         return true;
-    }
-
-    public async Task<int> GetUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken)
-    {
-        return await _db.ChatMessageUsages
-            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
-            .Select(x => x.Count)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-
-    public async Task IncrementUsageAsync(Guid studentUserId, string periodKey, CancellationToken cancellationToken)
-    {
-        // Atomic increment at the DB level so concurrent sends can't lose a count.
-        var updated = await _db.ChatMessageUsages
-            .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
-                .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
-        if (updated > 0)
-        {
-            return;
-        }
-
-        try
-        {
-            _db.ChatMessageUsages.Add(new ChatMessageUsage
-            {
-                Id = Guid.NewGuid(),
-                StudentUserId = studentUserId,
-                PeriodKey = periodKey,
-                Count = 1,
-                UpdatedAtUtc = DateTime.UtcNow
-            });
-            await _db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException)
-        {
-            // A concurrent request inserted the row first; drop our failed insert and increment instead.
-            _db.ChangeTracker.Clear();
-            await _db.ChatMessageUsages
-                .Where(x => x.StudentUserId == studentUserId && x.PeriodKey == periodKey)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Count, x => x.Count + 1)
-                    .SetProperty(x => x.UpdatedAtUtc, _ => DateTime.UtcNow), cancellationToken);
-        }
     }
 
     private static string TruncateSessionTitle(string text)

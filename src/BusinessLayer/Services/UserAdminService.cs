@@ -12,11 +12,16 @@ public class UserAdminService : IUserAdminService
 {
     private static readonly string[] AllowedRoles = [UserRoleNames.Student, UserRoleNames.Teacher, UserRoleNames.Admin];
     private readonly IUserAdminRepository _userRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly IPasswordHasher<ApplicationUser> _passwordHasher;
 
-    public UserAdminService(IUserAdminRepository userRepository, IPasswordHasher<ApplicationUser> passwordHasher)
+    public UserAdminService(
+        IUserAdminRepository userRepository,
+        ISubscriptionRepository subscriptionRepository,
+        IPasswordHasher<ApplicationUser> passwordHasher)
     {
         _userRepository = userRepository;
+        _subscriptionRepository = subscriptionRepository;
         _passwordHasher = passwordHasher;
     }
 
@@ -62,7 +67,10 @@ public class UserAdminService : IUserAdminService
             UpdatedAtUtc = now
         };
         user.PasswordHash = _passwordHasher.HashPassword(user, password);
-        await _userRepository.AddAsync(user, cancellationToken);
+        var defaultSubscription = role == UserRoleNames.Student
+            ? await CreateDefaultSubscriptionAsync(user.Id, now, cancellationToken)
+            : null;
+        await _userRepository.AddAsync(user, defaultSubscription, cancellationToken);
     }
 
     public async Task<bool> UpdateAsync(
@@ -75,6 +83,7 @@ public class UserAdminService : IUserAdminService
     {
         var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("User was not found.");
+        var previousRole = user.Role;
         role = ValidateRole(role);
         email = NormalizeEmail(email);
         var displayName = StringHelper.NormalizeRequired(fullName, "Display name");
@@ -96,12 +105,34 @@ public class UserAdminService : IUserAdminService
             return false;
         }
 
-        var removeTeachingAssignments = user.Role == UserRoleNames.Teacher && role != UserRoleNames.Teacher;
+        var removeTeachingAssignments = previousRole == UserRoleNames.Teacher && role != UserRoleNames.Teacher;
+        var expireStudentSubscriptions = previousRole == UserRoleNames.Student && role != UserRoleNames.Student;
+        StudentSubscription? defaultSubscription = null;
+        if (previousRole != UserRoleNames.Student && role == UserRoleNames.Student)
+        {
+            var current = await _subscriptionRepository.GetCurrentForStudentAsync(
+                userId,
+                DateTime.UtcNow,
+                cancellationToken);
+            if (current is null)
+            {
+                defaultSubscription = await CreateDefaultSubscriptionAsync(
+                    userId,
+                    DateTime.UtcNow,
+                    cancellationToken);
+            }
+        }
+
         user.Email = email;
         user.DisplayName = displayName;
         user.Role = role;
         user.UpdatedAtUtc = DateTime.UtcNow;
-        await _userRepository.SaveUserAsync(user, removeTeachingAssignments, cancellationToken);
+        await _userRepository.SaveUserAsync(
+            user,
+            removeTeachingAssignments,
+            expireStudentSubscriptions,
+            defaultSubscription,
+            cancellationToken);
         return userId == actorUserId;
     }
 
@@ -139,6 +170,12 @@ public class UserAdminService : IUserAdminService
         var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("User was not found.");
         await EnsureActiveAdminRemainsAsync(user, true, cancellationToken);
+        if (await _userRepository.HasRelatedDataAsync(userId, cancellationToken))
+        {
+            throw new InvalidOperationException(
+                "This user has related application data. Lock the account instead of deleting it.");
+        }
+
         await _userRepository.DeleteAsync(user, cancellationToken);
     }
 
@@ -209,5 +246,29 @@ public class UserAdminService : IUserAdminService
         }
 
         return normalized;
+    }
+
+    private async Task<StudentSubscription> CreateDefaultSubscriptionAsync(
+        Guid studentUserId,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        var plan = await _subscriptionRepository.GetDefaultPlanAsync(cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Configure an active free default package before creating a Student account.");
+
+        return new StudentSubscription
+        {
+            Id = Guid.NewGuid(),
+            StudentUserId = studentUserId,
+            SubscriptionPlanId = plan.Id,
+            Status = SubscriptionStatusNames.Active,
+            PriceAtActivation = plan.Price,
+            TokenQuotaAtActivation = plan.TokenQuota,
+            StartedAtUtc = nowUtc,
+            ExpiresAtUtc = nowUtc.AddDays(plan.DurationDays),
+            CreatedAtUtc = nowUtc,
+            UpdatedAtUtc = nowUtc
+        };
     }
 }

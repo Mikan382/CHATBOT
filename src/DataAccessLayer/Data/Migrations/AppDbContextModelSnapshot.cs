@@ -247,34 +247,6 @@ namespace DataAccessLayer.Data.Migrations
                     b.ToTable("ChatMessages");
                 });
 
-            modelBuilder.Entity("DataAccessLayer.Entities.ChatMessageUsage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Count")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PeriodKey")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<Guid>("StudentUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentUserId", "PeriodKey")
-                        .IsUnique();
-
-                    b.ToTable("ChatMessageUsages");
-                });
-
             modelBuilder.Entity("DataAccessLayer.Entities.ChatSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -429,10 +401,6 @@ namespace DataAccessLayer.Data.Migrations
                     b.Property<Guid>("DocumentId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("NormalizedContent")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("SourceName")
                         .IsRequired()
                         .HasMaxLength(260)
@@ -525,6 +493,80 @@ namespace DataAccessLayer.Data.Migrations
                     b.ToTable("EvaluationQuestions");
                 });
 
+            modelBuilder.Entity("DataAccessLayer.Entities.PaymentTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PaidAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderTransactionNo")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ProviderTxnRef")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RawResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResponseCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("StudentSubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SubscriptionPlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("TokenQuota")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderTxnRef")
+                        .IsUnique();
+
+                    b.HasIndex("StudentUserId");
+
+                    b.HasIndex("SubscriptionPlanId");
+
+                    b.HasIndex("Status", "PaidAtUtc");
+
+                    b.ToTable("PaymentTransactions");
+                });
+
             modelBuilder.Entity("DataAccessLayer.Entities.StudentSubscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -536,6 +578,12 @@ namespace DataAccessLayer.Data.Migrations
 
                     b.Property<DateTime?>("ExpiresAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<long>("InputTokensUsed")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("OutputTokensUsed")
+                        .HasColumnType("bigint");
 
                     b.Property<decimal>("PriceAtActivation")
                         .HasPrecision(18, 2)
@@ -555,6 +603,12 @@ namespace DataAccessLayer.Data.Migrations
                     b.Property<Guid>("SubscriptionPlanId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("TokenQuotaAtActivation")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TotalTokensUsed")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -566,11 +620,12 @@ namespace DataAccessLayer.Data.Migrations
                         .IsUnique()
                         .HasFilter("[Status] = 'Active'");
 
-                    b.HasIndex(new[] { "StudentUserId" }, "IX_StudentSubscriptions_StudentUserId_Pending")
-                        .IsUnique()
-                        .HasFilter("[Status] = 'Pending'");
+                    b.ToTable("StudentSubscriptions", t =>
+                        {
+                            t.HasCheckConstraint("CK_StudentSubscriptions_TokenQuotaAtActivation", "[TokenQuotaAtActivation] > 0");
 
-                    b.ToTable("StudentSubscriptions");
+                            t.HasCheckConstraint("CK_StudentSubscriptions_TokenUsage", "[InputTokensUsed] >= 0 AND [OutputTokensUsed] >= 0 AND [TotalTokensUsed] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("DataAccessLayer.Entities.SubscriptionPlan", b =>
@@ -598,20 +653,23 @@ namespace DataAccessLayer.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<int>("MessageQuota")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("MonthlyPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
+
+                    b.Property<long>("TokenQuota")
+                        .HasColumnType("bigint");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
@@ -621,7 +679,20 @@ namespace DataAccessLayer.Data.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("SubscriptionPlans");
+                    b.HasIndex("IsDefault")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1");
+
+                    b.ToTable("SubscriptionPlans", t =>
+                        {
+                            t.HasCheckConstraint("CK_SubscriptionPlans_Default", "[IsDefault] = 0 OR ([IsActive] = 1 AND [Price] = 0)");
+
+                            t.HasCheckConstraint("CK_SubscriptionPlans_DurationDays", "[DurationDays] > 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionPlans_Price", "[Price] >= 0");
+
+                            t.HasCheckConstraint("CK_SubscriptionPlans_TokenQuota", "[TokenQuota] > 0");
+                        });
                 });
 
             modelBuilder.Entity("DataAccessLayer.Entities.SystemSetting", b =>
@@ -761,6 +832,25 @@ namespace DataAccessLayer.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Course");
+                });
+
+            modelBuilder.Entity("DataAccessLayer.Entities.PaymentTransaction", b =>
+                {
+                    b.HasOne("DataAccessLayer.Entities.ApplicationUser", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DataAccessLayer.Entities.SubscriptionPlan", "Plan")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("DataAccessLayer.Entities.StudentSubscription", b =>

@@ -135,6 +135,16 @@ h6 {
   gap: 10px;
 }
 
+.user-editor-header {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) 130px 82px minmax(150px, auto);
+  gap: 8px;
+  padding: 0 12px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .user-editor-row {
   border: 1px solid #d8dee8;
   background: #fff;
@@ -144,7 +154,7 @@ h6 {
 
 .user-editor-fields {
   display: grid;
-  grid-template-columns: minmax(190px, 1.2fr) minmax(150px, 1fr) 120px 72px;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) 130px 82px minmax(150px, auto);
   gap: 8px;
   align-items: center;
 }
@@ -154,13 +164,15 @@ h6 {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 8px;
+  min-width: 0;
 }
 
-.user-password-form {
-  display: grid;
-  grid-template-columns: 130px auto;
-  gap: 6px;
+.user-editor-actions form {
+  margin: 0;
+}
+
+.user-editor-actions .btn {
+  min-width: 72px;
 }
 
 .empty-state {
@@ -280,22 +292,85 @@ h6 {
   border-top: 1px solid #cbd5e1;
 }
 
+.teacher-assignment {
+  padding: 14px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.teacher-assignment-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.teacher-selected-count {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.teacher-search {
+  max-width: 420px;
+  margin-bottom: 10px;
+}
+
 .teacher-option-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 8px;
   max-height: 220px;
   overflow-y: auto;
-  border: 1px solid #d8dee8;
-  border-radius: 6px;
-  padding: 10px;
 }
 
 .teacher-option {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
   margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.teacher-option:hover {
+  border-color: #94a3b8;
+}
+
+.teacher-option.selected {
+  border-color: #60a5fa;
+  background: #eff6ff;
+}
+
+.teacher-option .form-check-input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+
+.teacher-option-content {
+  display: grid;
+  min-width: 0;
+}
+
+.teacher-option-content small {
+  overflow: hidden;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teacher-no-results,
+.teacher-empty-state {
+  padding: 14px 12px;
 }
 
 .flash-stack {
@@ -775,7 +850,7 @@ h6 {
 
 .documents-table {
   table-layout: fixed;
-  min-width: 1040px;
+  min-width: 920px;
 }
 
 .documents-table thead th {
@@ -793,13 +868,13 @@ h6 {
 
 .documents-table th:nth-child(1),
 .documents-table td:nth-child(1) {
-  width: 34%;
+  width: 29%;
   word-break: break-word;
 }
 
 .documents-table th:nth-child(2),
 .documents-table td:nth-child(2) {
-  width: 9%;
+  width: 10%;
 }
 
 .documents-table th:nth-child(3),
@@ -809,17 +884,55 @@ h6 {
 
 .documents-table th:nth-child(4),
 .documents-table td:nth-child(4) {
-  width: 8%;
+  width: 13%;
 }
 
 .documents-table th:nth-child(5),
 .documents-table td:nth-child(5) {
-  width: 15%;
+  width: 13%;
 }
 
 .documents-table th:nth-child(6),
 .documents-table td:nth-child(6) {
-  width: 9%;
+  width: 10%;
+}
+
+.documents-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.documents-actions-cell .dropdown {
+  display: inline-block;
+}
+
+.documents-actions-cell .dropdown-menu form {
+  margin: 0;
+}
+
+.management-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.management-actions-cell .dropdown {
+  display: inline-block;
+}
+
+.management-actions-cell .dropdown-menu form {
+  margin: 0;
+}
+
+.management-actions-cell .dropdown-menu[data-popper-placement] {
+  inset: calc(100% + 2px) 0 auto auto !important;
+  transform: none !important;
+}
+
+@media (min-width: 992px) {
+  .management-dropdown-card,
+  .management-table-responsive {
+    overflow: visible;
+  }
 }
 
 .chapter-cell {
@@ -1063,27 +1176,6 @@ h6 {
   height: 100%;
 }
 
-.subscription-pending-banner {
-  border-left: 4px solid #d97706;
-}
-
-.subscription-pending-banner .card-body {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.subscription-pending-banner .subscription-cancel-request-form {
-  flex: 0 0 auto;
-}
-
-.subscription-decision-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
 .subscription-status {
   border: 1px solid #cbd5e1;
   background: #f8fafc;
@@ -1096,17 +1188,59 @@ h6 {
   color: #166534;
 }
 
-.subscription-status-pending {
+.subscription-status-expired,
+.subscription-status-replaced {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.payment-status {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.payment-status-paid {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.payment-status-pending {
   border-color: #fcd34d;
   background: #fef3c7;
   color: #92400e;
 }
 
-.subscription-status-rejected,
-.subscription-status-cancelled {
+.payment-status-failed,
+.payment-status-expired {
   border-color: #fecaca;
   background: #fef2f2;
   color: #991b1b;
+}
+
+.subscription-summary-list {
+  display: grid;
+  gap: 0;
+}
+
+.subscription-summary-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.subscription-summary-list dt,
+.subscription-summary-list dd {
+  margin: 0;
+}
+
+.subscription-summary-list dd {
+  font-weight: 700;
+  text-align: right;
 }
 
 .subscription-price {
@@ -1136,49 +1270,91 @@ h6 {
   font-weight: 600;
 }
 
-.subscription-plan-form,
-.subscription-plan-grid {
+.subscription-create-form {
   display: grid;
-  grid-template-columns: minmax(90px, 0.65fr) minmax(140px, 1fr) minmax(110px, 0.75fr) minmax(76px, 0.5fr) minmax(76px, 0.5fr) minmax(76px, 0.5fr) minmax(280px, 1.8fr) 92px 96px;
-  gap: 8px;
+  grid-template-columns: minmax(110px, 0.7fr) minmax(180px, 1.2fr) repeat(4, minmax(110px, 0.75fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.subscription-create-description {
+  grid-column: 1 / span 4;
+}
+
+.subscription-create-actions {
+  grid-column: 5 / -1;
+  display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  min-height: 31px;
+}
+
+.subscription-default-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.subscription-default-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
 }
 
 .subscription-plan-editor {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
-.subscription-plan-grid-header {
-  padding: 0 4px;
-  color: #1f2937;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.subscription-plan-edit-form {
-  padding: 8px;
+.subscription-plan-item {
   border: 1px solid #d8dee8;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fff;
 }
 
-.subscription-description-input {
-  min-width: 0;
-  width: 100%;
+.subscription-plan-item.is-default {
+  border-left: 4px solid #0ea5e9;
 }
 
-.subscription-plan-active-field {
+.subscription-plan-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.subscription-plan-edit-form {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+}
+
+.subscription-plan-description {
+  grid-column: 1 / -1;
+}
+
+.subscription-plan-footer {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
-  min-width: 0;
-  margin: 0;
-  white-space: nowrap;
 }
 
 .subscription-plan-edit-form .btn {
-  width: 100%;
+  min-width: 112px;
 }
 
 .chunking-fixed-settings {
@@ -1205,13 +1381,20 @@ h6 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .subscription-plan-form,
-  .subscription-plan-grid {
+  .subscription-create-form,
+  .subscription-plan-edit-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .subscription-plan-grid-header {
-    display: none;
+  .subscription-create-description,
+  .subscription-create-actions,
+  .subscription-plan-description,
+  .subscription-plan-footer {
+    grid-column: 1 / -1;
+  }
+
+  .subscription-default-panel {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1220,9 +1403,16 @@ h6 {
     grid-template-columns: 1fr;
   }
 
-  .subscription-plan-form,
-  .subscription-plan-grid {
+  .subscription-create-form,
+  .subscription-plan-edit-form,
+  .subscription-default-form {
     grid-template-columns: 1fr;
+  }
+
+  .subscription-create-actions,
+  .subscription-plan-footer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

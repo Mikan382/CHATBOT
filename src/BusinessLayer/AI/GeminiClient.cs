@@ -15,30 +15,42 @@ public class GeminiClient : IGeminiClient
         @"^(?<seconds>\d+(?:\.\d+)?)s$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
     private readonly ILogger<GeminiClient> _logger;
+    private readonly string? _apiKey;
+    private readonly string _model;
+    private readonly int _maxOutputTokens;
 
     public GeminiClient(HttpClient httpClient, IConfiguration configuration, ILogger<GeminiClient> logger)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
         _logger = logger;
+        _apiKey = configuration["Gemini:ApiKey"];
+        _model = configuration["Gemini:Model"]?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(_model))
+        {
+            throw new InvalidOperationException("Missing Gemini:Model configuration.");
+        }
+
+        if (!int.TryParse(configuration["Gemini:MaxOutputTokens"], out _maxOutputTokens)
+            || _maxOutputTokens <= 0)
+        {
+            throw new InvalidOperationException("Gemini:MaxOutputTokens must be a positive integer.");
+        }
     }
 
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
 
-    private string? ApiKey => _configuration["Gemini:ApiKey"];
-
-    private string Model => _configuration["Gemini:Model"] ?? "gemini-2.5-flash";
-
-    public async Task<string> GenerateAsync(string systemInstruction, string prompt, CancellationToken cancellationToken)
+    public async Task<GeminiGenerationResult> GenerateAsync(
+        string systemInstruction,
+        string prompt,
+        CancellationToken cancellationToken)
     {
         if (!IsConfigured)
         {
             throw new InvalidOperationException("Gemini API key is not configured.");
         }
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{Model}:generateContent";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent";
         var payload = new
         {
             systemInstruction = new
@@ -56,7 +68,8 @@ public class GeminiClient : IGeminiClient
             generationConfig = new
             {
                 temperature = 0.2,
-                topP = 0.9
+                topP = 0.9,
+                maxOutputTokens = _maxOutputTokens
             }
         };
 
@@ -66,7 +79,7 @@ public class GeminiClient : IGeminiClient
             {
                 Content = JsonContent.Create(payload)
             };
-            request.Headers.Add("x-goog-api-key", ApiKey);
+            request.Headers.Add("x-goog-api-key", _apiKey);
 
             HttpResponseMessage response;
             try
@@ -130,14 +143,14 @@ public class GeminiClient : IGeminiClient
                     throw new InvalidOperationException($"Gemini API returned status {(int)response.StatusCode}.");
                 }
 
-                return ReadGeneratedText(json);
+                return ReadGenerationResult(json);
             }
         }
 
         throw new InvalidOperationException("Gemini API request failed after retrying.");
     }
 
-    private static string ReadGeneratedText(string json)
+    private static GeminiGenerationResult ReadGenerationResult(string json)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -186,7 +199,37 @@ public class GeminiClient : IGeminiClient
             throw new InvalidOperationException("Gemini did not return any text content.");
         }
 
-        return text.Trim();
+        if (!root.TryGetProperty("usageMetadata", out var usageMetadata))
+        {
+            throw new InvalidOperationException("Gemini response did not include token usage metadata.");
+        }
+
+        var inputTokens = ReadRequiredTokenCount(usageMetadata, "promptTokenCount");
+        var outputTokens = ReadRequiredTokenCount(usageMetadata, "candidatesTokenCount");
+        var totalTokens = ReadRequiredTokenCount(usageMetadata, "totalTokenCount");
+        if (totalTokens <= 0 || inputTokens < 0 || outputTokens < 0)
+        {
+            throw new InvalidOperationException("Gemini returned invalid token usage metadata.");
+        }
+
+        return new GeminiGenerationResult(
+            text.Trim(),
+            inputTokens,
+            outputTokens,
+            totalTokens);
+    }
+
+    private static long ReadRequiredTokenCount(JsonElement usageMetadata, string propertyName)
+    {
+        if (!usageMetadata.TryGetProperty(propertyName, out var property)
+            || property.ValueKind != JsonValueKind.Number
+            || !property.TryGetInt64(out var value))
+        {
+            throw new InvalidOperationException(
+                $"Gemini response did not include a valid {propertyName}.");
+        }
+
+        return value;
     }
 
     private static bool IsTransient(HttpStatusCode statusCode)

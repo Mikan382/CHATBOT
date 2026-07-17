@@ -32,9 +32,13 @@ public class AdminUsersController : BaseController
     {
         if (!ModelState.IsValid)
         {
-            var model = await BuildIndexModelAsync(null, null, cancellationToken);
-            model.CreateUser = input;
-            return View("Index", model);
+            input.Password = "";
+            return View("Index", await BuildIndexModelAsync(
+                null,
+                null,
+                cancellationToken,
+                createUser: input,
+                error: "Please check the user fields."));
         }
 
         try
@@ -44,7 +48,14 @@ public class AdminUsersController : BaseController
         }
         catch (InvalidOperationException ex)
         {
-            SetFlashError(ex.Message);
+            input.Password = "";
+            ModelState.Remove("CreateUser.Password");
+            return View("Index", await BuildIndexModelAsync(
+                null,
+                null,
+                cancellationToken,
+                createUser: input,
+                error: ex.Message));
         }
 
         return RedirectToAction("Index");
@@ -56,8 +67,12 @@ public class AdminUsersController : BaseController
     {
         if (!ModelState.IsValid)
         {
-            SetFlashError("Please check the user fields.");
-            return RedirectToAction("Index");
+            return View("Index", await BuildIndexModelAsync(
+                null,
+                null,
+                cancellationToken,
+                failedUpdate: input,
+                error: "Please check the user fields."));
         }
 
         try
@@ -78,7 +93,12 @@ public class AdminUsersController : BaseController
         }
         catch (InvalidOperationException ex)
         {
-            SetFlashError(ex.Message);
+            return View("Index", await BuildIndexModelAsync(
+                null,
+                null,
+                cancellationToken,
+                failedUpdate: input,
+                error: ex.Message));
         }
 
         return RedirectToAction("Index");
@@ -150,7 +170,10 @@ public class AdminUsersController : BaseController
     private async Task<UserAdminIndexViewModel> BuildIndexModelAsync(
         string? searchTerm,
         string? role,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        CreateUserInput? createUser = null,
+        UpdateUserInput? failedUpdate = null,
+        string? error = null)
     {
         return new UserAdminIndexViewModel
         {
@@ -158,7 +181,10 @@ public class AdminUsersController : BaseController
             Roles = Roles,
             SearchTerm = searchTerm,
             SelectedRole = role,
-            CurrentUserId = CurrentUserId()
+            CurrentUserId = CurrentUserId(),
+            CreateUser = createUser ?? new CreateUserInput(),
+            FailedUpdate = failedUpdate,
+            Error = error
         };
     }
 }

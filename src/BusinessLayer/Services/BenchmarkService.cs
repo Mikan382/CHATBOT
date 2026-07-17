@@ -417,7 +417,7 @@ public class BenchmarkService : IBenchmarkService
             x.Chunk.ChunkIndex,
             x.Chunk.Content,
             x.Score)).ToList();
-        var generatedAnswer = await _geminiClient.GenerateAsync(
+        var generation = await _geminiClient.GenerateAsync(
             RagPromptBuilder.BuildSystemInstruction(courseName),
             RagPromptBuilder.BuildPrompt(question.Question, retrievedChunks, []),
             cancellationToken);
@@ -441,11 +441,11 @@ public class BenchmarkService : IBenchmarkService
             ExpectedAnswer = question.ExpectedAnswer,
             ExpectedDocumentId = question.ExpectedDocumentId,
             ExpectedSourceName = question.ExpectedSourceName,
-            GeneratedAnswer = generatedAnswer,
+            GeneratedAnswer = generation.Text,
             RetrievedSourcesJson = JsonSerializer.Serialize(sources),
             HitAtK = correctRank > 0,
             ReciprocalRank = correctRank > 0 ? 1d / correctRank : 0,
-            AnswerTokenF1 = CalculateTokenF1(question.ExpectedAnswer, generatedAnswer),
+            AnswerTokenF1 = CalculateTokenF1(question.ExpectedAnswer, generation.Text),
             LatencyMilliseconds = stopwatch.ElapsedMilliseconds
         };
     }

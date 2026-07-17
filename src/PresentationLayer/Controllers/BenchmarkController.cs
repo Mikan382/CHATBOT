@@ -18,10 +18,7 @@ public class BenchmarkController : BaseController
     [HttpGet]
     public async Task<IActionResult> Index(Guid? courseId, CancellationToken cancellationToken)
     {
-        return View(new BenchmarkDashboardViewModel
-        {
-            Dashboard = await _benchmarkService.GetDashboardAsync(courseId, cancellationToken)
-        });
+        return View(await BuildDashboardModelAsync(courseId, null, null, cancellationToken));
     }
 
     [HttpPost]
@@ -30,8 +27,11 @@ public class BenchmarkController : BaseController
     {
         if (!ModelState.IsValid || !input.CourseId.HasValue)
         {
-            SetFlashError("Select a course, chunking strategy, embedding model, and valid Top K value.");
-            return RedirectToAction("Index", new { courseId = input.CourseId });
+            return View("Index", await BuildDashboardModelAsync(
+                input.CourseId,
+                input,
+                "Select a course, chunking strategy, embedding model, and valid Top K value.",
+                cancellationToken));
         }
 
         try
@@ -47,8 +47,11 @@ public class BenchmarkController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(UserFacingError(ex));
-            return RedirectToAction("Index", new { courseId = input.CourseId });
+            return View("Index", await BuildDashboardModelAsync(
+                input.CourseId,
+                input,
+                UserFacingError(ex),
+                cancellationToken));
         }
     }
 
@@ -254,5 +257,27 @@ public class BenchmarkController : BaseController
 
         model.Courses = editor.Courses;
         model.Documents = editor.Documents;
+    }
+
+    private async Task<BenchmarkDashboardViewModel> BuildDashboardModelAsync(
+        Guid? courseId,
+        BenchmarkRunInput? input,
+        string? error,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await _benchmarkService.GetDashboardAsync(courseId, cancellationToken);
+        input ??= new BenchmarkRunInput
+        {
+            CourseId = dashboard.SelectedCourseId,
+            ChunkingStrategy = dashboard.AvailableChunkingStrategies.FirstOrDefault() ?? "",
+            EmbeddingModel = dashboard.AvailableEmbeddingModels.FirstOrDefault() ?? ""
+        };
+
+        return new BenchmarkDashboardViewModel
+        {
+            Dashboard = dashboard,
+            Input = input,
+            Error = error
+        };
     }
 }

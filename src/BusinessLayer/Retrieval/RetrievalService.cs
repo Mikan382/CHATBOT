@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using BusinessLayer.AI;
 using BusinessLayer.DTOs;
 using DataAccessLayer.Repositories;
@@ -8,52 +8,32 @@ namespace BusinessLayer.Retrieval;
 
 public class RetrievalService
 {
-    private const double MinEmbeddingScore = 0.36;
-    private const double MinLexicalScore = 0.02;
-    private readonly IDocumentRepository _documentRepository;
     private readonly IDocumentEmbeddingRepository _embeddingRepository;
     private readonly IEmbeddingClient _embeddingClient;
-    private readonly ILogger<RetrievalService> _logger;
+    private readonly RagOptions _options;
 
     public RetrievalService(
-        IDocumentRepository documentRepository,
         IDocumentEmbeddingRepository embeddingRepository,
         IEmbeddingClient embeddingClient,
-        ILogger<RetrievalService> logger)
+        IOptions<RagOptions> options)
     {
-        _documentRepository = documentRepository;
         _embeddingRepository = embeddingRepository;
         _embeddingClient = embeddingClient;
-        _logger = logger;
+        _options = options.Value;
     }
 
-    public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveAsync(string query, Guid? courseId, int topK, CancellationToken cancellationToken)
-    {
-        if (_embeddingClient.IsConfigured)
-        {
-            try
-            {
-                var embeddedResults = await RetrieveWithEmbeddingsAsync(query, courseId, topK, cancellationToken);
-                if (embeddedResults.Count > 0)
-                {
-                    return embeddedResults;
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Embedding retrieval failed. Falling back to lexical retrieval.");
-            }
-        }
+    public bool IsConfigured => _embeddingClient.IsConfigured;
 
-        return await RetrieveLexicalAsync(query, courseId, topK, cancellationToken);
-    }
-
-    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveWithEmbeddingsAsync(
+    public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveAsync(
         string query,
         Guid? courseId,
-        int topK,
         CancellationToken cancellationToken)
     {
+        if (!_embeddingClient.IsConfigured)
+        {
+            throw new InvalidOperationException("Hugging Face embedding is not configured.");
+        }
+
         if (string.IsNullOrWhiteSpace(query))
         {
             return [];
@@ -73,16 +53,20 @@ public class RetrievalService
             .Select(embedding => new
             {
                 Embedding = embedding,
-                Vector = JsonSerializer.Deserialize<float[]>(embedding.VectorJson) ?? []
+                Vector = ReadStoredVector(
+                    embedding.Id,
+                    embedding.VectorJson,
+                    embedding.Dimensions,
+                    queryVector.Length)
             })
             .Select(x => new
             {
                 x.Embedding,
                 Score = CosineSimilarity.Cosine(queryVector.AsSpan(), x.Vector.AsSpan())
             })
-            .Where(x => x.Score >= MinEmbeddingScore)
+            .Where(x => x.Score >= _options.MinimumSimilarityScore)
             .OrderByDescending(x => x.Score)
-            .Take(topK)
+            .Take(_options.TopK)
             .Select(x =>
             {
                 var chunk = x.Embedding.DocumentChunk!;
@@ -98,59 +82,34 @@ public class RetrievalService
             .ToList();
     }
 
-    private async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveLexicalAsync(string query, Guid? courseId, int topK, CancellationToken cancellationToken)
+    private static float[] ReadStoredVector(
+        Guid embeddingId,
+        string vectorJson,
+        int storedDimensions,
+        int expectedDimensions)
     {
-        var terms = TextNormalizer.Terms(query);
-        if (terms.Count == 0)
+        float[]? vector;
+        try
         {
-            return [];
+            vector = JsonSerializer.Deserialize<float[]>(vectorJson);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidOperationException(
+                $"Stored embedding '{embeddingId}' contains invalid vector data. Re-index its document.",
+                exception);
         }
 
-        var chunks = await _documentRepository.ListIndexedChunksAsync(courseId, cancellationToken);
-        var scored = chunks
-            .Select(chunk => new
-            {
-                Chunk = chunk,
-                Score = Score(terms, chunk.NormalizedContent)
-            })
-            .Where(x => x.Score >= MinLexicalScore)
-            .OrderByDescending(x => x.Score)
-            .Take(topK)
-            .Select(x => new RetrievedChunkDto(
-                x.Chunk.Id,
-                x.Chunk.DocumentId,
-                x.Chunk.SourceName,
-                x.Chunk.Document?.Chapter?.Title ?? "Unknown",
-                x.Chunk.ChunkIndex,
-                x.Chunk.Content,
-                x.Score))
-            .ToList();
-
-        return scored;
-    }
-
-    private static double Score(IReadOnlyList<string> terms, string normalizedContent)
-    {
-        var contentTerms = normalizedContent.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (contentTerms.Length == 0)
+        if (vector is null
+            || vector.Length == 0
+            || vector.Length != storedDimensions
+            || storedDimensions != expectedDimensions
+            || vector.Any(value => !float.IsFinite(value)))
         {
-            return 0;
+            throw new InvalidOperationException(
+                $"Stored embedding '{embeddingId}' has invalid dimensions or values. Re-index its document.");
         }
 
-        var matches = 0d;
-        foreach (var term in terms.Distinct())
-        {
-            var exact = contentTerms.Count(x => x == term);
-            if (exact > 0)
-            {
-                matches += exact * 2;
-            }
-            else if (normalizedContent.Contains(term, StringComparison.Ordinal))
-            {
-                matches += 0.5;
-            }
-        }
-
-        return matches / (Math.Sqrt(terms.Count) * Math.Sqrt(contentTerms.Length) + 1);
+        return vector;
     }
 }
