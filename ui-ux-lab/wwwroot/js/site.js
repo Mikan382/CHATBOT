@@ -117,6 +117,7 @@ composerInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); composer?.requestSubmit(); }
 });
 composer?.addEventListener("submit", (event) => {
+    if (window.UiLabAdapter?.requestedLive) return;
     event.preventDefault();
     if (!(composerInput instanceof HTMLTextAreaElement) || !composerInput.value.trim()) { composerInput?.focus(); return; }
     const button = composer.querySelector("button[type='submit']");
