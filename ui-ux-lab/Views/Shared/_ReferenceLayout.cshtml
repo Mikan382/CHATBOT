@@ -21,8 +21,8 @@
                 <a class="@(currentAction is "Documents" or "DocumentDetails" ? "active" : null)" asp-controller="Reference" asp-action="Documents" aria-current="@(currentAction is "Documents" or "DocumentDetails" ? "page" : null)"><span aria-hidden="true">▤</span><b>Documents</b></a>
                 <a class="@(currentAction == "Courses" ? "active" : null)" asp-controller="Reference" asp-action="Courses" aria-current="@(currentAction == "Courses" ? "page" : null)"><span aria-hidden="true">◇</span><b>Courses</b></a>
                 <a class="@(currentAction == "Benchmark" ? "active" : null)" asp-controller="Reference" asp-action="Benchmark" aria-current="@(currentAction == "Benchmark" ? "page" : null)"><span aria-hidden="true">⌁</span><b>Benchmark</b></a>
-                <a href="#"><span aria-hidden="true">◎</span><b>Users</b></a>
-                <a href="#"><span aria-hidden="true">⚙</span><b>Settings</b></a>
+                <a class="@(currentAction == "Admin" ? "active" : null)" asp-controller="Reference" asp-action="Admin" aria-current="@(currentAction == "Admin" ? "page" : null)"><span aria-hidden="true">◎</span><b>Users</b></a>
+                <a class="@(currentAction == "Architecture" ? "active" : null)" asp-controller="Reference" asp-action="Architecture" aria-current="@(currentAction == "Architecture" ? "page" : null)"><span aria-hidden="true">⚙</span><b>Architecture</b></a>
             </nav>
             <div class="rail-account">
                 <button class="ui-icon-button rail-theme" type="button" data-theme-toggle aria-label="Toggle contrast theme">◐</button>
