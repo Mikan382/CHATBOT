@@ -6,21 +6,16 @@ namespace PresentationLayer.ViewModels;
 public class StudentSubscriptionViewModel
 {
     public StudentSubscriptionDto? CurrentSubscription { get; set; }
-    public SubscriptionRequestDto? PendingRequest { get; set; }
     public IReadOnlyList<SubscriptionPlanDto> AvailablePlans { get; set; } = [];
+    public bool PaymentConfigured { get; set; }
 }
 
 public class SubscriptionDashboardViewModel
 {
-    public SubscriptionDashboardDto Dashboard { get; set; } = new(
-        0,
-        0,
-        0,
-        0,
-        [],
-        [],
-        [],
-        []);
+    public SubscriptionDashboardDto Dashboard { get; set; } = null!;
+    public SubscriptionPlanInput CreatePlan { get; set; } = new();
+    public SubscriptionPlanInput? FailedPlanUpdate { get; set; }
+    public string? Error { get; set; }
 }
 
 public class SubscriptionPlanInput
@@ -39,13 +34,13 @@ public class SubscriptionPlanInput
     public string? Description { get; set; }
 
     [Range(0, 100000000)]
-    public decimal MonthlyPrice { get; set; }
+    public decimal Price { get; set; }
 
-    [Range(0, 3650)]
+    [Range(1, 3650)]
     public int DurationDays { get; set; } = 30;
 
-    [Range(0, 1000000)]
-    public int MessageQuota { get; set; }
+    [Range(1, 10000000000)]
+    public long TokenQuota { get; set; } = 50000;
 
     [Range(0, 10000)]
     public int SortOrder { get; set; } = 100;

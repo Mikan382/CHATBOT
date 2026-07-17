@@ -1,0 +1,47 @@
+@model CourseFormViewModel
+
+<div class="teacher-assignment" data-teacher-assignment>
+    <div class="teacher-assignment-header">
+        <div>
+            <label class="form-label mb-0" asp-for="TeacherIds">Teachers</label>
+            <div class="text-muted small">Select active Teacher accounts that can manage this course.</div>
+        </div>
+        <span class="teacher-selected-count" data-teacher-selected-count>0 selected</span>
+    </div>
+
+    @if (Model.Teachers.Count == 0)
+    {
+        <div class="empty-state teacher-empty-state">
+            No active Teacher accounts are available.
+        </div>
+    }
+    else
+    {
+        <input class="form-control form-control-sm teacher-search"
+               type="search"
+               placeholder="Search teacher name or email"
+               aria-label="Search teachers"
+               data-teacher-search />
+
+        <div class="teacher-option-list" data-teacher-list>
+            @foreach (var teacher in Model.Teachers)
+            {
+                <label class="teacher-option" data-teacher-option>
+                    <input class="form-check-input"
+                           type="checkbox"
+                           name="TeacherIds"
+                           value="@teacher.Id"
+                           checked="@(Model.TeacherIds.Contains(teacher.Id))" />
+                    <span class="teacher-option-content">
+                        <strong>@teacher.DisplayName</strong>
+                        <small>@teacher.Email</small>
+                    </span>
+                </label>
+            }
+        </div>
+
+        <div class="empty-state teacher-no-results" hidden data-teacher-no-results>
+            No teachers match the search.
+        </div>
+    }
+</div>

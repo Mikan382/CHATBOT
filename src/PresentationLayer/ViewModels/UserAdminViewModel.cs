@@ -7,10 +7,12 @@ public class UserAdminIndexViewModel
 {
     public IReadOnlyList<UserListDto> Users { get; set; } = [];
     public CreateUserInput CreateUser { get; set; } = new();
+    public UpdateUserInput? FailedUpdate { get; set; }
     public IReadOnlyList<string> Roles { get; set; } = ["Student", "Teacher", "Admin"];
     public string? SearchTerm { get; set; }
     public string? SelectedRole { get; set; }
     public Guid CurrentUserId { get; set; }
+    public string? Error { get; set; }
 }
 
 public class CreateUserInput

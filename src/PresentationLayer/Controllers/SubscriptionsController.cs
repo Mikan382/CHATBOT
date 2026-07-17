@@ -33,109 +33,16 @@ public class SubscriptionsController : BaseController
         return View(new StudentSubscriptionViewModel
         {
             CurrentSubscription = data.CurrentSubscription,
-            PendingRequest = data.PendingRequest,
-            AvailablePlans = data.AvailablePlans
+            AvailablePlans = data.AvailablePlans,
+            PaymentConfigured = data.PaymentConfigured
         });
-    }
-
-    [Authorize(Roles = "Student")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RequestPackage(Guid planId, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.RequestSubscriptionAsync(CurrentUserId(), planId, cancellationToken);
-            SetFlashSuccess("Subscription request was submitted for admin approval.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Index");
-    }
-
-    [Authorize(Roles = "Student")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CancelRequest(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.CancelPendingRequestAsync(CurrentUserId(), cancellationToken);
-            SetFlashSuccess("Pending subscription request was cancelled.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Index");
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RevokeSubscription(Guid id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.RevokeSubscriptionAsync(id, cancellationToken);
-            SetFlashSuccess("Subscription was revoked.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Dashboard");
     }
 
     [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> Dashboard(CancellationToken cancellationToken)
     {
-        return View(new SubscriptionDashboardViewModel
-        {
-            Dashboard = await _subscriptionService.GetDashboardAsync(cancellationToken)
-        });
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ApproveRequest(Guid id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.ApproveRequestAsync(id, cancellationToken);
-            SetFlashSuccess("Subscription request was approved.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Dashboard");
-    }
-
-    [Authorize(Roles = "Admin")]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RejectRequest(Guid id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _subscriptionService.RejectRequestAsync(id, cancellationToken);
-            SetFlashSuccess("Subscription request was rejected.");
-        }
-        catch (Exception ex)
-        {
-            SetFlashError(UserFacingError(ex));
-        }
-
-        return RedirectToAction("Dashboard");
+        return View(await BuildDashboardModelAsync(cancellationToken));
     }
 
     [Authorize(Roles = "Admin")]
@@ -145,8 +52,10 @@ public class SubscriptionsController : BaseController
     {
         if (!ModelState.IsValid)
         {
-            SetFlashError("Please check the subscription package fields.");
-            return RedirectToAction("Dashboard");
+            return View("Dashboard", await BuildDashboardModelAsync(
+                cancellationToken,
+                createPlan: input,
+                error: "Please check the subscription package fields."));
         }
 
         try
@@ -155,9 +64,9 @@ public class SubscriptionsController : BaseController
                 input.Code,
                 input.Name,
                 input.Description,
-                input.MonthlyPrice,
+                input.Price,
                 input.DurationDays,
-                input.MessageQuota,
+                input.TokenQuota,
                 input.SortOrder,
                 input.IsActive,
                 cancellationToken);
@@ -165,7 +74,10 @@ public class SubscriptionsController : BaseController
         }
         catch (Exception ex)
         {
-            SetFlashError(UserFacingError(ex));
+            return View("Dashboard", await BuildDashboardModelAsync(
+                cancellationToken,
+                createPlan: input,
+                error: UserFacingError(ex)));
         }
 
         return RedirectToAction("Dashboard");
@@ -178,8 +90,10 @@ public class SubscriptionsController : BaseController
     {
         if (!input.Id.HasValue || !ModelState.IsValid)
         {
-            SetFlashError("Please check the subscription package fields.");
-            return RedirectToAction("Dashboard");
+            return View("Dashboard", await BuildDashboardModelAsync(
+                cancellationToken,
+                failedPlanUpdate: input,
+                error: "Please check the subscription package fields."));
         }
 
         try
@@ -189,13 +103,34 @@ public class SubscriptionsController : BaseController
                 input.Code,
                 input.Name,
                 input.Description,
-                input.MonthlyPrice,
+                input.Price,
                 input.DurationDays,
-                input.MessageQuota,
+                input.TokenQuota,
                 input.SortOrder,
                 input.IsActive,
                 cancellationToken);
             SetFlashSuccess("Subscription package was updated.");
+        }
+        catch (Exception ex)
+        {
+            return View("Dashboard", await BuildDashboardModelAsync(
+                cancellationToken,
+                failedPlanUpdate: input,
+                error: UserFacingError(ex)));
+        }
+
+        return RedirectToAction("Dashboard");
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetDefaultPlan(Guid planId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _subscriptionService.SetDefaultPlanAsync(planId, cancellationToken);
+            SetFlashSuccess("Default subscription package was updated.");
         }
         catch (Exception ex)
         {
@@ -205,4 +140,18 @@ public class SubscriptionsController : BaseController
         return RedirectToAction("Dashboard");
     }
 
+    private async Task<SubscriptionDashboardViewModel> BuildDashboardModelAsync(
+        CancellationToken cancellationToken,
+        SubscriptionPlanInput? createPlan = null,
+        SubscriptionPlanInput? failedPlanUpdate = null,
+        string? error = null)
+    {
+        return new SubscriptionDashboardViewModel
+        {
+            Dashboard = await _subscriptionService.GetDashboardAsync(cancellationToken),
+            CreatePlan = createPlan ?? new SubscriptionPlanInput(),
+            FailedPlanUpdate = failedPlanUpdate,
+            Error = error
+        };
+    }
 }

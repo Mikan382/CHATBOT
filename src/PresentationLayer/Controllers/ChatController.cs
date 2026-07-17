@@ -39,7 +39,7 @@ public class ChatController : BaseController
             SessionId = sessionId ?? Guid.NewGuid(),
             SelectedCourseId = selectedCourseId,
             Courses = courses,
-            GeminiConfigured = _chatService.GeminiConfigured
+            AssistantConfigured = _chatService.AssistantConfigured
         };
 
         if (User.IsInRole("Student"))

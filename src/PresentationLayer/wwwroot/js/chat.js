@@ -9,13 +9,20 @@
   const sessionList = document.getElementById("sessionList");
   const sessionSearch = document.getElementById("sessionSearch");
   const chatEmptyHint = document.getElementById("chatEmptyHint");
+  const quotaStatus = document.getElementById("chatQuotaStatus");
+  const quotaAlert = document.getElementById("chatQuotaAlert");
+  const quotaAlertText = document.getElementById("chatQuotaAlertText");
   let connected = false;
   let messagePending = false;
+  let pendingText = "";
   let sessionSearchTimer = null;
 
   function setComposerEnabled(enabled) {
     const interactionReady = enabled && !messagePending;
-    const canSend = interactionReady && window._geminiConfigured && courseSelect.value !== "";
+    const canSend = interactionReady
+      && window._assistantConfigured
+      && !window._quotaExhausted
+      && courseSelect.value !== "";
     input.disabled = !canSend;
     sendButton.disabled = !canSend;
     courseSelect.disabled = !interactionReady;
@@ -432,6 +439,7 @@
 
   connection.on("MessageReceived", (message) => {
     if (message.role === "user") {
+      pendingText = "";
       clearOptimistic();
       hideTyping();          // remove indicator before appending user msg
       renderMessage(message);
@@ -452,6 +460,10 @@
     hideTyping();
     clearOptimistic();
     messagePending = false;
+    if (pendingText) {
+      input.value = pendingText;
+      pendingText = "";
+    }
     setComposerEnabled(connected);
     const err = document.createElement("div");
     err.className = "message assistant";
@@ -465,6 +477,26 @@
     clearOptimistic();
     updateEmptyHint();
     loadSessions();
+  });
+
+  connection.on("QuotaUpdated", (quota) => {
+    window._quotaExhausted = quota.exhausted;
+    if (quotaStatus) {
+      quotaStatus.classList.toggle("assistant-status-warning", quota.exhausted);
+      quotaStatus.classList.toggle("assistant-status-ready", !quota.exhausted);
+      quotaStatus.textContent = `Tokens left: ${Number(quota.remaining).toLocaleString()}`;
+    }
+
+    if (quotaAlert) {
+      quotaAlert.classList.toggle("d-none", !quota.exhausted);
+    }
+    if (quotaAlertText && quota.exhausted) {
+      const resetText = quota.expiresAtUtc
+        ? ` Access resets after ${parseUtc(quota.expiresAtUtc).toLocaleString()}.`
+        : "";
+      quotaAlertText.textContent =
+        `You have used all ${Number(quota.quota).toLocaleString()} tokens in the ${quota.planName} package.${resetText}`;
+    }
   });
 
   connection.onreconnecting(() => {
@@ -489,11 +521,12 @@
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!window._geminiConfigured) return;
+    if (!window._assistantConfigured || window._quotaExhausted) return;
     const text = input.value.trim();
     if (!text) return;
 
     input.value = "";
+    pendingText = text;
     messagePending = true;
     setComposerEnabled(false);
     renderOptimisticUserMessage(text);
@@ -505,6 +538,8 @@
       hideTyping();
       clearOptimistic();
       messagePending = false;
+      input.value = pendingText;
+      pendingText = "";
       setComposerEnabled(connected);
     }
   });

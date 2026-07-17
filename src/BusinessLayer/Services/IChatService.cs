@@ -4,13 +4,24 @@ namespace BusinessLayer.Services;
 
 public interface IChatService
 {
-    bool GeminiConfigured { get; }
+    bool AssistantConfigured { get; }
     Task<ChatSessionDto?> GetSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ChatMessageDto>> GetHistoryAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<ChatQuotaStatusDto> GetQuotaStatusAsync(Guid userId, CancellationToken cancellationToken);
-    Task RegisterMessageUsageAsync(Guid userId, CancellationToken cancellationToken);
-    Task<ChatMessageDto> SaveUserMessageAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken);
-    Task<ChatMessageDto> GenerateAssistantReplyAsync(Guid sessionId, Guid userId, Guid courseId, string text, CancellationToken cancellationToken);
+    Task<AcceptedChatMessageDto> AcceptUserMessageAsync(
+        Guid sessionId,
+        Guid userId,
+        Guid courseId,
+        string text,
+        bool enforceQuota,
+        CancellationToken cancellationToken);
+    Task<ChatMessageDto> GenerateAssistantReplyAsync(
+        Guid sessionId,
+        Guid userId,
+        Guid courseId,
+        string text,
+        Guid? studentSubscriptionId,
+        CancellationToken cancellationToken);
     Task ClearAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<SessionListDto>> ListSessionsAsync(Guid userId, string? searchTerm, CancellationToken cancellationToken);
     Task<string?> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken);

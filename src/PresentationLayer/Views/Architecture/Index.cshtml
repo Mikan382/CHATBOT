@@ -68,6 +68,12 @@
                     <td>Repositories / SQL Server</td>
                 </tr>
                 <tr>
+                    <td>Subscription payment</td>
+                    <td>PaymentController</td>
+                    <td>PaymentService -> signed checkout -> idempotent confirmation</td>
+                    <td>PaymentRepository / VNPay sandbox</td>
+                </tr>
+                <tr>
                     <td>RAG benchmark</td>
                     <td>BenchmarkController</td>
                     <td>Re-chunk -> embed corpus/query -> retrieve -> evaluate</td>
@@ -81,7 +87,7 @@
     <section class="architecture-scope">
         <div>
             <h4>Scope Boundary</h4>
-            <p>No Razor Pages endpoints, background worker, indexing queue/progress, fine-tuned model, payment gateway, or deployment infrastructure.</p>
+            <p>No Razor Pages endpoints, background worker, indexing queue/progress, fine-tuned model, production payment processing, or deployment infrastructure.</p>
         </div>
         <div>
             <h4>Admin Configuration</h4>

@@ -3,7 +3,7 @@
     ViewData["Title"] = "Courses";
 }
 
-<div class="card app-card table-card">
+<div class="card app-card table-card management-dropdown-card">
     <div class="card-body">
         <div class="page-toolbar">
             <div>
@@ -26,7 +26,7 @@
             </div>
         </form>
 
-        <div class="table-responsive">
+        <div class="table-responsive management-table-responsive">
             <table class="table table-sm align-middle">
                 <thead>
                 <tr>
@@ -53,17 +53,41 @@
                             <td>@course.ChaptersCount</td>
                             <td class="small">@(course.TeacherNames.Count == 0 ? "Unassigned" : string.Join(", ", course.TeacherNames))</td>
                             <td class="small">@course.Tools</td>
-                            <td>
-                                <div class="action-cell">
-                                <a class="btn btn-sm btn-outline-primary" asp-controller="Courses" asp-action="Chapters" asp-route-id="@course.Id">Chapters</a>
-                                @if (Model.CanManageCourses)
-                                {
-                                    <a class="btn btn-sm btn-outline-secondary" asp-controller="Courses" asp-action="Edit" asp-route-id="@course.Id">Edit</a>
-                                    <form method="post" asp-controller="Courses" asp-action="Delete" asp-route-id="@course.Id" onsubmit="return confirm('Delete this course? It must have no chapters.');">
-                                        @Html.AntiForgeryToken()
-                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
-                                    </form>
-                                }
+                            <td class="management-actions-cell">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                            type="button"
+                                            data-bs-toggle="dropdown"
+                                            data-bs-boundary="viewport"
+                                            aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a class="dropdown-item"
+                                           asp-controller="Courses"
+                                           asp-action="Chapters"
+                                           asp-route-id="@course.Id">
+                                            Manage chapters
+                                        </a>
+                                        @if (Model.CanManageCourses)
+                                        {
+                                            <a class="dropdown-item"
+                                               asp-controller="Courses"
+                                               asp-action="Edit"
+                                               asp-route-id="@course.Id">
+                                                Edit course
+                                            </a>
+                                            <div class="dropdown-divider"></div>
+                                            <form method="post"
+                                                  asp-controller="Courses"
+                                                  asp-action="Delete"
+                                                  asp-route-id="@course.Id"
+                                                  onsubmit="return confirm('Delete this course? It must have no chapters.');">
+                                                @Html.AntiForgeryToken()
+                                                <button class="dropdown-item text-danger" type="submit">Delete course</button>
+                                            </form>
+                                        }
+                                    </div>
                                 </div>
                             </td>
                         </tr>

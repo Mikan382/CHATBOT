@@ -33,6 +33,12 @@
         </div>
     </div>
 
+    @if (!string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="alert alert-danger" role="alert">@Model.Error</div>
+    }
+    <div asp-validation-summary="All" class="text-danger small mb-3"></div>
+
     @if (!dashboard.GeminiConfigured || !dashboard.EmbeddingConfigured)
     {
         <div class="alert alert-warning small">
@@ -71,7 +77,7 @@
             <h5 class="card-title">Run Experiment</h5>
             <form method="post" asp-controller="Benchmark" asp-action="Run" class="benchmark-run-form" data-benchmark-run-form>
                 @Html.AntiForgeryToken()
-                <input type="hidden" name="CourseId" value="@dashboard.SelectedCourseId" />
+                <input type="hidden" name="CourseId" value="@(Model.Input.CourseId ?? dashboard.SelectedCourseId)" />
                 <div>
                     <label class="form-label" for="benchmarkCourse">Course</label>
                     <input class="form-control" id="benchmarkCourse" value="@(selectedCourse is null ? "No course" : $"{selectedCourse.Code} - {selectedCourse.Name}")" readonly />
@@ -81,7 +87,7 @@
                     <select class="form-select" id="chunkingStrategy" name="ChunkingStrategy" required>
                         @foreach (var strategy in dashboard.AvailableChunkingStrategies)
                         {
-                            <option value="@strategy">@strategy</option>
+                            <option value="@strategy" selected="@(strategy == Model.Input.ChunkingStrategy)">@strategy</option>
                         }
                     </select>
                 </div>
@@ -90,13 +96,13 @@
                     <select class="form-select" id="embeddingModel" name="EmbeddingModel" required>
                         @foreach (var embeddingModel in dashboard.AvailableEmbeddingModels)
                         {
-                            <option value="@embeddingModel">@embeddingModel</option>
+                            <option value="@embeddingModel" selected="@(embeddingModel == Model.Input.EmbeddingModel)">@embeddingModel</option>
                         }
                     </select>
                 </div>
                 <div>
                     <label class="form-label" for="topK">Top K</label>
-                    <input class="form-control" id="topK" name="TopK" type="number" value="3" min="1" max="10" required />
+                    <input class="form-control" id="topK" name="TopK" type="number" value="@Model.Input.TopK" min="1" max="10" required />
                 </div>
                 <div class="benchmark-run-action">
                     @if (canRun)
@@ -193,7 +199,7 @@
                             <tr>
                                 <td>@run.CompletedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
                                 <td>@run.CourseCode</td>
-                                <td>@run.ChunkingStrategy · @run.EmbeddingModelName</td>
+                                <td>@run.ChunkingStrategy / @run.EmbeddingModelName</td>
                                 <td>@run.QuestionCount</td>
                                 <td>@TimeSpan.FromMilliseconds(run.DurationMilliseconds).ToString(@"mm\:ss")</td>
                                 <td class="text-end"><a asp-action="Details" asp-route-id="@run.Id">View</a></td>

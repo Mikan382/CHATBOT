@@ -34,8 +34,8 @@ public class DocumentsController : BaseController
             Courses = data.Courses,
             Documents = data.Documents,
             SearchTerm = searchTerm,
-            SelectedCourseId = courseId,
-            SelectedChapterId = chapterId,
+            SelectedCourseId = data.SelectedCourseId,
+            SelectedChapterId = data.SelectedChapterId,
             CanManageDocuments = isTeacher || isAdmin
         };
 

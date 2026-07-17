@@ -8,7 +8,6 @@ public class DocumentChunk
     public ICollection<DocumentChunkEmbedding> Embeddings { get; set; } = new List<DocumentChunkEmbedding>();
     public int ChunkIndex { get; set; }
     public string Content { get; set; } = "";
-    public string NormalizedContent { get; set; } = "";
     public string SourceName { get; set; } = "";
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }

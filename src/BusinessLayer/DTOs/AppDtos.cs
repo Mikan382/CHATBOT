@@ -17,11 +17,21 @@ public record ChatMessageDto(
 
 public record ChatHistoryMessage(string Role, string Content);
 
-public record ChatQuotaStatusDto(string PlanName, int Quota, int Used, bool Unlimited)
+public record ChatQuotaStatusDto(
+    string PlanName,
+    long Quota,
+    long Used,
+    DateTime? ExpiresAtUtc,
+    bool HasActiveSubscription)
 {
-    public bool Exhausted => !Unlimited && Used >= Quota;
-    public int Remaining => Unlimited ? 0 : Math.Max(0, Quota - Used);
+    public bool Exhausted => !HasActiveSubscription || Used >= Quota;
+    public long Remaining => Math.Max(0, Quota - Used);
 }
+
+public record AcceptedChatMessageDto(
+    ChatMessageDto Message,
+    ChatQuotaStatusDto? Quota,
+    Guid? StudentSubscriptionId);
 
 public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Summary);
 
@@ -79,7 +89,9 @@ public record ChapterSelectDto(Guid Id, Guid CourseId, int Order, string Title);
 public record DocumentIndexPageDto(
     IReadOnlyList<CourseDto> Courses,
     IReadOnlyList<ChapterSelectDto> Chapters,
-    IReadOnlyList<DocumentIndexDto> Documents);
+    IReadOnlyList<DocumentIndexDto> Documents,
+    Guid? SelectedCourseId,
+    Guid? SelectedChapterId);
 
 public record CourseFormDto(
     Guid Id,
@@ -104,11 +116,12 @@ public record SubscriptionPlanDto(
     string Code,
     string Name,
     string Description,
-    decimal MonthlyPrice,
+    decimal Price,
     int DurationDays,
-    int MessageQuota,
+    long TokenQuota,
     int SortOrder,
-    bool IsActive);
+    bool IsActive,
+    bool IsDefault);
 
 public record StudentSubscriptionDto(
     Guid Id,
@@ -116,28 +129,28 @@ public record StudentSubscriptionDto(
     string PlanName,
     string PlanCode,
     string Status,
+    bool IsFreePackage,
+    decimal PriceAtActivation,
+    long TokenQuota,
+    long InputTokensUsed,
+    long OutputTokensUsed,
+    long TotalTokensUsed,
     DateTime StartedAtUtc,
     DateTime? ExpiresAtUtc);
 
-public record SubscriptionRequestDto(
-    Guid Id,
-    Guid PlanId,
-    string PlanName,
-    string PlanCode,
-    DateTime RequestedAtUtc);
-
 public record StudentSubscriptionPageDto(
     StudentSubscriptionDto? CurrentSubscription,
-    SubscriptionRequestDto? PendingRequest,
-    IReadOnlyList<SubscriptionPlanDto> AvailablePlans);
+    IReadOnlyList<SubscriptionPlanDto> AvailablePlans,
+    bool PaymentConfigured);
 
 public record SubscriptionPlanStatsDto(
     Guid PlanId,
     string PlanName,
     string PlanCode,
     bool IsActive,
+    bool IsDefault,
     int ActiveSubscriptions,
-    decimal EstimatedMonthlyRevenue);
+    decimal ActivePackageValue);
 
 public record RecentSubscriptionDto(
     Guid Id,
@@ -145,15 +158,33 @@ public record RecentSubscriptionDto(
     string StudentDisplayName,
     string PlanName,
     string Status,
-    DateTime RequestedAtUtc,
+    DateTime ActivatedAtUtc,
     DateTime? ExpiresAtUtc);
+
+public record RecentPaymentDto(
+    Guid Id,
+    string StudentEmail,
+    string StudentDisplayName,
+    string PlanName,
+    decimal Amount,
+    string Status,
+    DateTime OccurredAtUtc);
 
 public record SubscriptionDashboardDto(
     int TotalStudents,
     int ActiveSubscriptions,
-    int RequestsThisMonth,
-    decimal EstimatedMonthlyRevenue,
-    IReadOnlyList<RecentSubscriptionDto> PendingSubscriptions,
+    int ActivationsThisMonth,
+    int PaidPaymentsThisMonth,
+    int FailedPaymentsThisMonth,
+    int PendingPayments,
+    decimal GrossRevenueThisMonth,
+    decimal TotalGrossRevenue,
+    decimal ActivePackageValue,
+    long InputTokensUsed,
+    long OutputTokensUsed,
+    long TotalTokensUsed,
+    long ActiveTokenQuota,
     IReadOnlyList<SubscriptionPlanStatsDto> PlanStats,
     IReadOnlyList<RecentSubscriptionDto> RecentSubscriptions,
+    IReadOnlyList<RecentPaymentDto> RecentPayments,
     IReadOnlyList<SubscriptionPlanDto> Plans);
