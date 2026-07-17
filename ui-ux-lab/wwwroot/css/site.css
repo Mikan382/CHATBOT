@@ -1,0 +1,82 @@
+:root {
+    color-scheme: light;
+    font-family: Inter, system-ui, sans-serif;
+    color: #1a1f2b;
+    background: #faf9f6;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background: #faf9f6;
+}
+
+button, input, select, textarea { font: inherit; }
+
+.lab-placeholder {
+    width: min(760px, calc(100% - 40px));
+    margin: 14vh auto;
+}
+
+.lab-placeholder h1 {
+    max-width: 11ch;
+    margin: 8px 0 20px;
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+    line-height: 0.96;
+    letter-spacing: -0.045em;
+}
+
+.lab-placeholder > p:not(.lab-eyebrow) {
+    max-width: 60ch;
+    color: #64748b;
+    font-size: 1.04rem;
+    line-height: 1.75;
+}
+
+.lab-eyebrow {
+    color: #2e5bff;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.lab-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    margin-top: 40px;
+    border: 1px solid #dfe3ed;
+    background: #dfe3ed;
+}
+
+.lab-facts div {
+    padding: 18px;
+    background: #fff;
+}
+
+.lab-facts dt {
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.lab-facts dd {
+    margin: 8px 0 0;
+    font-weight: 600;
+}
+
+.lab-link { color: #2e5bff; font-weight: 700; }
+
+@media (max-width: 620px) {
+    .lab-placeholder { margin-top: 10vh; }
+    .lab-facts { grid-template-columns: 1fr; }
+}

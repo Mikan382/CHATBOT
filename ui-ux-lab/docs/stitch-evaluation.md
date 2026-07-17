@@ -14,7 +14,7 @@
 
 ## Repo-grounded prompt contract
 
-The prompt specified an existing ASP.NET Core MVC course assistant, a student question-and-citation job, desktop/tablet/mobile chat frames, the real session/course/connection/quota contracts, long answer and citation states, and an isolated React implementation boundary. It explicitly rejected generic dashboards, invented analytics, glass effects, marketing sections, and backend changes.
+The prompt specified an existing ASP.NET Core MVC course assistant, a student question-and-citation job, desktop/tablet/mobile chat frames, the real session/course/connection/quota contracts, long answer and citation states, and an isolated implementation boundary. It explicitly rejected generic dashboards, invented analytics, glass effects, marketing sections, and backend changes. The implementation stack is corrected to match the repo: ASP.NET Core MVC, Razor Views, CSS, and browser JavaScript.
 
 ## First-pass finding
 

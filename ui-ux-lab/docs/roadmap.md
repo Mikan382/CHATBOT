@@ -6,7 +6,7 @@ Each phase is one focused commit, one verification checkpoint, and one push to `
 |---:|---|---|
 | 01 | Isolation contract, durable task state, and roadmap | Scope diff contains no existing runtime files |
 | 02 | Stitch project, repo-grounded prompt, evidence, and feasibility decision | Project URL and winning direction recorded |
-| 03 | Vite + React + TypeScript standalone scaffold | Install and production build |
+| 03 | Independent ASP.NET Core MVC + Razor Views scaffold | Lab build and unchanged main solution build |
 | 04 | Design tokens, typography, spacing, color, and motion foundations | Token preview renders at desktop and mobile |
 | 05 | Component workshop and isolated preview routing | Every new primitive has an interactive preview |
 | 06 | Buttons, inputs, badges, avatars, tooltips, and focus states | Keyboard and disabled-state checks |
@@ -22,7 +22,7 @@ Each phase is one focused commit, one verification checkpoint, and one push to `
 | 16 | Courses and chapters management reference screens | CRUD state and role-boundary QA |
 | 17 | Benchmark dashboard, progress, comparison, charts, and export states | Loading, background-run, and narrow viewport QA |
 | 18 | Admin user management and architecture explainer | Table, destructive action, and diagram QA |
-| 19 | Existing REST and SignalR adapters with fixture fallback | Contract tests and live-mode smoke test |
+| 19 | Same-origin reverse proxy for existing REST and SignalR contracts with fixture fallback | Contract tests and live-mode smoke test |
 | 20 | Accessibility, responsive regression, documentation, merge safety, and final handoff | Build, tests, browser QA, and unchanged current app build |
 
 ## Merge contract

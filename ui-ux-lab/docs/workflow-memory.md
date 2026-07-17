@@ -34,3 +34,10 @@ This file stores repeatable project-specific recovery knowledge. Add an entry wh
 - Durable fix: save one full overview first, then crop the durable PNG using its actual pixel dimensions when stable per-frame evidence is needed.
 - Verification: the three saved frame images contain the intended desktop, tablet, and mobile regions.
 - Reuse when: a high-DPI browser screenshot is exactly twice the expected viewport size.
+
+### Separate UI lab must still match the repository presentation stack
+- Symptom: an isolated design folder was initially scaffolded as React/Vite even though the current product renders MVC Razor Views.
+- Cause: "independent UI" was interpreted as a separate frontend ecosystem instead of a separately runnable project using the same presentation model.
+- Durable fix: use an independent ASP.NET Core MVC project with Razor Views, CSS, and browser JavaScript; keep it out of the existing solution and runtime path.
+- Verification: the lab project builds on its own, the existing solution build remains unchanged, and the React/Vite scaffold never reaches a commit.
+- Reuse when: the user asks for an isolated reference implementation inside a server-rendered .NET repository.

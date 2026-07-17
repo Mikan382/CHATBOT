@@ -17,7 +17,7 @@
 
 ## Progress
 - Done: repo and base branch verified; independent-folder boundary approved; Stitch direction evaluated and accepted after a mobile-contract refinement.
-- Next step: scaffold the isolated Vite + React + TypeScript application.
+- Next step: implement the Academic Editorial design tokens in the isolated MVC/Razor lab.
 - Blocked on: none
 
 ## Open questions
