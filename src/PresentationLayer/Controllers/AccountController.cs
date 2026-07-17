@@ -61,6 +61,50 @@ public class AccountController : BaseController
         }
     }
 
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult Register(string? returnUrl = null)
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToAction("Index", "Chat");
+        }
+
+        return View(new RegisterViewModel { ReturnUrl = returnUrl });
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Register(RegisterViewModel model, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            var user = await _authService.RegisterAsync(model.Email, model.FullName, model.Password, cancellationToken);
+            await SignInAsync(user, false);
+            if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+            {
+                return Redirect(model.ReturnUrl);
+            }
+
+            return RedirectToAction("Index", "Chat");
+        }
+        catch (Exception ex)
+        {
+            model.Error = UserFacingError(ex);
+            model.Password = "";
+            model.ConfirmPassword = "";
+            ModelState.Remove(nameof(RegisterViewModel.Password));
+            ModelState.Remove(nameof(RegisterViewModel.ConfirmPassword));
+            return View(model);
+        }
+    }
+
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
