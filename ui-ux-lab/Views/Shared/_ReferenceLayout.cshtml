@@ -32,14 +32,16 @@
         <header class="reference-topbar">
             <button class="ui-icon-button mobile-menu" type="button" data-rail-toggle aria-controls="globalRail" aria-expanded="false" aria-label="Open navigation">☰</button>
             <div><strong>PRN222 Assistant</strong><small>Academic workspace</small></div>
-            <span class="ui-badge ui-badge-success"><i></i>Connected</span>
+            <span class="ui-badge ui-badge-warning" data-adapter-state><i></i>Fixture preview</span>
         </header>
         <main class="reference-main" id="reference-main" tabindex="-1">
             @RenderBody()
         </main>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/live-adapter.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
