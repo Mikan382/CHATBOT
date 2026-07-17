@@ -1,0 +1,40 @@
+@{
+    ViewData["Title"] = "Design tokens";
+}
+
+<main class="workshop-page">
+    <header class="workshop-heading">
+        <p class="lab-eyebrow">Phase 04 · Academic Editorial</p>
+        <h1>Design tokens</h1>
+        <p>Shared decisions for every reference screen. These values translate the approved Stitch direction into repo-owned CSS.</p>
+    </header>
+
+    <section class="token-section" aria-labelledby="token-colors">
+        <div class="section-heading"><h2 id="token-colors">Color</h2><p>Warm reading surfaces, deep ink, and one decisive cobalt action color.</p></div>
+        <div class="swatch-grid">
+            <article class="swatch swatch-canvas"><span>Canvas</span><code>#FAF9F6</code></article>
+            <article class="swatch swatch-surface"><span>Surface</span><code>#FFFFFF</code></article>
+            <article class="swatch swatch-ink"><span>Ink</span><code>#1A1F2B</code></article>
+            <article class="swatch swatch-cobalt"><span>Cobalt</span><code>#2E5BFF</code></article>
+            <article class="swatch swatch-emerald"><span>Ready</span><code>#087A55</code></article>
+            <article class="swatch swatch-amber"><span>Attention</span><code>#A85B00</code></article>
+        </div>
+    </section>
+
+    <section class="token-section" aria-labelledby="token-type">
+        <div class="section-heading"><h2 id="token-type">Type</h2><p>Editorial headings, quiet UI text, and precise technical content.</p></div>
+        <div class="type-specimens">
+            <p class="type-display">Grounded answers, clearly sourced.</p>
+            <p class="type-body">Inter keeps controls and long explanations comfortable at moderate density. Line length stays intentionally narrow.</p>
+            <p class="type-code">public async Task&lt;Answer&gt; AskAsync(...)</p>
+        </div>
+    </section>
+
+    <section class="token-section" aria-labelledby="token-shape">
+        <div class="section-heading"><h2 id="token-shape">Shape and rhythm</h2><p>A 4px spacing base, restrained radius, and border-led depth.</p></div>
+        <div class="rhythm-row" aria-label="Spacing scale">
+            <span style="--size:4px">4</span><span style="--size:8px">8</span><span style="--size:12px">12</span>
+            <span style="--size:16px">16</span><span style="--size:24px">24</span><span style="--size:32px">32</span>
+        </div>
+    </section>
+</main>

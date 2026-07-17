@@ -1,0 +1,38 @@
+@{
+    ViewData["Title"] = "Primitives";
+}
+<main class="workshop-page">
+    <header class="workshop-heading"><p class="lab-eyebrow">Phase 06 · Primitives</p><h1>Small controls</h1><p>Real HTML controls with explicit default, disabled, busy, validation, and focus behavior.</p></header>
+
+    <section class="preview-section" aria-labelledby="primitive-actions">
+        <div class="section-heading"><h2 id="primitive-actions">Actions</h2><p>Cobalt is reserved for one primary action per local task.</p></div>
+        <div class="preview-surface control-row">
+            <button class="ui-button ui-button-primary" type="button">Ask assistant</button>
+            <button class="ui-button ui-button-secondary" type="button">View sources</button>
+            <button class="ui-button ui-button-quiet" type="button">Clear</button>
+            <button class="ui-button ui-button-danger" type="button">Delete</button>
+            <button class="ui-button ui-button-primary" type="button" disabled>Unavailable</button>
+            <button class="ui-button ui-button-primary" type="button" data-busy-demo><span>Run benchmark</span></button>
+        </div>
+    </section>
+
+    <section class="preview-section" aria-labelledby="primitive-fields">
+        <div class="section-heading"><h2 id="primitive-fields">Fields</h2><p>Labels remain visible; helper and error copy occupy stable space.</p></div>
+        <div class="preview-surface field-grid">
+            <label class="ui-field"><span>Search sessions</span><input type="search" placeholder="Dependency injection…" /><small>Search by session title.</small></label>
+            <label class="ui-field"><span>Course</span><select><option>PRN222 · .NET Development</option><option>PRN221 · Desktop Applications</option></select><small>Starting a new course creates a new session.</small></label>
+            <label class="ui-field ui-field-error"><span>Message</span><textarea rows="3" aria-invalid="true"> </textarea><small>Ask a question before sending.</small></label>
+        </div>
+    </section>
+
+    <section class="preview-section" aria-labelledby="primitive-signals">
+        <div class="section-heading"><h2 id="primitive-signals">Signals</h2><p>Status uses words and color. Avatars always have a text fallback.</p></div>
+        <div class="preview-surface signal-row">
+            <span class="ui-badge ui-badge-success"><i></i>Connected</span>
+            <span class="ui-badge ui-badge-warning"><i></i>3 messages left</span>
+            <span class="ui-badge ui-badge-danger"><i></i>Disconnected</span>
+            <span class="ui-avatar" role="img" aria-label="Alex Johnson">AJ</span>
+            <button class="ui-icon-button" type="button" title="Open session menu" aria-label="Open session menu">•••</button>
+        </div>
+    </section>
+</main>

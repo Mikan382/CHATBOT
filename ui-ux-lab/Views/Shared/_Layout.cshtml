@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Independent UI/UX reference lab for the PRN222 Course Assistant" />
+    <title>@ViewData["Title"] - PRN222 UI Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;family=Source+Serif+4:opsz,wght@@8..60,600;8..60,700&amp;display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="lab-header">
+        <a class="lab-brand" asp-controller="Home" asp-action="Index"><span aria-hidden="true">P</span>PRN222 UI Lab</a>
+        <nav aria-label="Lab navigation">
+            <a asp-controller="Home" asp-action="Index">Overview</a>
+            <a asp-controller="Workshop" asp-action="Index">Workshop</a>
+            <a asp-controller="Workshop" asp-action="Tokens">Tokens</a>
+        </nav>
+    </header>
+    <div id="main-content" tabindex="-1">
+    @RenderBody()
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
