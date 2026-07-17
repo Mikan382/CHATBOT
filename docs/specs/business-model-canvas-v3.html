@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Business Model Canvas - The Instant City (v3)</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #e5e5e5; /* Gray background outer */
+        padding: 40px 20px;
+        display: flex;
+        justify-content: center;
+      }
+      .canvas-container {
+        background-color: #ffffff;
+        width: 100%;
+        max-width: 1280px;
+        padding: 40px;
+        border: 1px solid #bcbcbc;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+
+      /* Header section precisely matching image_a70c66.png */
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 25px;
+        font-family: Arial, sans-serif;
+      }
+      .header h1 {
+        font-size: 32px;
+        font-weight: bold;
+        color: #000000;
+        margin: 0;
+        letter-spacing: -0.5px;
+      }
+      .meta-fields {
+        display: flex;
+        gap: 15px;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+      }
+      .field label {
+        font-size: 11px;
+        font-style: italic;
+        color: #333333;
+        margin-bottom: 3px;
+      }
+      .field .input-box {
+        background-color: #ffffff;
+        border: 1px solid #cccccc;
+        height: 28px;
+        min-width: 140px;
+        display: flex;
+        align-items: center;
+        padding: 0 8px;
+        font-size: 12px;
+        color: #000000;
+      }
+      .field.version .input-box {
+        min-width: 50px;
+      }
+      .field.date .input-box {
+        min-width: 90px;
+      }
+
+      /* 10-column Grid for precise 50/50 split on the bottom */
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        grid-template-rows: 280px 280px 200px;
+        border-top: 1px solid #999999;
+        border-left: 1px solid #999999;
+        background-color: #ffffff;
+      }
+
+      .box {
+        border-right: 1px solid #999999;
+        border-bottom: 1px solid #999999;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      /* Grid Placement matching template */
+      .kp {
+        grid-column: 1 / 3;
+        grid-row: 1 / 3;
+      }
+      .ka {
+        grid-column: 3 / 5;
+        grid-row: 1 / 2;
+      }
+      .kr {
+        grid-column: 3 / 5;
+        grid-row: 2 / 3;
+      }
+      .vp {
+        grid-column: 5 / 7;
+        grid-row: 1 / 3;
+      }
+      .cr {
+        grid-column: 7 / 9;
+        grid-row: 1 / 2;
+      }
+      .ch {
+        grid-column: 7 / 9;
+        grid-row: 2 / 3;
+      }
+      .cs {
+        grid-column: 9 / 11;
+        grid-row: 1 / 3;
+      }
+      .cost {
+        grid-column: 1 / 6;
+        grid-row: 3 / 4;
+      }
+      .rev {
+        grid-column: 6 / 11;
+        grid-row: 3 / 4;
+      }
+
+      /* Typography inside boxes */
+      h2 {
+        font-size: 14px;
+        font-weight: bold;
+        color: #000000;
+        margin-bottom: 12px;
+        text-transform: none;
+        border: none;
+        padding: 0;
+      }
+      ul {
+        list-style-type: square;
+        padding-left: 15px;
+        margin: 0;
+      }
+      li {
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: #111111;
+        margin-bottom: 8px;
+      }
+      li strong {
+        font-weight: bold;
+        color: #000000;
+      }
+
+      @media print {
+        body {
+          padding: 0;
+          background-color: #ffffff;
+        }
+        .canvas-container {
+          border: none;
+          padding: 0;
+          max-width: 100%;
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="canvas-container">
+      <div class="header">
+        <h1>Business Model Canvas</h1>
+        <div class="meta-fields">
+          <div class="field">
+            <label>Designed for:</label>
+            <div class="input-box">The Instant City</div>
+          </div>
+          <div class="field">
+            <label>Designed by:</label>
+            <div class="input-box">SE193119</div>
+          </div>
+          <div class="field date">
+            <label>Date:</label>
+            <div class="input-box">14/07/2026</div>
+          </div>
+          <div class="field version">
+            <label>Version:</label>
+            <div class="input-box">3.0 (Strict)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-container">
+        <!-- Key Partners -->
+        <div class="box kp">
+          <h2>Key Partners</h2>
+          <ul>
+            <li>
+              <strong>Nhà cung cấp Cloud & AI:</strong> Đối tác cung cấp hạ tầng
+              tính toán GPU và API mô hình ngôn ngữ lớn (AWS, Google Cloud,
+              OpenAI, Anthropic).
+            </li>
+            <li>
+              <strong>Chính quyền địa phương:</strong> Ủy ban Nhân dân Phường và
+              Ban quản lý khu phố (ví dụ: Tăng Nhơn Phú B) bảo trợ pháp lý và hỗ
+              trợ thí điểm cộng đồng.
+            </li>
+            <li>
+              <strong>Viện nghiên cứu & Đại học:</strong> Hợp tác trao đổi công
+              nghệ AI và nguồn nhân lực chất lượng cao.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Key Activities -->
+        <div class="box ka">
+          <h2>Key Activities</h2>
+          <ul>
+            <li>
+              <strong>R&D AI & RAG:</strong> Nghiên cứu nâng cấp hệ thống
+              Multi-Agent Orchestration và tối ưu hóa logic sinh mã nguồn.
+            </li>
+            <li>
+              <strong>Quản lý Sandbox & Kiểm thử:</strong> Vận hành môi trường
+              staging biệt lập để kiểm tra độ an toàn trước khi chuyển giao sản
+              phẩm.
+            </li>
+            <li>
+              <strong>Xây dựng thư viện mẫu:</strong> Chuẩn hóa các mẫu module
+              chức năng và giao diện phổ biến để AI tái sử dụng.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Key Resources -->
+        <div class="box kr">
+          <h2>Key Resources</h2>
+          <ul>
+            <li>
+              <strong>Thuật toán tự trị độc quyền:</strong> Engine phân tích yêu
+              cầu (Requirement Engineering), xử lý xung đột logic và sinh mã tự
+              động.
+            </li>
+            <li>
+              <strong>Hạ tầng Staging biệt lập:</strong> Hệ thống server đám mây
+              hỗ trợ chạy thử nghiệm an toàn, ngăn ngừa rủi ro mất mát dữ liệu.
+            </li>
+            <li>
+              <strong>Nhân sự chuyên môn:</strong> Đội ngũ kỹ sư AI/RAG và kiến
+              trúc sư hệ thống dữ liệu.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Value Propositions -->
+        <div class="box vp">
+          <h2>Value Propositions</h2>
+          <ul>
+            <li>
+              <strong>Số hóa tức thì (Minutes):</strong> Chuyển hóa ý tưởng
+              thành ứng dụng full-stack hoàn thiện chạy thực tế chỉ trong vài
+              phút.
+            </li>
+            <li>
+              <strong>Tự động hóa 100%:</strong> Quy trình khép kín tự thiết kế
+              CSDL, viết code và triển khai không cần lập trình viên con người.
+            </li>
+            <li>
+              <strong>An toàn tuyệt đối (Zero Risk):</strong> Cơ chế sandbox cô
+              lập giúp cập nhật nâng cấp hệ thống mượt mà (live migration) không
+              ảnh hưởng dữ liệu cũ của cư dân.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Customer Relationships -->
+        <div class="box cr">
+          <h2>Customer Relationships</h2>
+          <ul>
+            <li>
+              <strong>Đàm thoại ngôn ngữ tự nhiên:</strong> Giao diện hội thoại
+              đơn giản, thân thiện, không đòi hỏi người dùng có kiến thức lập
+              trình.
+            </li>
+            <li>
+              <strong>Tự động vá lỗi (Self-healing):</strong> AI RAG chủ động
+              giám sát, phân tích lỗi hệ thống và tự động cập nhật sửa chữa
+              24/7.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Channels -->
+        <div class="box ch">
+          <h2>Channels</h2>
+          <ul>
+            <li>
+              <strong>Cổng thông tin trực tuyến:</strong> Nền tảng Web Portal
+              nhận yêu cầu và bàn giao ứng dụng tự động.
+            </li>
+            <li>
+              <strong>Sự kiện Chuyển đổi số:</strong> Ngày hội công nghệ và các
+              buổi làm việc trực tiếp với ban quản lý tổ dân phố/khu phố.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Customer Segments -->
+        <div class="box cs">
+          <h2>Customer Segments</h2>
+          <ul>
+            <li>
+              <strong>Ban quản lý & Đơn vị hành chính cơ sở:</strong> Khu phố,
+              tổ dân phố cần công cụ quản lý công ích khẩn cấp (như ứng dụng SOS
+              cứu hộ).
+            </li>
+            <li>
+              <strong>Doanh nghiệp nhỏ & Phòng khám tư:</strong> Các đơn vị cần
+              phần mềm chuyên dụng (như hồ sơ bệnh án, CRM) nhưng hạn chế về
+              ngân sách.
+            </li>
+            <li>
+              <strong>Tổ chức cứu trợ xã hội (NGOs):</strong> Nhóm thiện nguyện
+              cần triển khai app ứng phó khẩn cấp nhanh chóng.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Cost Structure -->
+        <div class="box cost">
+          <h2>Cost Structure</h2>
+          <ul>
+            <li>
+              <strong>Hạ tầng & API:</strong> Chi phí vận hành máy chủ GPU, lưu
+              trữ đám mây sandbox và phí token API cho các mô hình LLM lớn.
+            </li>
+            <li>
+              <strong>Chi phí R&D:</strong> Nghiên cứu phát triển thuật toán
+              sinh mã nguồn tự trị và tối ưu hóa hệ thống Multi-Agent.
+            </li>
+            <li>
+              <strong>Bảo mật & Pháp lý:</strong> Chi phí kiểm định và đảm bảo
+              an toàn thông tin cho dữ liệu cư dân.
+            </li>
+          </ul>
+        </div>
+
+        <!-- Revenue Streams -->
+        <div class="box rev">
+          <h2>Revenue Streams</h2>
+          <ul>
+            <li>
+              <strong>Mô hình SaaS Freemium:</strong> Cung cấp miễn phí tính
+              năng công ích cơ bản; thu phí thuê bao định kỳ (Subscription) đối
+              với các tùy chỉnh nâng cao của doanh nghiệp/phòng khám tư nhân.
+            </li>
+            <li>
+              <strong>Ngân sách Đô thị thông minh:</strong> Các gói ngân sách
+              tài trợ từ nhà nước cho hoạt động số hóa hành chính công cấp cơ
+              sở.
+            </li>
+            <li>
+              <strong>Quỹ tài trợ Khởi nghiệp:</strong> Nguồn tài chính huy động
+              từ các cuộc thi và quỹ ươm tạo khởi nghiệp (như chương trình
+              EXE101).
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
