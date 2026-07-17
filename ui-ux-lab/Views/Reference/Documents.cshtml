@@ -9,7 +9,7 @@
 <div class="document-reference">
     <header class="reference-page-heading"><div><p class="lab-eyebrow">Phase 14 · Knowledge library</p><h1>Course documents</h1><p>Upload, filter, and inspect the material used to ground assistant answers.</p></div><span class="ui-badge @(canManage ? "ui-badge-success" : "ui-badge-warning")"><i></i>@(canManage ? "Teacher access" : "View only")</span></header>
     <div class="document-layout">
-        <aside class="upload-panel ui-panel">
+        <aside class="upload-panel ui-panel" data-live-manage-panel>
             <p class="lab-eyebrow">Add source</p><h2>Upload document</h2><p>PDF, DOCX, PPTX, TXT, or MD · 20 MB maximum</p>
             @if (canManage)
             {
@@ -24,7 +24,7 @@
             }
         </aside>
         <section class="document-results" aria-labelledby="documents-title">
-            <div class="document-results-header"><div><h2 id="documents-title">Indexed sources</h2><p>18 documents · PRN222</p></div><div class="view-toggle" aria-label="View options"><button aria-pressed="true">List</button><button aria-pressed="false">Grid</button></div></div>
+            <div class="document-results-header"><div><h2 id="documents-title">Indexed sources</h2><p data-live-document-count>18 documents · PRN222</p></div><div class="view-toggle" aria-label="View options"><button aria-pressed="true">List</button><button aria-pressed="false">Grid</button></div></div>
             <form class="document-filters"><label class="ui-field"><span>File name</span><input type="search" placeholder="Search files…" /></label><label class="ui-field"><span>Course</span><select><option>All courses</option><option>PRN222</option></select></label><label class="ui-field"><span>Status</span><select><option>All states</option><option>Indexed</option><option>Processing</option><option>Failed</option></select></label><button class="ui-button ui-button-secondary">Apply</button></form>
             @if (state == "empty")
             {
@@ -32,7 +32,7 @@
             }
             else
             {
-                <div class="document-table-scroll"><table class="document-table"><thead><tr><th>File</th><th>Chapter</th><th>Status</th><th>Chunks</th><th>Uploaded</th><th></th></tr></thead><tbody>
+                <div class="document-table-scroll"><table class="document-table"><thead><tr><th>File</th><th>Chapter</th><th>Status</th><th>Chunks</th><th>Uploaded</th><th></th></tr></thead><tbody data-live-documents>
                 <tr><td><a asp-action="DocumentDetails">Dependency Injection Notes.pdf</a><small>PDF · 1.8 MB</small></td><td>04 · MVC and Razor Views</td><td><span class="ui-badge ui-badge-success"><i></i>Indexed</span></td><td>24</td><td>Today, 10:42</td><td><a class="ui-button ui-button-secondary" asp-action="DocumentDetails">View</a></td></tr>
                 <tr><td><a asp-action="DocumentDetails">Entity Framework Workshop.docx</a><small>DOCX · 742 KB</small></td><td>07 · Data access</td><td><span class="ui-badge ui-badge-warning"><i></i>Processing 68%</span></td><td>—</td><td>Today, 10:38</td><td><button class="ui-button ui-button-secondary" disabled>Indexing</button></td></tr>
                 <tr><td><a asp-action="DocumentDetails">Middleware Lab.md</a><small>Markdown · 34 KB</small></td><td>03 · Request pipeline</td><td><span class="ui-badge ui-badge-danger"><i></i>Failed</span></td><td>0</td><td>Yesterday</td><td><a class="ui-button ui-button-secondary" asp-action="DocumentDetails">Review</a></td></tr>

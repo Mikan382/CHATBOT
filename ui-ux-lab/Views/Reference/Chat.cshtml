@@ -24,8 +24,8 @@
     <section class="conversation" aria-labelledby="conversation-title">
         <header class="conversation-header">
             <button class="ui-icon-button session-mobile-toggle" type="button" data-session-toggle aria-controls="sessionRail" aria-expanded="false" aria-label="Open sessions">☷</button>
-            <div class="conversation-course"><span>Current course</span><button type="button">PRN222 · .NET Development⌄</button></div>
-            <div class="conversation-heading"><h2 id="conversation-title">Advanced MVC patterns</h2><p>Messages are grounded in the selected course.</p></div>
+            <div class="conversation-course"><span>Current course</span><button type="button" data-live-course>PRN222 · .NET Development⌄</button></div>
+            <div class="conversation-heading"><h2 id="conversation-title" data-live-session-title>Advanced MVC patterns</h2><p>Messages are grounded in the selected course.</p></div>
             <div class="conversation-actions"><span class="ui-badge @(state == "disconnected" ? "ui-badge-danger" : "ui-badge-success")"><i></i>@(state == "disconnected" ? "Disconnected" : "Connected")</span><button class="ui-button ui-button-quiet" type="button">Clear</button></div>
         </header>
         <div class="message-scroll" aria-live="polite">
@@ -35,7 +35,7 @@
             }
             else
             {
-                <div class="message-list">
+                <div class="message-list" data-live-messages>
                     <article class="chat-message chat-message-user"><div class="message-avatar">AJ</div><div><header><strong>You</strong><time>14:02</time></header><p>How do Tag Helpers participate in rendering HTML elements in ASP.NET Core MVC?</p></div></article>
                     <article class="chat-message chat-message-assistant"><div class="message-avatar message-avatar-assistant">✦</div><div><header><strong>Assistant</strong><span class="ui-badge ui-badge-success"><i></i>3 sources</span><time>14:03 · 2.1s</time></header><div class="assistant-answer">
                         <h3>Tag Helpers connect Razor markup to server-side behavior</h3>
