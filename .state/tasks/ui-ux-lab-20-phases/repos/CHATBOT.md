@@ -9,28 +9,28 @@
 ## Branch / remote
 - Claimed branch: feature/ui-ux-lab-20-phases
 - Claimed base: origin/main at ed909bb
-- Remote: not pushed
+- Remote: origin/feature/ui-ux-lab-20-phases
 - Current checkout verified: feature/ui-ux-lab-20-phases via git status on 2026-07-17
 - Remote verified: origin/main fetched at ed909bb on 2026-07-17
 - Ahead/behind verified: branch created directly from origin/main on 2026-07-17
 
 ## Delivery state
-- Pushed: no
+- Pushed: yes -> origin/feature/ui-ux-lab-20-phases
 - PR: none
 - Gate: not run
 - Gate evidence: not verified
 
 ## Repo progress
-- Done: isolated branch and scope boundary created.
-- Next repo step: commit and push phase 1, then create or resume the dedicated Stitch project.
+- Done: phase 1 isolation contract pushed; phase 2 Stitch project created, refined, captured, and approved for implementation.
+- Next repo step: commit and push phase 2 evidence, then scaffold the isolated Vite application.
 - Blocked on: none
 
 ## Stitch continuity
-- Project URL: pending creation
-- Project title: CHATBOT UI UX Lab
-- Active frame or screen: pending
-- Last completed Stitch action: project discovery found no existing CHATBOT project on 2026-07-17
-- Next Stitch action: create one dedicated project using the repo-grounded prompt
+- Project URL: https://stitch.withgoogle.com/projects/17972450441137138652
+- Project title: PRN222 Course Assistant UI
+- Active frame or screen: refined desktop, tablet, mobile conversation, mobile session drawer, and quota/disconnected frames
+- Last completed Stitch action: refined the initial result to remove unsupported features and saved local evidence on 2026-07-17
+- Next Stitch action: resume this project only when a later screen needs structural exploration; use the recorded URL directly
 - Recovery note: if the live tab is unavailable, open the recorded Project URL directly; do not depend on browser tab identity alone.
 
 ## Shared path ownership

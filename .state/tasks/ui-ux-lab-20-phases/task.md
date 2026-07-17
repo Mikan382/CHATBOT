@@ -16,8 +16,8 @@
 - Summary: branch isolated from origin/main; phase 1 governance and roadmap in progress.
 
 ## Progress
-- Done: repo and base branch verified; independent-folder boundary approved by the user.
-- Next step: complete Stitch exploration and record the winning direction before implementation.
+- Done: repo and base branch verified; independent-folder boundary approved; Stitch direction evaluated and accepted after a mobile-contract refinement.
+- Next step: scaffold the isolated Vite + React + TypeScript application.
 - Blocked on: none
 
 ## Open questions
