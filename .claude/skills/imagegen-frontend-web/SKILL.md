@@ -26,16 +26,7 @@ This rule overrides any model default that wants to collapse output into a singl
 
 The default **left-text / right-image hero is the most overused AI pattern**. It is allowed, but it should not be your first instinct.
 
-Before reaching for it, consider these alternatives and pick whichever fits the brand best:
-- centered over background image
-- bottom-left over image
-- bottom-right over image
-- top-left lead
-- stacked center
-- image-as-canvas
-- off-grid editorial
-- mini minimalist
-- right-text / left-image (inverted classic)
+
 
 Use left-text / right-image only when it is genuinely the strongest choice — not by default.
 
