@@ -23,14 +23,16 @@
   }
 
   function updateSelection() {
-    const selected = teacherOptions().filter((option) => {
-      const checkbox = option.querySelector('input[type="checkbox"]');
-      const checked = checkbox.checked;
-      option.classList.toggle("selected", checked);
-      return checked;
-    }).length;
+    let selectedName = "";
+    for (const option of teacherOptions()) {
+      const radio = option.querySelector('input[type="radio"]');
+      option.classList.toggle("selected", radio.checked);
+      if (radio.checked && radio.value) {
+        selectedName = option.querySelector("strong")?.textContent?.trim() ?? "";
+      }
+    }
 
-    selectedCount.textContent = `${selected} selected`;
+    selectedCount.textContent = selectedName || "Unassigned";
   }
 
   function filterTeachers() {
@@ -38,6 +40,11 @@
     let visibleCount = 0;
 
     for (const option of teacherOptions()) {
+      // The "Unassigned" choice always stays available so a teacher can be cleared.
+      if (option.hasAttribute("data-teacher-unassigned")) {
+        option.hidden = false;
+        continue;
+      }
       const visible = !query || option.textContent.toLocaleLowerCase().includes(query);
       option.hidden = !visible;
       if (visible) visibleCount += 1;
@@ -76,12 +83,12 @@
     label.className = "teacher-option";
     label.setAttribute("data-teacher-option", "");
 
-    const checkbox = document.createElement("input");
-    checkbox.className = "form-check-input";
-    checkbox.type = "checkbox";
-    checkbox.name = "TeacherIds";
-    checkbox.value = teacher.id;
-    checkbox.checked = true;
+    const radio = document.createElement("input");
+    radio.className = "form-check-input";
+    radio.type = "radio";
+    radio.name = "TeacherId";
+    radio.value = teacher.id;
+    radio.checked = true;
 
     const content = document.createElement("span");
     content.className = "teacher-option-content";
@@ -92,8 +99,14 @@
     email.textContent = teacher.email;
     content.append(displayName, email);
 
-    label.append(checkbox, content);
-    list.prepend(label);
+    label.append(radio, content);
+    // Keep the "Unassigned" choice first; a freshly created teacher goes right after it.
+    const unassigned = assignment.querySelector("[data-teacher-unassigned]");
+    if (unassigned) {
+      unassigned.after(label);
+    } else {
+      list.prepend(label);
+    }
 
     list.hidden = false;
     search.hidden = false;
@@ -148,7 +161,7 @@
 
   // Delegated so options added later do not need rebinding.
   list.addEventListener("change", (event) => {
-    if (event.target.matches('input[type="checkbox"]')) {
+    if (event.target.matches('input[type="radio"]')) {
       updateSelection();
     }
   });

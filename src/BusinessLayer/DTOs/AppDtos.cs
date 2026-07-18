@@ -44,7 +44,7 @@ public record CourseListDto(
     string Description,
     string Tools,
     int ChaptersCount,
-    IReadOnlyList<string> TeacherNames);
+    string? TeacherName);
 
 public record TeacherOptionDto(Guid Id, string Email, string DisplayName);
 
@@ -99,7 +99,7 @@ public record CourseFormDto(
     string Name,
     string Description,
     string Tools,
-    IReadOnlyList<Guid> TeacherIds);
+    Guid? TeacherId);
 
 public record ChapterFormDto(Guid Id, Guid CourseId, int Order, string Clo, string Title, string Summary);
 

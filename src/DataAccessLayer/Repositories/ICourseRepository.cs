@@ -7,7 +7,7 @@ public interface ICourseRepository
     Task<IReadOnlyList<Course>> ListAsync(string? searchTerm, Guid? teacherId, CancellationToken cancellationToken);
     Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task AddAsync(Course course, CancellationToken cancellationToken);
-    Task SaveWithTeacherAssignmentsAsync(Course course, IReadOnlyList<Guid> teacherIds, CancellationToken cancellationToken);
+    Task SaveTeacherAssignmentAsync(Course course, Guid? teacherId, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> CodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
     Task<bool> HasChaptersAsync(Guid courseId, CancellationToken cancellationToken);

@@ -55,7 +55,7 @@ public class CourseService : ICourseService
             course.Name,
             course.Description,
             course.Tools,
-            course.TeacherAssignments.Select(x => x.TeacherUserId).ToList());
+            course.TeacherAssignments.Select(x => (Guid?)x.TeacherUserId).FirstOrDefault());
     }
 
     public async Task<CourseDto?> GetDetailsAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
@@ -75,7 +75,7 @@ public class CourseService : ICourseService
         string name,
         string? description,
         string? tools,
-        IReadOnlyList<Guid> teacherIds,
+        Guid? teacherId,
         CancellationToken cancellationToken)
     {
         code = StringHelper.NormalizeRequired(code, "Course code");
@@ -86,7 +86,7 @@ public class CourseService : ICourseService
             throw new InvalidOperationException("Course code already exists.");
         }
 
-        var validTeacherIds = await ValidateTeacherIdsAsync(teacherIds, cancellationToken);
+        var validTeacherId = await ValidateTeacherIdAsync(teacherId, cancellationToken);
         var course = new Course
         {
             Id = Guid.NewGuid(),
@@ -94,11 +94,16 @@ public class CourseService : ICourseService
             Name = name,
             Description = description?.Trim() ?? "",
             Tools = tools?.Trim() ?? "",
-            TeacherAssignments = validTeacherIds.Select(teacherId => new CourseTeacher
-            {
-                TeacherUserId = teacherId,
-                AssignedAtUtc = DateTime.UtcNow
-            }).ToList()
+            TeacherAssignments = validTeacherId is null
+                ? new List<CourseTeacher>()
+                : new List<CourseTeacher>
+                {
+                    new()
+                    {
+                        TeacherUserId = validTeacherId.Value,
+                        AssignedAtUtc = DateTime.UtcNow
+                    }
+                }
         };
 
         await _courseRepository.AddAsync(course, cancellationToken);
@@ -111,10 +116,10 @@ public class CourseService : ICourseService
         string name,
         string? description,
         string? tools,
-        IReadOnlyList<Guid> teacherIds,
+        Guid? teacherId,
         CancellationToken cancellationToken)
     {
-        var validTeacherIds = await ValidateTeacherIdsAsync(teacherIds, cancellationToken);
+        var validTeacherId = await ValidateTeacherIdAsync(teacherId, cancellationToken);
         var course = await _courseRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
 
@@ -130,7 +135,7 @@ public class CourseService : ICourseService
         course.Name = name;
         course.Description = description?.Trim() ?? "";
         course.Tools = tools?.Trim() ?? "";
-        await _courseRepository.SaveWithTeacherAssignmentsAsync(course, validTeacherIds, cancellationToken);
+        await _courseRepository.SaveTeacherAssignmentAsync(course, validTeacherId, cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -157,25 +162,24 @@ public class CourseService : ICourseService
         return isAdmin ? null : userId;
     }
 
-    private async Task<IReadOnlyList<Guid>> ValidateTeacherIdsAsync(
-        IReadOnlyList<Guid> teacherIds,
+    private async Task<Guid?> ValidateTeacherIdAsync(
+        Guid? teacherId,
         CancellationToken cancellationToken)
     {
-        var selectedIds = teacherIds.Distinct().ToList();
-        if (selectedIds.Count == 0)
+        if (teacherId is null)
         {
-            return selectedIds;
+            return null;
         }
 
         var activeTeacherIds = (await _userRepository.ListUsersByRoleAsync(UserRoleNames.Teacher, cancellationToken))
             .Select(x => x.Id)
             .ToHashSet();
-        if (selectedIds.Any(x => !activeTeacherIds.Contains(x)))
+        if (!activeTeacherIds.Contains(teacherId.Value))
         {
-            throw new InvalidOperationException("One or more selected users are not active teachers.");
+            throw new InvalidOperationException("The selected user is not an active teacher.");
         }
 
-        return selectedIds;
+        return teacherId;
     }
 
     private static ChapterDto ToDto(Chapter chapter)
@@ -207,9 +211,7 @@ public class CourseService : ICourseService
             course.Tools,
             course.Chapters.Count,
             course.TeacherAssignments
-                .Select(x => x.Teacher?.DisplayName ?? x.Teacher?.Email ?? "")
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .OrderBy(x => x)
-                .ToList());
+                .Select(x => x.Teacher?.DisplayName ?? x.Teacher?.Email)
+                .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)));
     }
 }

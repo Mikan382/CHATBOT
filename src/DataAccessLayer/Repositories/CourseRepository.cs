@@ -55,14 +55,16 @@ public class CourseRepository : ICourseRepository
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task SaveWithTeacherAssignmentsAsync(
+    public async Task SaveTeacherAssignmentAsync(
         Course course,
-        IReadOnlyList<Guid> teacherIds,
+        Guid? teacherId,
         CancellationToken cancellationToken)
     {
-        var selectedIds = teacherIds.Distinct().ToHashSet();
+        // One teacher per course: drop every row that is not the selected teacher, then
+        // add the selection if it is not already there. Keeping a matching existing row
+        // preserves its AssignedAtUtc and avoids a delete+insert on the same primary key.
         var removals = course.TeacherAssignments
-            .Where(x => !selectedIds.Contains(x.TeacherUserId))
+            .Where(x => x.TeacherUserId != teacherId)
             .ToList();
 
         foreach (var assignment in removals)
@@ -71,13 +73,12 @@ public class CourseRepository : ICourseRepository
             _db.CourseTeachers.Remove(assignment);
         }
 
-        var existingIds = course.TeacherAssignments.Select(x => x.TeacherUserId).ToHashSet();
-        foreach (var teacherId in selectedIds.Where(x => !existingIds.Contains(x)))
+        if (teacherId.HasValue && course.TeacherAssignments.All(x => x.TeacherUserId != teacherId.Value))
         {
             course.TeacherAssignments.Add(new CourseTeacher
             {
                 CourseId = course.Id,
-                TeacherUserId = teacherId,
+                TeacherUserId = teacherId.Value,
                 AssignedAtUtc = DateTime.UtcNow
             });
         }

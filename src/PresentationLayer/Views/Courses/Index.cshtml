@@ -33,7 +33,7 @@
                     <th>Code</th>
                     <th>Name</th>
                     <th>Chapters</th>
-                    <th>Teachers</th>
+                    <th>Teacher</th>
                     <th>Tools</th>
                     <th>Actions</th>
                 </tr>
@@ -51,7 +51,7 @@
                             <td><strong>@course.Code</strong></td>
                             <td>@course.Name<br><span class="text-muted small">@course.Description</span></td>
                             <td>@course.ChaptersCount</td>
-                            <td class="small">@(course.TeacherNames.Count == 0 ? "Unassigned" : string.Join(", ", course.TeacherNames))</td>
+                            <td class="small">@(string.IsNullOrWhiteSpace(course.TeacherName) ? "Unassigned" : course.TeacherName)</td>
                             <td class="small">@course.Tools</td>
                             <td class="management-actions-cell">
                                 <div class="dropdown">
