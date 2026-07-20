@@ -56,28 +56,6 @@ public class AuthService : IAuthService
         return ToDto(user);
     }
 
-    // Self sign-up. The role is fixed here instead of being a parameter: this is the only
-    // user-creation path reachable without authentication, so a caller-supplied role would
-    // let anyone register themselves as Admin. Creation itself is delegated so the Student
-    // default-package rules stay in one place.
-    public async Task<AuthenticatedUserDto> RegisterAsync(
-        string email,
-        string fullName,
-        string password,
-        CancellationToken cancellationToken = default)
-    {
-        var userId = await _userAdminService.CreateAsync(
-            email,
-            fullName,
-            UserRoleNames.Student,
-            password,
-            cancellationToken);
-
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken)
-            ?? throw new InvalidOperationException("The account was created but could not be loaded.");
-        return ToDto(user);
-    }
-
     public async Task<bool> IsPrincipalCurrentAsync(
         Guid userId,
         string email,
