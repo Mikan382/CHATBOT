@@ -20,8 +20,50 @@ public static class DatabaseBootstrapper
         Func<ApplicationUser, string, string> hashPassword)
     {
         await db.Database.MigrateAsync();
+        await EnsureSchemaUpdatesAsync(db);
         await SeedSettingsAsync(db);
         await CreateBootstrapAdminAsync(db, configuration, hashPassword);
+    }
+
+    private static async Task EnsureSchemaUpdatesAsync(AppDbContext db)
+    {
+        await db.Database.ExecuteSqlRawAsync(@"
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[CourseTeachers]') AND name = N'IsHead')
+BEGIN
+    ALTER TABLE [CourseTeachers] ADD [IsHead] bit NOT NULL DEFAULT 0;
+END
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[Courses]') AND name = N'DefaultChunkingStrategy')
+BEGIN
+    ALTER TABLE [Courses] ADD [DefaultChunkingStrategy] nvarchar(64) NULL;
+    ALTER TABLE [Courses] ADD [DefaultChunkSize] int NULL;
+    ALTER TABLE [Courses] ADD [DefaultChunkOverlap] int NULL;
+    ALTER TABLE [Courses] ADD [DefaultEmbeddingModel] nvarchar(160) NULL;
+END
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[DocumentChunks]') AND name = N'StudentDocumentId')
+BEGIN
+    ALTER TABLE [DocumentChunks] ALTER COLUMN [DocumentId] uniqueidentifier NULL;
+    ALTER TABLE [DocumentChunks] ADD [StudentDocumentId] uniqueidentifier NULL;
+END
+
+IF OBJECT_ID(N'[StudentUploadedDocuments]') IS NULL
+BEGIN
+    CREATE TABLE [StudentUploadedDocuments] (
+        [Id] uniqueidentifier NOT NULL,
+        [ChatSessionId] uniqueidentifier NOT NULL,
+        [UploadedByUserId] uniqueidentifier NOT NULL,
+        [OriginalFileName] nvarchar(260) NOT NULL,
+        [FileType] nvarchar(16) NOT NULL,
+        [FileSizeBytes] bigint NOT NULL,
+        [ContentText] nvarchar(max) NOT NULL,
+        [ContentHash] nvarchar(64) NOT NULL,
+        [ChunkingStrategy] nvarchar(64) NOT NULL,
+        [UploadedAtUtc] datetime2 NOT NULL,
+        CONSTRAINT [PK_StudentUploadedDocuments] PRIMARY KEY ([Id])
+    );
+END
+");
     }
 
     private static async Task CreateBootstrapAdminAsync(

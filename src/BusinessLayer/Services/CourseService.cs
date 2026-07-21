@@ -245,4 +245,3 @@ public class CourseService : ICourseService
             course.DefaultEmbeddingModel);
     }
 }
-}

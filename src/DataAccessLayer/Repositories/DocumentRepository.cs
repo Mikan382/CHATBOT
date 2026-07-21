@@ -62,8 +62,8 @@ public class DocumentRepository : IDocumentRepository
 
         var docIds = docs.Select(d => d.Id).ToList();
         var chunkCounts = await _db.DocumentChunks
-            .Where(c => docIds.Contains(c.DocumentId))
-            .GroupBy(c => c.DocumentId)
+            .Where(c => c.DocumentId.HasValue && docIds.Contains(c.DocumentId.Value))
+            .GroupBy(c => c.DocumentId!.Value)
             .Select(g => new { DocumentId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.DocumentId, x => x.Count, cancellationToken);
 

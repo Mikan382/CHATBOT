@@ -122,9 +122,8 @@ browser return.
 | `/chat` | All roles | RAG chat, session history, and session file attachments |
 | `/Account/Register` | Anonymous | Student account self-registration |
 | `/documents` | All roles | Browse; assigned Head Teacher can upload and delete |
-| `/courses` | Teacher/Admin | Assigned-course or full course management and Head Teacher assignment |
+| `/courses` | Teacher/Admin | Course management, Head Teacher assignment, and per-course AI config |
 | `/AdminUsers` | Admin | Accounts, roles, CSV batch import, lockout, password reset, deletion |
-| `/settings` | Admin | Global chunking configuration |
 | `/benchmark` | Admin | Ground-truth and RAG experiments |
 | `/subscriptions` | Student | Current package and VNPay checkout |
 | `/subscriptions/dashboard` | Admin | Plans, subscriptions, payments, revenue, token usage |

@@ -113,7 +113,11 @@ public record CourseFormDto(
     string Name,
     string Description,
     string Tools,
-    Guid? TeacherId);
+    Guid? TeacherId,
+    string? DefaultChunkingStrategy = null,
+    int? DefaultChunkSize = null,
+    int? DefaultChunkOverlap = null,
+    string? DefaultEmbeddingModel = null);
 
 public record ChapterFormDto(Guid Id, Guid CourseId, int Order, string Clo, string Title, string Summary);
 

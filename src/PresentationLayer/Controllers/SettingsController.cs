@@ -16,43 +16,9 @@ public class SettingsController : BaseController
     }
 
     [HttpGet]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
-    {
-        var settings = await _chunkingSettingsService.GetAsync(cancellationToken);
-        return View(new ChunkingSettingsViewModel
-        {
-            CurrentStrategy = settings.CurrentStrategy,
-            FixedChunkSize = settings.FixedChunkSize,
-            FixedChunkOverlap = settings.FixedChunkOverlap,
-            AvailableStrategies = settings.AvailableStrategies
-        });
-    }
-
     [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Index(ChunkingSettingsViewModel model, CancellationToken cancellationToken)
+    public IActionResult Index()
     {
-        if (!ModelState.IsValid)
-        {
-            model.AvailableStrategies = _chunkingSettingsService.AvailableStrategies;
-            return View(model);
-        }
-
-        try
-        {
-            await _chunkingSettingsService.UpdateAsync(
-                model.CurrentStrategy,
-                model.FixedChunkSize,
-                model.FixedChunkOverlap,
-                cancellationToken);
-            SetFlashSuccess("Chunking settings were updated.");
-            return RedirectToAction("Index");
-        }
-        catch (Exception ex)
-        {
-            model.Error = UserFacingError(ex);
-            model.AvailableStrategies = _chunkingSettingsService.AvailableStrategies;
-            return View(model);
-        }
+        return RedirectToActionPermanent("Index", "Courses");
     }
 }
