@@ -115,16 +115,35 @@ public class DocumentService : IDocumentService
         }
     }
 
-    public async Task ReindexAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken)
+    public async Task<int> ReindexCourseAsync(Guid courseId, Guid userId, string userRole, CancellationToken cancellationToken)
     {
-        var document = await _documentRepository.GetDetailsAsync(id, cancellationToken)
-            ?? throw new InvalidOperationException("Document was not found.");
+        await EnsureHeadTeacherAsync(courseId, userId, userRole, cancellationToken);
 
-        await EnsureHeadTeacherAsync(document.Chapter!.CourseId, userId, userRole, cancellationToken);
+        var documents = await _documentRepository.ListWithChapterAndChunksAsync(
+            searchTerm: null,
+            courseId: courseId,
+            chapterId: null,
+            teacherId: null,
+            cancellationToken);
 
-        document.Chunks.Clear();
-        await _indexingService.PopulateChunksAsync(document, cancellationToken);
-        await _documentRepository.UpdateChunksAsync(document, cancellationToken);
+        if (documents.Count == 0)
+        {
+            return 0;
+        }
+
+        var count = 0;
+        foreach (var docSummary in documents)
+        {
+            var document = await _documentRepository.GetDetailsAsync(docSummary.Id, cancellationToken);
+            if (document is null) continue;
+
+            document.Chunks.Clear();
+            await _indexingService.PopulateChunksAsync(document, cancellationToken);
+            await _documentRepository.UpdateChunksAsync(document, cancellationToken);
+            count++;
+        }
+
+        return count;
     }
 
     public async Task<Guid> UploadAsync(Guid chapterId, Guid userId, string userRole, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken)

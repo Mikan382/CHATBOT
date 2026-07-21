@@ -133,19 +133,6 @@
                                                 @if (Model.CanManageDocuments)
                                                 {
                                                     <div class="dropdown-divider"></div>
-                                                    <form method="post" asp-controller="Documents" asp-action="Reindex" asp-route-id="@doc.Id" class="d-inline">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="searchTerm" value="@Model.SearchTerm" />
-                                                        @if (Model.SelectedCourseId.HasValue)
-                                                        {
-                                                            <input type="hidden" name="courseId" value="@Model.SelectedCourseId.Value" />
-                                                        }
-                                                        @if (Model.SelectedChapterId.HasValue)
-                                                        {
-                                                            <input type="hidden" name="chapterId" value="@Model.SelectedChapterId.Value" />
-                                                        }
-                                                        <button class="dropdown-item text-primary" type="submit">🔄 Re-index Vector</button>
-                                                    </form>
                                                     <form method="post" asp-controller="Documents" asp-action="Delete" asp-route-id="@doc.Id" class="document-delete-form">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="searchTerm" value="@Model.SearchTerm" />

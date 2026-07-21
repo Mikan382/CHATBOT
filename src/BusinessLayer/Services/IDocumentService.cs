@@ -15,6 +15,6 @@ public interface IDocumentService
 
     Task<DocumentDetailsDto> GetDetailsAsync(Guid id, CancellationToken cancellationToken);
     Task DeleteAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken);
-    Task ReindexAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken);
+    Task<int> ReindexCourseAsync(Guid courseId, Guid userId, string userRole, CancellationToken cancellationToken);
     Task<Guid> UploadAsync(Guid chapterId, Guid userId, string userRole, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken);
 }

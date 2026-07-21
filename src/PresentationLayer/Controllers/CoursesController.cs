@@ -11,13 +11,16 @@ public class CoursesController : BaseController
 {
     private readonly ICourseService _courseService;
     private readonly IChapterService _chapterService;
+    private readonly IDocumentService _documentService;
 
     public CoursesController(
         ICourseService courseService,
-        IChapterService chapterService)
+        IChapterService chapterService,
+        IDocumentService documentService)
     {
         _courseService = courseService;
         _chapterService = chapterService;
+        _documentService = documentService;
     }
 
     [HttpGet]
@@ -187,5 +190,23 @@ public class CoursesController : BaseController
         }
 
         return RedirectToAction("Chapters", new { id });
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Reindex(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var count = await _documentService.ReindexCourseAsync(id, CurrentUserId(), CurrentUserRole(), cancellationToken);
+            SetFlashSuccess($"Successfully re-indexed {count} document(s) for this course with current AI settings.");
+        }
+        catch (Exception ex)
+        {
+            SetFlashError(UserFacingError(ex));
+        }
+
+        return RedirectToAction("Index");
     }
 }
