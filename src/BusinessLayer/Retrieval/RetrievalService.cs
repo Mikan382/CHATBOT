@@ -9,15 +9,18 @@ namespace BusinessLayer.Retrieval;
 public class RetrievalService
 {
     private readonly IDocumentEmbeddingRepository _embeddingRepository;
+    private readonly ICourseRepository _courseRepository;
     private readonly IEmbeddingClient _embeddingClient;
     private readonly RagOptions _options;
 
     public RetrievalService(
         IDocumentEmbeddingRepository embeddingRepository,
+        ICourseRepository courseRepository,
         IEmbeddingClient embeddingClient,
         IOptions<RagOptions> options)
     {
         _embeddingRepository = embeddingRepository;
+        _courseRepository = courseRepository;
         _embeddingClient = embeddingClient;
         _options = options.Value;
     }
@@ -27,7 +30,6 @@ public class RetrievalService
     public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveAsync(
         string query,
         Guid? courseId,
-        Guid? sessionId,
         CancellationToken cancellationToken)
     {
         if (!_embeddingClient.IsConfigured)
@@ -40,11 +42,13 @@ public class RetrievalService
             return [];
         }
 
-        var queryVector = await _embeddingClient.EmbedQueryAsync(query, cancellationToken);
+        // Chunks are stored per embedding model, so the question must be embedded with the
+        // model this course was indexed with - otherwise nothing matches.
+        var modelName = await ResolveModelNameAsync(courseId, cancellationToken);
+        var queryVector = await _embeddingClient.EmbedQueryAsync(modelName, query, cancellationToken);
         var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(
-            _embeddingClient.ModelName,
+            modelName,
             courseId,
-            sessionId,
             cancellationToken);
         if (embeddings.Count == 0)
         {
@@ -72,8 +76,8 @@ public class RetrievalService
             .Select(x =>
             {
                 var chunk = x.Embedding.DocumentChunk!;
-                var docId = chunk.DocumentId ?? chunk.StudentDocumentId ?? Guid.Empty;
-                var chapterTitle = chunk.Document?.Chapter?.Title ?? (chunk.StudentDocument != null ? "Uploaded Attachment" : "Unknown");
+                var docId = chunk.DocumentId ?? Guid.Empty;
+                var chapterTitle = chunk.Document?.Chapter?.Title ?? "Unknown";
                 return new RetrievedChunkDto(
                     chunk.Id,
                     docId,
@@ -84,6 +88,20 @@ public class RetrievalService
                     x.Score);
             })
             .ToList();
+    }
+
+    private async Task<string> ResolveModelNameAsync(Guid? courseId, CancellationToken cancellationToken)
+    {
+        if (!courseId.HasValue)
+        {
+            return _embeddingClient.ModelName;
+        }
+
+        var course = await _courseRepository.GetByIdAsync(courseId.Value, cancellationToken);
+        var courseModel = course?.DefaultEmbeddingModel;
+        return !string.IsNullOrWhiteSpace(courseModel) && _embeddingClient.IsModelConfigured(courseModel)
+            ? courseModel
+            : _embeddingClient.ModelName;
     }
 
     private static float[] ReadStoredVector(

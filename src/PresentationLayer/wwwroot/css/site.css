@@ -292,14 +292,14 @@ h6 {
   border-top: 1px solid #cbd5e1;
 }
 
-.teacher-assignment {
+.assignment-section {
   padding: 14px;
   border: 1px solid #d8dee8;
   border-radius: 6px;
   background: #f8fafc;
 }
 
-.teacher-assignment-header {
+.assignment-section-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -307,29 +307,41 @@ h6 {
   margin-bottom: 12px;
 }
 
-.teacher-assignment-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
+.assignment-summary {
+  display: grid;
   gap: 8px;
 }
 
-.teacher-selected-count {
-  flex: 0 0 auto;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #e2e8f0;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.teacher-create-panel {
-  margin-bottom: 12px;
-  padding: 12px;
-  border: 1px solid #cbd5e1;
+.assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d8dee8;
   border-radius: 6px;
   background: #fff;
+}
+
+.assignment-row-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.assignment-row-text small {
+  overflow: hidden;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-empty {
+  padding: 14px 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
 }
 
 .teacher-search {
@@ -361,7 +373,7 @@ h6 {
   border-color: #94a3b8;
 }
 
-.teacher-option.selected {
+.teacher-option:has(.form-check-input:checked) {
   border-color: #60a5fa;
   background: #eff6ff;
 }
@@ -383,8 +395,7 @@ h6 {
   white-space: nowrap;
 }
 
-.teacher-no-results,
-.teacher-empty-state {
+.teacher-no-results {
   padding: 14px 12px;
 }
 

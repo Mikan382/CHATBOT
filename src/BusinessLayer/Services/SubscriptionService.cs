@@ -344,10 +344,18 @@ public class SubscriptionService : ISubscriptionService
             throw new InvalidOperationException("Token quota must be greater than zero.");
         }
 
-        if (isDefault && (!isActive || price != 0))
+        // The default package is what new students are attached to, so it must never
+        // be turned off or priced: losing it leaves new students without a subscription.
+        if (isDefault && !isActive)
         {
             throw new InvalidOperationException(
-                "The default package must be active and have a price of 0 VND.");
+                "The default package cannot be deactivated. Make another active 0 VND package the default first.");
+        }
+
+        if (isDefault && price != 0)
+        {
+            throw new InvalidOperationException(
+                "The default package must keep a price of 0 VND. Make another active 0 VND package the default first.");
         }
     }
 

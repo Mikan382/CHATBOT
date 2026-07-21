@@ -5,10 +5,6 @@
   const input = document.getElementById("messageInput");
   const sendButton = document.getElementById("sendButton");
   const clearButton = document.getElementById("clearButton");
-  const attachButton = document.getElementById("attachButton");
-  const attachmentInput = document.getElementById("attachmentInput");
-  const studentAttachments = document.getElementById("studentAttachments");
-  const attachmentsList = document.getElementById("attachmentsList");
   const courseSelect = document.getElementById("courseId");
   const sessionList = document.getElementById("sessionList");
   const sessionSearch = document.getElementById("sessionSearch");
@@ -29,7 +25,6 @@
       && courseSelect.value !== "";
     input.disabled = !canSend;
     sendButton.disabled = !canSend;
-    if (attachButton) attachButton.disabled = !canSend;
     courseSelect.disabled = !interactionReady;
     clearButton.disabled = !interactionReady;
   }
@@ -198,43 +193,6 @@
       for (const citation of message.citations) {
         const cite = document.createElement("span");
         cite.className = "citation";
-
-    const body = document.createElement("div");
-    body.textContent = text;
-
-    optimisticEl.appendChild(meta);
-    optimisticEl.appendChild(body);
-    messages.appendChild(optimisticEl);
-    messages.scrollTop = messages.scrollHeight;
-    updateEmptyHint();
-  }
-
-  // --- Render message ---
-  function renderMessage(message, options = {}) {
-    const wrapper = document.createElement("div");
-    wrapper.className = `message ${message.role === "user" ? "user" : "assistant"}`;
-    if (message.id) wrapper.dataset.messageId = message.id;
-
-    const meta = document.createElement("div");
-    meta.className = "message-meta";
-    meta.textContent = options.metaOverride ?? buildMeta(message);
-    wrapper.appendChild(meta);
-
-    const body = document.createElement("div");
-    body.innerHTML = renderMarkdown(message.content);
-    wrapper.appendChild(body);
-
-    if (message.error) {
-      const error = document.createElement("div");
-      error.className = "text-danger small mt-2";
-      error.textContent = message.error;
-      wrapper.appendChild(error);
-    }
-
-    if (message.citations && message.citations.length > 0) {
-      for (const citation of message.citations) {
-        const cite = document.createElement("span");
-        cite.className = "citation";
         cite.textContent = `${citation.sourceName} / chunk #${citation.chunkIndex}: ${citation.text.substring(0, 220)}...`;
         wrapper.appendChild(cite);
       }
@@ -246,65 +204,6 @@
     return wrapper;
   }
 
-  async function loadAttachments() {
-    if (!studentAttachments || !attachmentsList || !sessionId) return;
-    try {
-      const response = await fetch(`/api/chat/${sessionId}/documents`);
-      const data = await readJson(response);
-      if (data.success && data.documents && data.documents.length > 0) {
-        studentAttachments.classList.remove("d-none");
-        attachmentsList.innerHTML = data.documents.map(doc => `
-          <span class="badge bg-secondary-subtle text-secondary-emphasis border d-inline-flex align-items-center gap-1 py-1 px-2" title="${escapeHtml(doc.fileName)} (${doc.chunksCount} sections)">
-            📎 ${escapeHtml(doc.fileName)}
-            <span class="badge bg-secondary text-light ms-1">${doc.chunksCount} chunks</span>
-          </span>
-        `).join("");
-      } else {
-        studentAttachments.classList.add("d-none");
-        attachmentsList.innerHTML = "";
-      }
-    } catch {
-      studentAttachments.classList.add("d-none");
-    }
-  }
-
-  if (attachButton && attachmentInput) {
-    attachButton.addEventListener("click", () => {
-      if (!attachButton.disabled) attachmentInput.click();
-    });
-
-    attachmentInput.addEventListener("change", async () => {
-      const file = attachmentInput.files[0];
-      if (!file) return;
-      attachmentInput.value = "";
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("courseId", courseSelect.value);
-
-      attachButton.disabled = true;
-      attachButton.textContent = "⏳";
-
-      try {
-        const response = await fetch(`/api/chat/${sessionId}/upload`, {
-          method: "POST",
-          headers: window.requestVerificationHeaders({}),
-          body: formData
-        });
-        const data = await readJson(response);
-        if (data.success) {
-          await loadAttachments();
-        }
-      } catch (err) {
-        alert("Attachment upload failed: " + err.message);
-      } finally {
-        attachButton.disabled = false;
-        attachButton.textContent = "📎";
-        setComposerEnabled(connected);
-      }
-    });
-  }
-
   async function loadHistory() {
     const response = await fetch(`/api/chat/${sessionId}`);
     const data = await readJson(response);
@@ -313,7 +212,6 @@
       renderMessage(message);
     }
     updateEmptyHint();
-    await loadAttachments();
   }
 
   // --- Session list ---
@@ -522,7 +420,6 @@
       await connection.invoke("JoinSession", sessionId).catch(() => {});
     }
     setComposerEnabled(connected);
-    loadAttachments();
     loadSessions();
   });
 

@@ -1,56 +1,80 @@
 @model CourseFormViewModel
+@{
+    var hasTeacherAccounts = Model.Teachers.Count > 0;
+}
 
-<div class="teacher-assignment" data-teacher-assignment>
-    <div class="teacher-assignment-header">
+@* The head teacher is picked from the course teachers below, so a plain field carries it. *@
+<input type="hidden" name="HeadTeacherId" value="@(Model.HeadTeacherId?.ToString() ?? "")" data-head-input />
+
+<div class="assignment-section mb-3">
+    <div class="assignment-section-header">
         <div>
-            <label class="form-label mb-0" asp-for="TeacherId">Teacher</label>
-            <div class="text-muted small">Assign a single active Teacher account to manage this course.</div>
-        </div>
-        <div class="teacher-assignment-actions">
-            <span class="teacher-selected-count" data-teacher-selected-count>Unassigned</span>
+            <label class="form-label mb-0">Head teacher</label>
+            <div class="text-muted small">Only the head teacher can upload documents and manage chapters.</div>
         </div>
     </div>
+    <div class="assignment-summary" data-head-summary></div>
+</div>
 
-    <input class="form-control form-control-sm teacher-search"
-           type="search"
-           placeholder="Search teacher name or email"
-           aria-label="Search teachers"
-           hidden="@(Model.Teachers.Count == 0)"
-           data-teacher-search />
-
-    <div class="teacher-option-list" data-teacher-list hidden="@(Model.Teachers.Count == 0)">
-        <label class="teacher-option" data-teacher-option data-teacher-unassigned>
-            <input class="form-check-input"
-                   type="radio"
-                   name="TeacherId"
-                   value=""
-                   checked="@(Model.TeacherId is null)" />
-            <span class="teacher-option-content">
-                <strong>Unassigned</strong>
-                <small>No teacher manages this course</small>
-            </span>
-        </label>
-        @foreach (var teacher in Model.Teachers)
-        {
-            <label class="teacher-option" data-teacher-option>
-                <input class="form-check-input"
-                       type="radio"
-                       name="TeacherId"
-                       value="@teacher.Id"
-                       checked="@(Model.TeacherId == teacher.Id)" />
-                <span class="teacher-option-content">
-                    <strong>@teacher.DisplayName</strong>
-                    <small>@teacher.Email</small>
-                </span>
-            </label>
-        }
+<div class="assignment-section">
+    <div class="assignment-section-header">
+        <div>
+            <label class="form-label mb-0">Teachers</label>
+            <div class="text-muted small">Teacher accounts that join this course.</div>
+        </div>
+        <button class="btn btn-sm btn-outline-primary"
+                type="button"
+                data-bs-toggle="modal"
+                data-bs-target="#courseTeacherModal"
+                disabled="@(!hasTeacherAccounts)">
+            Add teachers
+        </button>
     </div>
+    <div class="assignment-summary" data-teacher-summary></div>
+</div>
 
-    <div class="empty-state teacher-empty-state" hidden="@(Model.Teachers.Count > 0)" data-teacher-empty-state>
-        No active Teacher accounts are available.
-    </div>
+@* The checkboxes live inside the modal so they post with the surrounding course form. *@
+<div class="modal fade" id="courseTeacherModal" tabindex="-1" aria-labelledby="courseTeacherModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="courseTeacherModalTitle">Select teachers</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input class="form-control form-control-sm teacher-search"
+                       type="search"
+                       placeholder="Search name or email"
+                       aria-label="Search teachers"
+                       data-teacher-search />
 
-    <div class="empty-state teacher-no-results" hidden data-teacher-no-results>
-        No teachers match the search.
+                <div class="teacher-option-list" data-teacher-list>
+                    @foreach (var teacher in Model.Teachers)
+                    {
+                        <label class="teacher-option" data-teacher-option>
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   name="TeacherIds"
+                                   value="@teacher.Id"
+                                   checked="@Model.TeacherIds.Contains(teacher.Id)"
+                                   data-teacher-checkbox
+                                   data-teacher-name="@teacher.DisplayName"
+                                   data-teacher-email="@teacher.Email" />
+                            <span class="teacher-option-content">
+                                <strong>@teacher.DisplayName</strong>
+                                <small>@teacher.Email</small>
+                            </span>
+                        </label>
+                    }
+                </div>
+
+                <div class="empty-state teacher-no-results" hidden data-teacher-no-results>
+                    No teachers match the search.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Done</button>
+            </div>
+        </div>
     </div>
 </div>

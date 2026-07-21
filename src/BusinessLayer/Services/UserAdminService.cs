@@ -2,6 +2,7 @@ using System.Net.Mail;
 using Microsoft.AspNetCore.Identity;
 using BusinessLayer.DTOs;
 using BusinessLayer.Helpers;
+using BusinessLayer.Parsing;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
@@ -273,8 +274,9 @@ public class UserAdminService : IUserAdminService
         };
     }
 
-    public async Task<BatchImportResultDto> ImportStudentsFromCsvAsync(
+    public async Task<BatchImportResultDto> ImportStudentsAsync(
         Stream fileStream,
+        string fileName,
         CancellationToken cancellationToken)
     {
         var errors = new List<string>();
@@ -283,16 +285,24 @@ public class UserAdminService : IUserAdminService
         var skippedCount = 0;
         const string defaultPassword = "Student@123";
 
-        using var reader = new System.IO.StreamReader(fileStream, System.Text.Encoding.UTF8);
-        string? headerLine = await reader.ReadLineAsync(cancellationToken);
-        if (headerLine is null)
+        IReadOnlyList<string[]> rows;
+        try
         {
-            return new BatchImportResultDto(0, 0, 0, new[] { "The uploaded CSV file is empty." });
+            rows = StudentImportFileParser.ReadRows(fileStream, fileName);
+        }
+        catch (Exception ex)
+        {
+            return new BatchImportResultDto(0, 0, 0, new[] { ex.Message });
+        }
+
+        if (rows.Count == 0)
+        {
+            return new BatchImportResultDto(0, 0, 0, new[] { "The uploaded file is empty." });
         }
 
         var nameIndex = 0;
         var emailIndex = 1;
-        var headers = headerLine.Split(',', ';');
+        var headers = rows[0];
         if (headers.Length >= 2)
         {
             var h0 = headers[0].Trim().ToLowerInvariant();
@@ -309,13 +319,10 @@ public class UserAdminService : IUserAdminService
             }
         }
 
-        string? line;
-        var lineNumber = 1;
-        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        for (var rowIndex = 1; rowIndex < rows.Count; rowIndex++)
         {
-            lineNumber++;
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            var parts = line.Split(',', ';');
+            var lineNumber = rowIndex + 1;
+            var parts = rows[rowIndex];
             if (parts.Length < 2)
             {
                 errors.Add($"Line {lineNumber}: Invalid format. Expected 'FullName, Email'.");

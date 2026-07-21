@@ -55,7 +55,8 @@ public class CourseService : ICourseService
             course.Name,
             course.Description,
             course.Tools,
-            course.TeacherAssignments.Select(x => (Guid?)x.TeacherUserId).FirstOrDefault(),
+            course.TeacherAssignments.Select(x => x.TeacherUserId).ToList(),
+            course.TeacherAssignments.Where(x => x.IsHead).Select(x => (Guid?)x.TeacherUserId).FirstOrDefault(),
             course.DefaultChunkingStrategy,
             course.DefaultChunkSize,
             course.DefaultChunkOverlap,
@@ -79,7 +80,8 @@ public class CourseService : ICourseService
         string name,
         string? description,
         string? tools,
-        Guid? teacherId,
+        IReadOnlyCollection<Guid> teacherIds,
+        Guid? headTeacherId,
         string? defaultChunkingStrategy = null,
         int? defaultChunkSize = null,
         int? defaultChunkOverlap = null,
@@ -94,7 +96,9 @@ public class CourseService : ICourseService
             throw new InvalidOperationException("Course code already exists.");
         }
 
-        var validTeacherId = await ValidateTeacherIdAsync(teacherId, cancellationToken);
+        var (validTeacherIds, validHeadTeacherId) =
+            await ValidateTeacherSelectionAsync(teacherIds, headTeacherId, cancellationToken);
+        var assignedAtUtc = DateTime.UtcNow;
         var course = new Course
         {
             Id = Guid.NewGuid(),
@@ -106,17 +110,14 @@ public class CourseService : ICourseService
             DefaultChunkSize = defaultChunkSize > 0 ? defaultChunkSize : null,
             DefaultChunkOverlap = defaultChunkOverlap >= 0 ? defaultChunkOverlap : null,
             DefaultEmbeddingModel = string.IsNullOrWhiteSpace(defaultEmbeddingModel) ? null : defaultEmbeddingModel.Trim(),
-            TeacherAssignments = validTeacherId is null
-                ? new List<CourseTeacher>()
-                : new List<CourseTeacher>
+            TeacherAssignments = validTeacherIds
+                .Select(teacherUserId => new CourseTeacher
                 {
-                    new()
-                    {
-                        TeacherUserId = validTeacherId.Value,
-                        IsHead = true,
-                        AssignedAtUtc = DateTime.UtcNow
-                    }
-                }
+                    TeacherUserId = teacherUserId,
+                    IsHead = validHeadTeacherId == teacherUserId,
+                    AssignedAtUtc = assignedAtUtc
+                })
+                .ToList()
         };
 
         await _courseRepository.AddAsync(course, cancellationToken);
@@ -129,14 +130,16 @@ public class CourseService : ICourseService
         string name,
         string? description,
         string? tools,
-        Guid? teacherId,
+        IReadOnlyCollection<Guid> teacherIds,
+        Guid? headTeacherId,
         string? defaultChunkingStrategy = null,
         int? defaultChunkSize = null,
         int? defaultChunkOverlap = null,
         string? defaultEmbeddingModel = null,
         CancellationToken cancellationToken = default)
     {
-        var validTeacherId = await ValidateTeacherIdAsync(teacherId, cancellationToken);
+        var (validTeacherIds, validHeadTeacherId) =
+            await ValidateTeacherSelectionAsync(teacherIds, headTeacherId, cancellationToken);
         var course = await _courseRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
 
@@ -156,7 +159,7 @@ public class CourseService : ICourseService
         course.DefaultChunkSize = defaultChunkSize > 0 ? defaultChunkSize : null;
         course.DefaultChunkOverlap = defaultChunkOverlap >= 0 ? defaultChunkOverlap : null;
         course.DefaultEmbeddingModel = string.IsNullOrWhiteSpace(defaultEmbeddingModel) ? null : defaultEmbeddingModel.Trim();
-        await _courseRepository.SaveTeacherAssignmentAsync(course, validTeacherId, cancellationToken);
+        await _courseRepository.SaveTeacherAssignmentAsync(course, validTeacherIds, validHeadTeacherId, cancellationToken);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -183,23 +186,34 @@ public class CourseService : ICourseService
         return isAdmin ? null : userId;
     }
 
-    private async Task<Guid?> ValidateTeacherIdAsync(
-        Guid? teacherId,
+    private async Task<(IReadOnlyCollection<Guid> TeacherIds, Guid? HeadTeacherId)> ValidateTeacherSelectionAsync(
+        IReadOnlyCollection<Guid> teacherIds,
+        Guid? headTeacherId,
         CancellationToken cancellationToken)
     {
-        if (teacherId is null)
+        var selectedIds = teacherIds.Distinct().ToList();
+
+        // The head teacher always belongs to the course, so picking one is enough:
+        // callers do not have to send the same person in both fields.
+        if (headTeacherId.HasValue && !selectedIds.Contains(headTeacherId.Value))
         {
-            return null;
+            selectedIds.Add(headTeacherId.Value);
+        }
+
+        if (selectedIds.Count == 0)
+        {
+            // No teacher on the course means no head teacher either.
+            return (Array.Empty<Guid>(), null);
         }
 
         var teachers = await _userRepository.ListUsersByRoleAsync(UserRoleNames.Teacher, cancellationToken);
         var activeTeacherIds = teachers.Select(x => x.Id).ToHashSet();
-        if (!activeTeacherIds.Contains(teacherId.Value))
+        if (selectedIds.Any(id => !activeTeacherIds.Contains(id)))
         {
-            throw new InvalidOperationException("The selected user is not an active teacher.");
+            throw new InvalidOperationException("One of the selected users is not an active teacher.");
         }
 
-        return teacherId;
+        return (selectedIds, headTeacherId);
     }
 
     private static ChapterDto ToDto(Chapter chapter)

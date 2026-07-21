@@ -61,10 +61,6 @@
             <div id="messages" class="chat-log">
                 <div class="chat-empty-hint" id="chatEmptyHint">Ask a question to start the conversation.</div>
             </div>
-            <div id="studentAttachments" class="px-3 pt-2 d-none border-top bg-light">
-                <div class="small text-muted mb-1 fw-semibold"><i class="bi bi-paperclip"></i> Session Attachments (max 3):</div>
-                <div id="attachmentsList" class="d-flex flex-wrap gap-2 pb-2"></div>
-            </div>
             @if (Model.Quota is not null)
             {
                 <div id="chatQuotaAlert" class="chat-quota-alert @(quotaExhausted ? "" : "d-none")">
@@ -78,10 +74,6 @@
             }
             <form id="chatForm" class="chat-form">
                 @Html.AntiForgeryToken()
-                <input type="file" id="attachmentInput" class="d-none" accept=".pdf,.docx,.txt" />
-                <button type="button" id="attachButton" class="btn btn-outline-secondary" title="Attach document to session (.pdf, .docx, .txt, max 10MB)" @(canSend ? "" : "disabled")>
-                    📎
-                </button>
                 <input id="messageInput" class="form-control" autocomplete="off" maxlength="4000"
                        placeholder="Ask a question about the selected course..."
                        @(canSend ? "" : "disabled") />

@@ -77,13 +77,16 @@ public class DocumentIndexingService
                 $"Document creates {chunks.Count} sections; the limit is {DocumentUploadLimits.MaxChunksPerDocument}.");
         }
 
+        // The vector must be produced by the same model it is stored under, otherwise
+        // retrieval compares vectors from different models against each other.
         var modelName = !string.IsNullOrWhiteSpace(course?.DefaultEmbeddingModel)
-            ? course.DefaultEmbeddingModel
-            : _embeddingClient.ModelName;
+            && _embeddingClient.IsModelConfigured(course.DefaultEmbeddingModel)
+                ? course.DefaultEmbeddingModel
+                : _embeddingClient.ModelName;
 
         foreach (var chunk in chunks)
         {
-            var vector = await _embeddingClient.EmbedPassageAsync(chunk.Content, cancellationToken);
+            var vector = await _embeddingClient.EmbedPassageAsync(modelName, chunk.Content, cancellationToken);
             chunk.Embeddings.Add(new DocumentChunkEmbedding
             {
                 Id = Guid.NewGuid(),
@@ -101,64 +104,4 @@ public class DocumentIndexingService
         }
     }
 
-    public async Task PopulateStudentChunksAsync(StudentUploadedDocument document, CancellationToken cancellationToken)
-    {
-        if (!_embeddingClient.IsConfigured)
-        {
-            throw new InvalidOperationException("Hugging Face embedding is required to index documents.");
-        }
-
-        var settings = await _chunkingSettingsService.GetAsync(cancellationToken);
-        var chunker = settings.CurrentStrategy == "fixed"
-            ? new FixedSizeChunker(settings.FixedChunkSize, settings.FixedChunkOverlap)
-            : _chunkers.GetValueOrDefault(settings.CurrentStrategy);
-        if (chunker is null)
-        {
-            throw new InvalidOperationException("Configured chunking strategy is unavailable.");
-        }
-
-        document.ChunkingStrategy = settings.CurrentStrategy;
-
-        var chunks = chunker.Chunk(document.ContentText)
-            .Select((content, index) => new DocumentChunk
-            {
-                Id = Guid.NewGuid(),
-                StudentDocumentId = document.Id,
-                ChunkIndex = index + 1,
-                Content = content,
-                SourceName = document.OriginalFileName,
-                CreatedAtUtc = DateTime.UtcNow
-            })
-            .ToList();
-
-        if (chunks.Count == 0)
-        {
-            throw new InvalidOperationException("Could not split the document into searchable sections.");
-        }
-
-        if (chunks.Count > DocumentUploadLimits.MaxChunksPerDocument)
-        {
-            throw new InvalidOperationException(
-                $"Document creates {chunks.Count} sections; the limit is {DocumentUploadLimits.MaxChunksPerDocument}.");
-        }
-
-        foreach (var chunk in chunks)
-        {
-            var vector = await _embeddingClient.EmbedPassageAsync(chunk.Content, cancellationToken);
-            chunk.Embeddings.Add(new DocumentChunkEmbedding
-            {
-                Id = Guid.NewGuid(),
-                DocumentChunkId = chunk.Id,
-                ModelName = _embeddingClient.ModelName,
-                Dimensions = vector.Length,
-                VectorJson = JsonSerializer.Serialize(vector),
-                CreatedAtUtc = DateTime.UtcNow
-            });
-        }
-
-        foreach (var chunk in chunks)
-        {
-            document.Chunks.Add(chunk);
-        }
-    }
 }

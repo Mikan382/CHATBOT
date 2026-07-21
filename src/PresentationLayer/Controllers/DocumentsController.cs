@@ -5,7 +5,9 @@ using PresentationLayer.ViewModels;
 
 namespace PresentationLayer.Controllers;
 
-[Authorize]
+// Students must not reach raw course material: Details exposes the full extracted
+// text and every chunk. They consume documents through the chat answers instead.
+[Authorize(Roles = "Teacher,Admin")]
 [RequestSizeLimit(DocumentUploadLimits.MaxRequestBodyBytes)]
 [RequestFormLimits(MultipartBodyLengthLimit = DocumentUploadLimits.MaxRequestBodyBytes)]
 public class DocumentsController : BaseController
@@ -36,7 +38,7 @@ public class DocumentsController : BaseController
             SearchTerm = searchTerm,
             SelectedCourseId = data.SelectedCourseId,
             SelectedChapterId = data.SelectedChapterId,
-            CanManageDocuments = isTeacher || isAdmin
+            ManageableCourseIds = data.ManageableCourseIds
         };
 
         return View(model);
@@ -57,7 +59,6 @@ public class DocumentsController : BaseController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Upload(Guid chapterId, IFormFile? file, CancellationToken cancellationToken)
     {
@@ -86,7 +87,6 @@ public class DocumentsController : BaseController
     }
 
     [HttpPost]
-    [Authorize(Roles = "Teacher,Admin")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(
         Guid id,

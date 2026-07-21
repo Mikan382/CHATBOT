@@ -20,7 +20,9 @@ public class CourseFormViewModel
     [StringLength(512)]
     public string? Tools { get; set; }
 
-    public Guid? TeacherId { get; set; }
+    public List<Guid> TeacherIds { get; set; } = [];
+
+    public Guid? HeadTeacherId { get; set; }
 
     public string? DefaultChunkingStrategy { get; set; }
     public int? DefaultChunkSize { get; set; }

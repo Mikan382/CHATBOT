@@ -76,6 +76,7 @@ public record DocumentIndexDto(
     string FileType,
     long FileSizeBytes,
     DateTime UploadedAtUtc,
+    Guid? CourseId,
     string? CourseCode,
     string? ChapterTitle,
     int ChunksCount,
@@ -105,7 +106,9 @@ public record DocumentIndexPageDto(
     IReadOnlyList<ChapterSelectDto> Chapters,
     IReadOnlyList<DocumentIndexDto> Documents,
     Guid? SelectedCourseId,
-    Guid? SelectedChapterId);
+    Guid? SelectedChapterId,
+    // Courses the caller is head teacher of, i.e. the only ones they may upload to or delete from.
+    IReadOnlyList<Guid> ManageableCourseIds);
 
 public record CourseFormDto(
     Guid Id,
@@ -113,7 +116,8 @@ public record CourseFormDto(
     string Name,
     string Description,
     string Tools,
-    Guid? TeacherId,
+    IReadOnlyList<Guid> TeacherIds,
+    Guid? HeadTeacherId,
     string? DefaultChunkingStrategy = null,
     int? DefaultChunkSize = null,
     int? DefaultChunkOverlap = null,
@@ -260,8 +264,4 @@ public record ActiveSubscriptionDetailDto(
     decimal Utilization,
     DateTime ActivatedAtUtc,
     DateTime? ExpiresAtUtc);
-
-public record StudentDocumentUploadResultDto(Guid Id, string FileName, int ChunksCount);
-
-public record StudentDocumentDto(Guid Id, string FileName, string FileType, long FileSizeBytes, int ChunksCount, DateTime UploadedAtUtc);
 

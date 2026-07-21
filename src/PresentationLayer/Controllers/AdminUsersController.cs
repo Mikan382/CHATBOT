@@ -160,21 +160,21 @@ public class AdminUsersController : BaseController
     {
         if (csvFile is null || csvFile.Length == 0)
         {
-            SetFlashError("Please select a valid CSV file to import.");
+            SetFlashError("Please select a valid CSV or Excel file to import.");
             return RedirectToAction("Index");
         }
 
         var extension = Path.GetExtension(csvFile.FileName).ToLowerInvariant();
-        if (extension != ".csv")
+        if (extension != ".csv" && extension != ".xlsx")
         {
-            SetFlashError("Only .csv files are supported for batch student import.");
+            SetFlashError("Only .csv and .xlsx files are supported for batch student import.");
             return RedirectToAction("Index");
         }
 
         try
         {
             using var stream = csvFile.OpenReadStream();
-            var result = await _userAdminService.ImportStudentsFromCsvAsync(stream, cancellationToken);
+            var result = await _userAdminService.ImportStudentsAsync(stream, csvFile.FileName, cancellationToken);
             if (result.SuccessCount > 0)
             {
                 SetFlashSuccess($"Successfully imported {result.SuccessCount} student account(s) (Skipped {result.SkippedCount} existing). Default password: Student@123");

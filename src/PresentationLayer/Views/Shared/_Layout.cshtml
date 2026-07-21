@@ -27,13 +27,13 @@
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item"><a class="nav-link @Active("Chat")" asp-controller="Chat" asp-action="Index">Chat</a></li>
-                            <li class="nav-item"><a class="nav-link @Active("Documents")" asp-controller="Documents" asp-action="Index">Documents</a></li>
                             @if (User.IsInRole("Student"))
                             {
                                 <li class="nav-item"><a class="nav-link @Active("Subscriptions")" asp-controller="Subscriptions" asp-action="Index">Subscription</a></li>
                             }
                             @if (User.IsInRole("Teacher") || User.IsInRole("Admin"))
                             {
+                                <li class="nav-item"><a class="nav-link @Active("Documents")" asp-controller="Documents" asp-action="Index">Documents</a></li>
                                 <li class="nav-item"><a class="nav-link @Active("Courses", "Chapters")" asp-controller="Courses" asp-action="Index">Courses</a></li>
                             }
                             @if (User.IsInRole("Admin"))

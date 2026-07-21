@@ -10,5 +10,7 @@ public class DocumentIndexViewModel
     public string? SearchTerm { get; set; }
     public Guid? SelectedCourseId { get; set; }
     public Guid? SelectedChapterId { get; set; }
-    public bool CanManageDocuments { get; set; }
+
+    // Only the head teacher of a course may upload to it or delete from it.
+    public IReadOnlyList<Guid> ManageableCourseIds { get; set; } = [];
 }

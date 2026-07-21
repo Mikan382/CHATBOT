@@ -67,12 +67,20 @@ public class DocumentService : IDocumentService
         var documentDtos = documents.Select(ToIndexDto).ToList();
         var courseDtos = courses.Select(ToCourseDto).ToList();
 
+        // Uploading and deleting is head-teacher only, so the page hides those controls
+        // instead of letting the request fail on EnsureHeadTeacherAsync.
+        var manageableCourseIds = courses
+            .Where(c => c.TeacherAssignments.Any(t => t.TeacherUserId == userId && t.IsHead))
+            .Select(c => c.Id)
+            .ToList();
+
         return new DocumentIndexPageDto(
             courseDtos,
             chapterDtos,
             documentDtos,
             selectedCourseId,
-            selectedChapterId);
+            selectedChapterId,
+            manageableCourseIds);
     }
 
     public async Task<DocumentDetailsDto> GetDetailsAsync(Guid id, CancellationToken cancellationToken)
@@ -228,6 +236,7 @@ public class DocumentService : IDocumentService
             doc.FileType,
             doc.FileSizeBytes,
             doc.UploadedAtUtc,
+            doc.Chapter?.CourseId,
             doc.Chapter?.Course?.Code,
             doc.Chapter?.Title,
             doc.ChunksCount > 0 ? doc.ChunksCount : doc.Chunks.Count,

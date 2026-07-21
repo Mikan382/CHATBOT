@@ -57,14 +57,14 @@ public class CourseRepository : ICourseRepository
 
     public async Task SaveTeacherAssignmentAsync(
         Course course,
-        Guid? teacherId,
+        IReadOnlyCollection<Guid> teacherIds,
+        Guid? headTeacherId,
         CancellationToken cancellationToken)
     {
-        // One teacher per course: drop every row that is not the selected teacher, then
-        // add the selection if it is not already there. Keeping a matching existing row
-        // preserves its AssignedAtUtc and avoids a delete+insert on the same primary key.
+        // Many teachers per course, at most one head. Rows that stay selected are kept
+        // as-is so their AssignedAtUtc survives instead of a delete+insert on the same key.
         var removals = course.TeacherAssignments
-            .Where(x => x.TeacherUserId != teacherId)
+            .Where(x => !teacherIds.Contains(x.TeacherUserId))
             .ToList();
 
         foreach (var assignment in removals)
@@ -73,15 +73,23 @@ public class CourseRepository : ICourseRepository
             _db.CourseTeachers.Remove(assignment);
         }
 
-        if (teacherId.HasValue && course.TeacherAssignments.All(x => x.TeacherUserId != teacherId.Value))
+        foreach (var teacherId in teacherIds)
         {
-            course.TeacherAssignments.Add(new CourseTeacher
+            if (course.TeacherAssignments.All(x => x.TeacherUserId != teacherId))
             {
-                CourseId = course.Id,
-                TeacherUserId = teacherId.Value,
-                IsHead = true,
-                AssignedAtUtc = DateTime.UtcNow
-            });
+                course.TeacherAssignments.Add(new CourseTeacher
+                {
+                    CourseId = course.Id,
+                    TeacherUserId = teacherId,
+                    AssignedAtUtc = DateTime.UtcNow
+                });
+            }
+        }
+
+        // Exactly one head teacher: only the selected one keeps the flag.
+        foreach (var assignment in course.TeacherAssignments)
+        {
+            assignment.IsHead = headTeacherId.HasValue && assignment.TeacherUserId == headTeacherId.Value;
         }
 
         await _db.SaveChangesAsync(cancellationToken);

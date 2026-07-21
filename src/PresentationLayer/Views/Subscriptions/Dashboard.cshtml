@@ -649,7 +649,8 @@
                     <div class="mb-2" id="pkgActiveGroup">
                         <label class="form-check form-switch mb-0">
                             <input class="form-check-input" type="checkbox" name="IsActive" value="true" id="pkgIsActive" checked />
-                            <input type="hidden" name="IsActive" value="false" />
+                            @* A disabled checkbox posts nothing, so this fallback carries the value for the default package. *@
+                            <input type="hidden" name="IsActive" value="false" id="pkgIsActiveFallback" />
                             <span class="form-check-label">Active</span>
                         </label>
                     </div>
@@ -822,6 +823,8 @@
             document.getElementById("pkgDescription").value = "";
             document.getElementById("pkgIsActive").checked = true;
             document.getElementById("pkgIsActive").disabled = false;
+            document.getElementById("pkgIsActiveFallback").value = "false";
+            document.getElementById("pkgPrice").readOnly = false;
             document.getElementById("pkgActiveGroup").classList.remove("d-none");
             document.getElementById("pkgDefaultNote").classList.add("d-none");
             document.getElementById("pkgDeactivateWarning").classList.add("d-none");
@@ -849,13 +852,11 @@
 
                 document.getElementById("pkgIsActive").checked = isActive;
                 document.getElementById("pkgIsActive").disabled = isDefault;
+                // The default package keeps its active state; the disabled checkbox
+                // posts nothing, so the fallback has to carry "true" instead of "false".
+                document.getElementById("pkgIsActiveFallback").value = isDefault ? "true" : "false";
                 document.getElementById("pkgDefaultNote").classList.toggle("d-none", !isDefault);
-
-                if (isDefault) {
-                    document.getElementById("pkgPrice").readOnly = true;
-                } else {
-                    document.getElementById("pkgPrice").readOnly = false;
-                }
+                document.getElementById("pkgPrice").readOnly = isDefault;
 
                 // Show deactivate warning if toggling off active with users
                 const warnEl = document.getElementById("pkgDeactivateWarning");

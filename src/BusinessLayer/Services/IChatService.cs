@@ -26,16 +26,4 @@ public interface IChatService
     Task<IReadOnlyList<SessionListDto>> ListSessionsAsync(Guid userId, string? searchTerm, CancellationToken cancellationToken);
     Task<string?> RenameSessionAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken);
     Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
-    Task<StudentDocumentUploadResultDto> UploadStudentDocumentAsync(
-        Guid sessionId,
-        Guid userId,
-        Guid courseId,
-        Stream stream,
-        string fileName,
-        long fileSize,
-        CancellationToken cancellationToken);
-    Task<IReadOnlyList<StudentDocumentDto>> ListStudentDocumentsAsync(
-        Guid sessionId,
-        Guid userId,
-        CancellationToken cancellationToken);
 }

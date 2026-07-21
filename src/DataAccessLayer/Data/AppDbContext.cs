@@ -25,7 +25,6 @@ public class AppDbContext : DbContext
     public DbSet<EvaluationQuestion> EvaluationQuestions => Set<EvaluationQuestion>();
     public DbSet<BenchmarkRun> BenchmarkRuns => Set<BenchmarkRun>();
     public DbSet<BenchmarkResult> BenchmarkResults => Set<BenchmarkResult>();
-    public DbSet<StudentUploadedDocument> StudentUploadedDocuments => Set<StudentUploadedDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -92,30 +91,6 @@ public class AppDbContext : DbContext
                 .WithMany(x => x.Chunks)
                 .HasForeignKey(x => x.DocumentId)
                 .OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(x => x.StudentDocument)
-                .WithMany(x => x.Chunks)
-                .HasForeignKey(x => x.StudentDocumentId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<StudentUploadedDocument>(entity =>
-        {
-            entity.Property(x => x.OriginalFileName).HasMaxLength(260);
-            entity.Property(x => x.FileType).HasMaxLength(16);
-            entity.Property(x => x.ContentHash).HasMaxLength(64);
-            entity.Property(x => x.ChunkingStrategy).HasMaxLength(64);
-            entity.HasMany(x => x.Chunks)
-                .WithOne(x => x.StudentDocument)
-                .HasForeignKey(x => x.StudentDocumentId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(x => x.ChatSession)
-                .WithMany()
-                .HasForeignKey(x => x.ChatSessionId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(x => x.UploadedByUser)
-                .WithMany()
-                .HasForeignKey(x => x.UploadedByUserId)
-                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<DocumentChunkEmbedding>(entity =>

@@ -76,28 +76,6 @@ BEGIN
     ALTER TABLE [Courses] ADD [DefaultEmbeddingModel] nvarchar(160) NULL;
 END
 
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[DocumentChunks]') AND name = N'StudentDocumentId')
-BEGIN
-    ALTER TABLE [DocumentChunks] ALTER COLUMN [DocumentId] uniqueidentifier NULL;
-    ALTER TABLE [DocumentChunks] ADD [StudentDocumentId] uniqueidentifier NULL;
-END
-
-IF OBJECT_ID(N'[StudentUploadedDocuments]') IS NULL
-BEGIN
-    CREATE TABLE [StudentUploadedDocuments] (
-        [Id] uniqueidentifier NOT NULL,
-        [ChatSessionId] uniqueidentifier NOT NULL,
-        [UploadedByUserId] uniqueidentifier NOT NULL,
-        [OriginalFileName] nvarchar(260) NOT NULL,
-        [FileType] nvarchar(16) NOT NULL,
-        [FileSizeBytes] bigint NOT NULL,
-        [ContentText] nvarchar(max) NOT NULL,
-        [ContentHash] nvarchar(64) NOT NULL,
-        [ChunkingStrategy] nvarchar(64) NOT NULL,
-        [UploadedAtUtc] datetime2 NOT NULL,
-        CONSTRAINT [PK_StudentUploadedDocuments] PRIMARY KEY ([Id])
-    );
-END
 ");
     }
 

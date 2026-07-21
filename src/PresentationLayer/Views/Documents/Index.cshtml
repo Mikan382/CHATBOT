@@ -1,6 +1,13 @@
 @model DocumentIndexViewModel
 @{
     ViewData["Title"] = "Documents";
+    // Uploading is head-teacher only, so offer just the courses that will actually accept a file.
+    var uploadableCourses = Model.Courses
+        .Where(x => Model.ManageableCourseIds.Contains(x.Id))
+        .ToList();
+    var uploadableChapters = Model.Chapters
+        .Where(x => Model.ManageableCourseIds.Contains(x.CourseId))
+        .ToList();
 }
 
 <div class="documents-page documents-layout">
@@ -8,15 +15,23 @@
         <div class="card app-card">
             <div class="card-body">
                 <h5 class="card-title">Upload Documents</h5>
-                <p class="text-muted small">Supports PDF, DOCX, PPTX, TXT, and MD. Limit: 20MB per file.</p>
-                @if (Model.CanManageDocuments)
+                @if (uploadableChapters.Count == 0)
                 {
+                    <p class="text-muted small mb-0">
+                        @(uploadableCourses.Count == 0
+                            ? "You are not the head teacher of any course, so you cannot upload documents."
+                            : "Add a chapter to your course before uploading documents.")
+                    </p>
+                }
+                else
+                {
+                    <p class="text-muted small">Supports PDF, DOCX, PPTX, TXT, and MD. Limit: 20MB per file.</p>
                     <form id="uploadForm" method="post" asp-controller="Documents" asp-action="Upload" enctype="multipart/form-data">
                         @Html.AntiForgeryToken()
                         <div class="mb-3">
                             <label class="form-label">Course</label>
                             <select id="uploadCourseId" class="form-select" required>
-                                @foreach (var course in Model.Courses)
+                                @foreach (var course in uploadableCourses)
                                 {
                                     <option value="@course.Id">@course.Code - @course.Name</option>
                                 }
@@ -26,7 +41,7 @@
                             <label class="form-label">Chapter</label>
                             <select id="uploadChapterId" class="form-select" name="chapterId" required>
                                 <option value="" disabled hidden>Select a chapter</option>
-                                @foreach (var chapter in Model.Chapters)
+                                @foreach (var chapter in uploadableChapters)
                                 {
                                     <option value="@chapter.Id" data-course-id="@chapter.CourseId">@chapter.Order. @chapter.Title</option>
                                 }
@@ -42,10 +57,6 @@
                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                         </button>
                     </form>
-                }
-                else
-                {
-                    <div class="alert alert-info small mb-0">Students can view indexed documents but cannot upload or delete files.</div>
                 }
             </div>
         </div>
@@ -130,7 +141,7 @@
                                             </button>
                                             <div class="dropdown-menu dropdown-menu-end">
                                                 <a class="dropdown-item" asp-controller="Documents" asp-action="Details" asp-route-id="@doc.Id">View details</a>
-                                                @if (Model.CanManageDocuments)
+                                                @if (doc.CourseId.HasValue && Model.ManageableCourseIds.Contains(doc.CourseId.Value))
                                                 {
                                                     <div class="dropdown-divider"></div>
                                                     <form method="post" asp-controller="Documents" asp-action="Delete" asp-route-id="@doc.Id" class="document-delete-form">
