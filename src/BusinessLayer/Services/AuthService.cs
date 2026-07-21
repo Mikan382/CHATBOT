@@ -101,6 +101,25 @@ public class AuthService : IAuthService
         return (true, null);
     }
 
+    public async Task<AuthenticatedUserDto> RegisterAsync(
+        string email,
+        string fullName,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = await _userAdminService.CreateAsync(
+            email,
+            fullName,
+            UserRoleNames.Student,
+            password,
+            cancellationToken);
+
+        var createdUser = await _userRepository.GetByIdAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("Failed to load registered user.");
+
+        return ToDto(createdUser);
+    }
+
     private static AuthenticatedUserDto ToDto(ApplicationUser user)
     {
         return new AuthenticatedUserDto(user.Id, user.Email, user.Role, user.UpdatedAtUtc);

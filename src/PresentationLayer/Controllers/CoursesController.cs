@@ -153,7 +153,7 @@ public class CoursesController : BaseController
     {
         try
         {
-            await _chapterService.DeleteAsync(chapterId, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
+            await _chapterService.DeleteAsync(chapterId, CurrentUserId(), CurrentUserRole(), cancellationToken);
             SetFlashSuccess("Chapter was deleted.");
         }
         catch (Exception ex)

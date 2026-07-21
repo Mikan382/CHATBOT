@@ -69,7 +69,7 @@ public class DocumentsController : BaseController
             }
 
             await using var stream = file.OpenReadStream();
-            await _documentService.UploadAsync(chapterId, CurrentUserId(), User.IsInRole("Admin"), stream, file.FileName, file.Length, cancellationToken);
+            await _documentService.UploadAsync(chapterId, CurrentUserId(), CurrentUserRole(), stream, file.FileName, file.Length, cancellationToken);
             SetFlashSuccess("Document uploaded and indexed.");
         }
         catch (Exception ex)
@@ -97,7 +97,7 @@ public class DocumentsController : BaseController
     {
         try
         {
-            await _documentService.DeleteAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
+            await _documentService.DeleteAsync(id, CurrentUserId(), CurrentUserRole(), cancellationToken);
             SetFlashSuccess("Document and related indexed sections were deleted.");
         }
         catch (Exception ex)

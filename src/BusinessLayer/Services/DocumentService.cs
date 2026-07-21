@@ -101,15 +101,12 @@ public class DocumentService : IDocumentService
             )).ToList());
     }
 
-    public async Task DeleteAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken)
     {
         var details = await _documentRepository.GetDetailsAsync(id, cancellationToken)
             ?? throw new InvalidOperationException("Document was not found.");
 
-        if (!isAdmin && !await _courseRepository.TeacherCanManageCourseAsync(details.Chapter!.CourseId, userId, cancellationToken))
-        {
-            throw new InvalidOperationException("You are not assigned to this course.");
-        }
+        await EnsureHeadTeacherAsync(details.Chapter!.CourseId, userId, userRole, cancellationToken);
 
         var deleted = await _documentRepository.DeleteAsync(id, cancellationToken);
         if (!deleted)
@@ -118,7 +115,7 @@ public class DocumentService : IDocumentService
         }
     }
 
-    public async Task<Guid> UploadAsync(Guid chapterId, Guid userId, bool isAdmin, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken)
+    public async Task<Guid> UploadAsync(Guid chapterId, Guid userId, string userRole, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken)
     {
         if (fileSize == 0)
         {
@@ -133,10 +130,7 @@ public class DocumentService : IDocumentService
         var chapter = await _chapterRepository.GetByIdAsync(chapterId, cancellationToken)
             ?? throw new InvalidOperationException("Invalid chapter.");
 
-        if (!isAdmin && !await _courseRepository.TeacherCanManageCourseAsync(chapter.CourseId, userId, cancellationToken))
-        {
-            throw new InvalidOperationException("You are not assigned to this course.");
-        }
+        await EnsureHeadTeacherAsync(chapter.CourseId, userId, userRole, cancellationToken);
 
         var text = await _extractor.ExtractAsync(stream, fileName, cancellationToken);
         if (string.IsNullOrWhiteSpace(text))
@@ -172,6 +166,14 @@ public class DocumentService : IDocumentService
     private static Guid? TeacherFilter(Guid userId, bool isAdmin, bool isTeacher)
     {
         return !isAdmin && isTeacher ? userId : null;
+    }
+
+    private async Task EnsureHeadTeacherAsync(Guid courseId, Guid userId, string userRole, CancellationToken cancellationToken)
+    {
+        if (!await _courseRepository.TeacherIsHeadOfCourseAsync(courseId, userId, cancellationToken))
+        {
+            throw new InvalidOperationException("Only the assigned head teacher of this course can manage documents.");
+        }
     }
 
     private static CourseDto ToCourseDto(Course course)

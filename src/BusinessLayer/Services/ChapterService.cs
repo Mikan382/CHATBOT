@@ -16,11 +16,11 @@ public class ChapterService : IChapterService
         _chapterRepository = chapterRepository;
     }
 
-    public async Task<ChapterFormDto?> GetEditableAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    public async Task<ChapterFormDto?> GetEditableAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken)
     {
         var chapter = await _chapterRepository.GetByIdAsync(id, cancellationToken);
         if (chapter is null) return null;
-        await EnsureCanManageCourseAsync(chapter.CourseId, userId, isAdmin, cancellationToken);
+        await EnsureCanManageCourseAsync(chapter.CourseId, userId, userRole, cancellationToken);
         return new ChapterFormDto(chapter.Id, chapter.CourseId, chapter.Order, chapter.Clo, chapter.Title, chapter.Summary);
     }
 
@@ -31,12 +31,12 @@ public class ChapterService : IChapterService
         string title,
         string? summary,
         Guid userId,
-        bool isAdmin,
+        string userRole,
         CancellationToken cancellationToken)
     {
         _ = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
-        await EnsureCanManageCourseAsync(courseId, userId, isAdmin, cancellationToken);
+        await EnsureCanManageCourseAsync(courseId, userId, userRole, cancellationToken);
 
         title = StringHelper.NormalizeRequired(title, "Chapter title");
         ValidateOrder(order);
@@ -68,7 +68,7 @@ public class ChapterService : IChapterService
         string title,
         string? summary,
         Guid userId,
-        bool isAdmin,
+        string userRole,
         CancellationToken cancellationToken)
     {
         var chapter = await _chapterRepository.GetByIdAsync(id, cancellationToken)
@@ -77,8 +77,8 @@ public class ChapterService : IChapterService
         _ = await _courseRepository.GetByIdAsync(courseId, cancellationToken)
             ?? throw new InvalidOperationException("Course was not found.");
 
-        await EnsureCanManageCourseAsync(chapter.CourseId, userId, isAdmin, cancellationToken);
-        await EnsureCanManageCourseAsync(courseId, userId, isAdmin, cancellationToken);
+        await EnsureCanManageCourseAsync(chapter.CourseId, userId, userRole, cancellationToken);
+        await EnsureCanManageCourseAsync(courseId, userId, userRole, cancellationToken);
 
         title = StringHelper.NormalizeRequired(title, "Chapter title");
         ValidateOrder(order);
@@ -96,11 +96,11 @@ public class ChapterService : IChapterService
         await _chapterRepository.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DeleteAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken)
     {
         var chapter = await _chapterRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new InvalidOperationException("Chapter was not found.");
-        await EnsureCanManageCourseAsync(chapter.CourseId, userId, isAdmin, cancellationToken);
+        await EnsureCanManageCourseAsync(chapter.CourseId, userId, userRole, cancellationToken);
 
         if (await _chapterRepository.HasDependenciesAsync(id, cancellationToken))
         {
@@ -114,11 +114,11 @@ public class ChapterService : IChapterService
         }
     }
 
-    private async Task EnsureCanManageCourseAsync(Guid courseId, Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    private async Task EnsureCanManageCourseAsync(Guid courseId, Guid userId, string userRole, CancellationToken cancellationToken)
     {
-        if (!isAdmin && !await _courseRepository.TeacherCanManageCourseAsync(courseId, userId, cancellationToken))
+        if (!await _courseRepository.TeacherIsHeadOfCourseAsync(courseId, userId, cancellationToken))
         {
-            throw new InvalidOperationException("You are not assigned to this course.");
+            throw new InvalidOperationException("Only the assigned head teacher of this course can manage chapters.");
         }
     }
 

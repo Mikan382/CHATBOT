@@ -41,7 +41,7 @@ public class ChaptersController : BaseController
 
         try
         {
-            var result = await _chapterService.CreateAsync(model.CourseId, model.Order, model.Clo, model.Title, model.Summary, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
+            var result = await _chapterService.CreateAsync(model.CourseId, model.Order, model.Clo, model.Title, model.Summary, CurrentUserId(), CurrentUserRole(), cancellationToken);
             SetFlashSuccess("Chapter was created.");
             return RedirectToAction("Chapters", "Courses", new { id = result.CourseId });
         }
@@ -55,7 +55,7 @@ public class ChaptersController : BaseController
     [HttpGet]
     public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
     {
-        var chapter = await _chapterService.GetEditableAsync(id, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
+        var chapter = await _chapterService.GetEditableAsync(id, CurrentUserId(), CurrentUserRole(), cancellationToken);
         if (chapter is null)
         {
             return NotFound();
@@ -88,7 +88,7 @@ public class ChaptersController : BaseController
 
         try
         {
-            await _chapterService.UpdateAsync(id, model.CourseId, model.Order, model.Clo, model.Title, model.Summary, CurrentUserId(), User.IsInRole("Admin"), cancellationToken);
+            await _chapterService.UpdateAsync(id, model.CourseId, model.Order, model.Clo, model.Title, model.Summary, CurrentUserId(), CurrentUserRole(), cancellationToken);
             SetFlashSuccess("Chapter was updated.");
             return RedirectToAction("Chapters", "Courses", new { id = model.CourseId });
         }

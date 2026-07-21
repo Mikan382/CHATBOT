@@ -40,7 +40,8 @@ public class CourseService : ICourseService
     public async Task<IReadOnlyList<TeacherOptionDto>> ListTeacherOptionsAsync(CancellationToken cancellationToken)
     {
         var teachers = await _userRepository.ListUsersByRoleAsync(UserRoleNames.Teacher, cancellationToken);
-        return teachers
+        var admins = await _userRepository.ListUsersByRoleAsync(UserRoleNames.Admin, cancellationToken);
+        return teachers.Concat(admins)
             .Select(x => new TeacherOptionDto(x.Id, x.Email, x.DisplayName))
             .ToList();
     }
@@ -101,6 +102,7 @@ public class CourseService : ICourseService
                     new()
                     {
                         TeacherUserId = validTeacherId.Value,
+                        IsHead = true,
                         AssignedAtUtc = DateTime.UtcNow
                     }
                 }
@@ -171,12 +173,12 @@ public class CourseService : ICourseService
             return null;
         }
 
-        var activeTeacherIds = (await _userRepository.ListUsersByRoleAsync(UserRoleNames.Teacher, cancellationToken))
-            .Select(x => x.Id)
-            .ToHashSet();
-        if (!activeTeacherIds.Contains(teacherId.Value))
+        var teachers = await _userRepository.ListUsersByRoleAsync(UserRoleNames.Teacher, cancellationToken);
+        var admins = await _userRepository.ListUsersByRoleAsync(UserRoleNames.Admin, cancellationToken);
+        var activeUserIds = teachers.Concat(admins).Select(x => x.Id).ToHashSet();
+        if (!activeUserIds.Contains(teacherId.Value))
         {
-            throw new InvalidOperationException("The selected user is not an active teacher.");
+            throw new InvalidOperationException("The selected user is not an active teacher or admin.");
         }
 
         return teacherId;

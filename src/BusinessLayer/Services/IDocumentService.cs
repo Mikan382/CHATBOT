@@ -14,6 +14,6 @@ public interface IDocumentService
         CancellationToken cancellationToken);
 
     Task<DocumentDetailsDto> GetDetailsAsync(Guid id, CancellationToken cancellationToken);
-    Task DeleteAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken);
-    Task<Guid> UploadAsync(Guid chapterId, Guid userId, bool isAdmin, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken);
+    Task DeleteAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken);
+    Task<Guid> UploadAsync(Guid chapterId, Guid userId, string userRole, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken);
 }

@@ -10,4 +10,11 @@ public interface IUserAdminService
     Task SetLockoutAsync(Guid actorUserId, Guid userId, bool locked, CancellationToken cancellationToken);
     Task DeleteAsync(Guid actorUserId, Guid userId, CancellationToken cancellationToken);
     Task ResetPasswordAsync(Guid actorUserId, Guid userId, string newPassword, CancellationToken cancellationToken);
+    Task<BatchImportResultDto> ImportStudentsFromCsvAsync(Stream fileStream, CancellationToken cancellationToken);
 }
+
+public record BatchImportResultDto(
+    int TotalRows,
+    int SuccessCount,
+    int SkippedCount,
+    IReadOnlyList<string> Errors);

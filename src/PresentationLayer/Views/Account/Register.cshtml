@@ -1,0 +1,60 @@
+@model RegisterViewModel
+@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="auth-page">
+    <div class="auth-panel">
+        <div>
+            <div class="auth-kicker">PRN222 Course Support</div>
+            <h1>Create Student Account</h1>
+            <p>Register to access course materials, review chapters, ask RAG assistant questions, and track your learning progress.</p>
+        </div>
+        <div class="auth-meta">
+            <span>Free Tier</span>
+            <span>Course Access</span>
+            <span>RAG Chatbot</span>
+            <span>Instant Setup</span>
+        </div>
+    </div>
+
+    <div class="auth-card card app-card">
+        <div class="card-body">
+            <h4 class="card-title">Register</h4>
+            <p class="text-muted small">Create a new Student account to get started.</p>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Error))
+            {
+                <div class="alert alert-danger small">@Model.Error</div>
+            }
+
+            <form method="post" asp-controller="Account" asp-action="Register">
+                @Html.AntiForgeryToken()
+                <div class="mb-3">
+                    <label class="form-label" asp-for="FullName"></label>
+                    <input class="form-control" asp-for="FullName" placeholder="e.g. John Doe" autocomplete="name" />
+                    <span class="text-danger small" asp-validation-for="FullName"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" asp-for="Email"></label>
+                    <input class="form-control" asp-for="Email" placeholder="student@fpt.edu.vn" autocomplete="email" />
+                    <span class="text-danger small" asp-validation-for="Email"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" asp-for="Password"></label>
+                    <input class="form-control" id="Password" name="Password" type="password" value="" autocomplete="new-password" />
+                    <span class="text-danger small" asp-validation-for="Password"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" asp-for="ConfirmPassword"></label>
+                    <input class="form-control" id="ConfirmPassword" name="ConfirmPassword" type="password" value="" autocomplete="new-password" />
+                    <span class="text-danger small" asp-validation-for="ConfirmPassword"></span>
+                </div>
+                <button class="btn btn-primary w-100 mb-3" type="submit">Create account</button>
+                <div class="text-center text-muted small">
+                    Already have an account? <a asp-controller="Account" asp-action="Login">Sign in</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
