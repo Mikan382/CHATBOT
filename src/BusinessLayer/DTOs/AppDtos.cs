@@ -35,7 +35,17 @@ public record AcceptedChatMessageDto(
 
 public record ChapterDto(Guid Id, int Order, string Clo, string Title, string Summary);
 
-public record CourseDto(Guid Id, string Code, string Name, string Description, string Tools, IReadOnlyList<ChapterDto> Chapters);
+public record CourseDto(
+    Guid Id,
+    string Code,
+    string Name,
+    string Description,
+    string Tools,
+    IReadOnlyList<ChapterDto> Chapters,
+    string? DefaultChunkingStrategy = null,
+    int? DefaultChunkSize = null,
+    int? DefaultChunkOverlap = null,
+    string? DefaultEmbeddingModel = null);
 
 public record CourseListDto(
     Guid Id,
@@ -44,7 +54,11 @@ public record CourseListDto(
     string Description,
     string Tools,
     int ChaptersCount,
-    string? TeacherName);
+    string? TeacherName,
+    string? DefaultChunkingStrategy = null,
+    int? DefaultChunkSize = null,
+    int? DefaultChunkOverlap = null,
+    string? DefaultEmbeddingModel = null);
 
 public record TeacherOptionDto(Guid Id, string Email, string DisplayName);
 

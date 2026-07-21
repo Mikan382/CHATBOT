@@ -22,6 +22,11 @@ public class CourseFormViewModel
 
     public Guid? TeacherId { get; set; }
 
+    public string? DefaultChunkingStrategy { get; set; }
+    public int? DefaultChunkSize { get; set; }
+    public int? DefaultChunkOverlap { get; set; }
+    public string? DefaultEmbeddingModel { get; set; }
+
     public IReadOnlyList<TeacherOptionDto> Teachers { get; set; } = [];
 
     public string? Error { get; set; }

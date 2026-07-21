@@ -30,16 +30,29 @@ public class DocumentIndexingService
             throw new InvalidOperationException("Hugging Face embedding is required to index documents.");
         }
 
-        var settings = await _chunkingSettingsService.GetAsync(cancellationToken);
-        var chunker = settings.CurrentStrategy == "fixed"
-            ? new FixedSizeChunker(settings.FixedChunkSize, settings.FixedChunkOverlap)
-            : _chunkers.GetValueOrDefault(settings.CurrentStrategy);
+        var course = document.Chapter?.Course;
+        var strategyName = !string.IsNullOrWhiteSpace(course?.DefaultChunkingStrategy)
+            ? course.DefaultChunkingStrategy
+            : (await _chunkingSettingsService.GetAsync(cancellationToken)).CurrentStrategy;
+
+        ITextChunker? chunker;
+        if (strategyName == "fixed")
+        {
+            var chunkSize = course?.DefaultChunkSize ?? (await _chunkingSettingsService.GetAsync(cancellationToken)).FixedChunkSize;
+            var overlap = course?.DefaultChunkOverlap ?? (await _chunkingSettingsService.GetAsync(cancellationToken)).FixedChunkOverlap;
+            chunker = new FixedSizeChunker(chunkSize, overlap);
+        }
+        else
+        {
+            chunker = _chunkers.GetValueOrDefault(strategyName);
+        }
+
         if (chunker is null)
         {
             throw new InvalidOperationException("Configured chunking strategy is unavailable.");
         }
 
-        document.ChunkingStrategy = settings.CurrentStrategy;
+        document.ChunkingStrategy = strategyName;
 
         var chunks = chunker.Chunk(document.ContentText)
             .Select((content, index) => new DocumentChunk
@@ -64,6 +77,10 @@ public class DocumentIndexingService
                 $"Document creates {chunks.Count} sections; the limit is {DocumentUploadLimits.MaxChunksPerDocument}.");
         }
 
+        var modelName = !string.IsNullOrWhiteSpace(course?.DefaultEmbeddingModel)
+            ? course.DefaultEmbeddingModel
+            : _embeddingClient.ModelName;
+
         foreach (var chunk in chunks)
         {
             var vector = await _embeddingClient.EmbedPassageAsync(chunk.Content, cancellationToken);
@@ -71,7 +88,7 @@ public class DocumentIndexingService
             {
                 Id = Guid.NewGuid(),
                 DocumentChunkId = chunk.Id,
-                ModelName = _embeddingClient.ModelName,
+                ModelName = modelName,
                 Dimensions = vector.Length,
                 VectorJson = JsonSerializer.Serialize(vector),
                 CreatedAtUtc = DateTime.UtcNow

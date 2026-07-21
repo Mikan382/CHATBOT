@@ -115,6 +115,18 @@ public class DocumentService : IDocumentService
         }
     }
 
+    public async Task ReindexAsync(Guid id, Guid userId, string userRole, CancellationToken cancellationToken)
+    {
+        var document = await _documentRepository.GetDetailsAsync(id, cancellationToken)
+            ?? throw new InvalidOperationException("Document was not found.");
+
+        await EnsureHeadTeacherAsync(document.Chapter!.CourseId, userId, userRole, cancellationToken);
+
+        document.Chunks.Clear();
+        await _indexingService.PopulateChunksAsync(document, cancellationToken);
+        await _documentRepository.UpdateChunksAsync(document, cancellationToken);
+    }
+
     public async Task<Guid> UploadAsync(Guid chapterId, Guid userId, string userRole, Stream stream, string fileName, long fileSize, CancellationToken cancellationToken)
     {
         if (fileSize == 0)

@@ -55,7 +55,17 @@ public class CoursesController : BaseController
 
         try
         {
-            await _courseService.CreateAsync(model.Code, model.Name, model.Description, model.Tools, model.TeacherId, cancellationToken);
+            await _courseService.CreateAsync(
+                model.Code,
+                model.Name,
+                model.Description,
+                model.Tools,
+                model.TeacherId,
+                model.DefaultChunkingStrategy,
+                model.DefaultChunkSize,
+                model.DefaultChunkOverlap,
+                model.DefaultEmbeddingModel,
+                cancellationToken);
             SetFlashSuccess("Course was created.");
             return RedirectToAction("Index");
         }
@@ -85,6 +95,10 @@ public class CoursesController : BaseController
             Description = course.Description,
             Tools = course.Tools,
             TeacherId = course.TeacherId,
+            DefaultChunkingStrategy = course.DefaultChunkingStrategy,
+            DefaultChunkSize = course.DefaultChunkSize,
+            DefaultChunkOverlap = course.DefaultChunkOverlap,
+            DefaultEmbeddingModel = course.DefaultEmbeddingModel,
             Teachers = await _courseService.ListTeacherOptionsAsync(cancellationToken)
         };
         return View(model);
@@ -104,7 +118,18 @@ public class CoursesController : BaseController
 
         try
         {
-            await _courseService.UpdateAsync(id, model.Code, model.Name, model.Description, model.Tools, model.TeacherId, cancellationToken);
+            await _courseService.UpdateAsync(
+                id,
+                model.Code,
+                model.Name,
+                model.Description,
+                model.Tools,
+                model.TeacherId,
+                model.DefaultChunkingStrategy,
+                model.DefaultChunkSize,
+                model.DefaultChunkOverlap,
+                model.DefaultEmbeddingModel,
+                cancellationToken);
             SetFlashSuccess("Course was updated.");
             return RedirectToAction("Index");
         }

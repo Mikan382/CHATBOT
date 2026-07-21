@@ -37,6 +37,37 @@
                         <div class="col-12">
                             <partial name="_TeacherAssignment" model="Model" />
                         </div>
+                        <div class="col-12 mt-4">
+                            <h6 class="fw-bold border-bottom pb-2 mb-3">🤖 AI RAG Configuration (Per Course)</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" asp-for="DefaultChunkingStrategy">Chunking Strategy</label>
+                                    <select class="form-select" asp-for="DefaultChunkingStrategy">
+                                        <option value="">Use System Default (Global)</option>
+                                        <option value="paragraph">Paragraph (Semantic Break)</option>
+                                        <option value="fixed">Fixed Size (Character Length)</option>
+                                        <option value="sentence">Sentence (Period Break)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" asp-for="DefaultEmbeddingModel">Embedding Model</label>
+                                    <select class="form-select" asp-for="DefaultEmbeddingModel">
+                                        <option value="">Use System Default (intfloat/multilingual-e5-base)</option>
+                                        <option value="intfloat/multilingual-e5-base">intfloat/multilingual-e5-base (768d)</option>
+                                        <option value="sentence-transformers/all-MiniLM-L6-v2">sentence-transformers/all-MiniLM-L6-v2 (384d)</option>
+                                        <option value="BAAI/bge-m3">BAAI/bge-m3 (1024d)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" asp-for="DefaultChunkSize">Chunk Size (characters)</label>
+                                    <input class="form-control" asp-for="DefaultChunkSize" placeholder="500" type="number" min="100" max="2000" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" asp-for="DefaultChunkOverlap">Chunk Overlap (characters)</label>
+                                    <input class="form-control" asp-for="DefaultChunkOverlap" placeholder="100" type="number" min="0" max="500" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 mt-3">
                         <button class="btn btn-primary" type="submit">Save</button>

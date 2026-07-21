@@ -10,7 +10,29 @@ public interface ICourseService
     Task<IReadOnlyList<TeacherOptionDto>> ListTeacherOptionsAsync(CancellationToken cancellationToken);
     Task<CourseFormDto?> GetEditableAsync(Guid id, CancellationToken cancellationToken);
     Task<CourseDto?> GetDetailsAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken);
-    Task<Guid> CreateAsync(string code, string name, string? description, string? tools, Guid? teacherId, CancellationToken cancellationToken);
-    Task UpdateAsync(Guid id, string code, string name, string? description, string? tools, Guid? teacherId, CancellationToken cancellationToken);
+    Task<Guid> CreateAsync(
+        string code,
+        string name,
+        string? description,
+        string? tools,
+        Guid? teacherId,
+        string? defaultChunkingStrategy = null,
+        int? defaultChunkSize = null,
+        int? defaultChunkOverlap = null,
+        string? defaultEmbeddingModel = null,
+        CancellationToken cancellationToken = default);
+
+    Task UpdateAsync(
+        Guid id,
+        string code,
+        string name,
+        string? description,
+        string? tools,
+        Guid? teacherId,
+        string? defaultChunkingStrategy = null,
+        int? defaultChunkSize = null,
+        int? defaultChunkOverlap = null,
+        string? defaultEmbeddingModel = null,
+        CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 }

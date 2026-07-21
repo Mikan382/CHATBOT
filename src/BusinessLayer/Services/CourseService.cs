@@ -56,7 +56,11 @@ public class CourseService : ICourseService
             course.Name,
             course.Description,
             course.Tools,
-            course.TeacherAssignments.Select(x => (Guid?)x.TeacherUserId).FirstOrDefault());
+            course.TeacherAssignments.Select(x => (Guid?)x.TeacherUserId).FirstOrDefault(),
+            course.DefaultChunkingStrategy,
+            course.DefaultChunkSize,
+            course.DefaultChunkOverlap,
+            course.DefaultEmbeddingModel);
     }
 
     public async Task<CourseDto?> GetDetailsAsync(Guid id, Guid userId, bool isAdmin, CancellationToken cancellationToken)
@@ -77,7 +81,11 @@ public class CourseService : ICourseService
         string? description,
         string? tools,
         Guid? teacherId,
-        CancellationToken cancellationToken)
+        string? defaultChunkingStrategy = null,
+        int? defaultChunkSize = null,
+        int? defaultChunkOverlap = null,
+        string? defaultEmbeddingModel = null,
+        CancellationToken cancellationToken = default)
     {
         code = StringHelper.NormalizeRequired(code, "Course code");
         name = StringHelper.NormalizeRequired(name, "Course name");
@@ -95,6 +103,10 @@ public class CourseService : ICourseService
             Name = name,
             Description = description?.Trim() ?? "",
             Tools = tools?.Trim() ?? "",
+            DefaultChunkingStrategy = string.IsNullOrWhiteSpace(defaultChunkingStrategy) ? null : defaultChunkingStrategy.Trim(),
+            DefaultChunkSize = defaultChunkSize > 0 ? defaultChunkSize : null,
+            DefaultChunkOverlap = defaultChunkOverlap >= 0 ? defaultChunkOverlap : null,
+            DefaultEmbeddingModel = string.IsNullOrWhiteSpace(defaultEmbeddingModel) ? null : defaultEmbeddingModel.Trim(),
             TeacherAssignments = validTeacherId is null
                 ? new List<CourseTeacher>()
                 : new List<CourseTeacher>
@@ -119,7 +131,11 @@ public class CourseService : ICourseService
         string? description,
         string? tools,
         Guid? teacherId,
-        CancellationToken cancellationToken)
+        string? defaultChunkingStrategy = null,
+        int? defaultChunkSize = null,
+        int? defaultChunkOverlap = null,
+        string? defaultEmbeddingModel = null,
+        CancellationToken cancellationToken = default)
     {
         var validTeacherId = await ValidateTeacherIdAsync(teacherId, cancellationToken);
         var course = await _courseRepository.GetByIdAsync(id, cancellationToken)
@@ -137,6 +153,10 @@ public class CourseService : ICourseService
         course.Name = name;
         course.Description = description?.Trim() ?? "";
         course.Tools = tools?.Trim() ?? "";
+        course.DefaultChunkingStrategy = string.IsNullOrWhiteSpace(defaultChunkingStrategy) ? null : defaultChunkingStrategy.Trim();
+        course.DefaultChunkSize = defaultChunkSize > 0 ? defaultChunkSize : null;
+        course.DefaultChunkOverlap = defaultChunkOverlap >= 0 ? defaultChunkOverlap : null;
+        course.DefaultEmbeddingModel = string.IsNullOrWhiteSpace(defaultEmbeddingModel) ? null : defaultEmbeddingModel.Trim();
         await _courseRepository.SaveTeacherAssignmentAsync(course, validTeacherId, cancellationToken);
     }
 
@@ -200,7 +220,11 @@ public class CourseService : ICourseService
             course.Chapters
                 .OrderBy(x => x.Order)
                 .Select(ToDto)
-                .ToList());
+                .ToList(),
+            course.DefaultChunkingStrategy,
+            course.DefaultChunkSize,
+            course.DefaultChunkOverlap,
+            course.DefaultEmbeddingModel);
     }
 
     private static CourseListDto ToListDto(Course course)
@@ -214,6 +238,11 @@ public class CourseService : ICourseService
             course.Chapters.Count,
             course.TeacherAssignments
                 .Select(x => x.Teacher?.DisplayName ?? x.Teacher?.Email)
-                .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)));
+                .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),
+            course.DefaultChunkingStrategy,
+            course.DefaultChunkSize,
+            course.DefaultChunkOverlap,
+            course.DefaultEmbeddingModel);
     }
+}
 }

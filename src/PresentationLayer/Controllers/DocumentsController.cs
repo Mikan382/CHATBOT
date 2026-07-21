@@ -107,4 +107,27 @@ public class DocumentsController : BaseController
 
         return RedirectToAction("Index", new { searchTerm, courseId, chapterId });
     }
+
+    [HttpPost]
+    [Authorize(Roles = "Teacher,Admin")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Reindex(
+        Guid id,
+        string? searchTerm,
+        Guid? courseId,
+        Guid? chapterId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _documentService.ReindexAsync(id, CurrentUserId(), CurrentUserRole(), cancellationToken);
+            SetFlashSuccess("Document was successfully re-indexed with the course's current AI configuration.");
+        }
+        catch (Exception ex)
+        {
+            SetFlashError(UserFacingError(ex));
+        }
+
+        return RedirectToAction("Index", new { searchTerm, courseId, chapterId });
+    }
 }

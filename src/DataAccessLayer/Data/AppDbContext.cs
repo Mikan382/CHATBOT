@@ -35,6 +35,8 @@ public class AppDbContext : DbContext
             entity.Property(x => x.Code).HasMaxLength(32);
             entity.Property(x => x.Name).HasMaxLength(256);
             entity.Property(x => x.Tools).HasMaxLength(512);
+            entity.Property(x => x.DefaultChunkingStrategy).HasMaxLength(64);
+            entity.Property(x => x.DefaultEmbeddingModel).HasMaxLength(160);
         });
 
         modelBuilder.Entity<ApplicationUser>(entity =>

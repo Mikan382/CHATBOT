@@ -9,4 +9,5 @@ public interface IDocumentRepository
     Task<Document?> GetDetailsAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> ContentHashExistsAsync(Guid chapterId, string contentHash, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
+    Task UpdateChunksAsync(Document document, CancellationToken cancellationToken);
 }

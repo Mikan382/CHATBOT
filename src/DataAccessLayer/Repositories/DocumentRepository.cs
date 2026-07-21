@@ -111,4 +111,25 @@ public class DocumentRepository : IDocumentRepository
         return true;
     }
 
+    public async Task UpdateChunksAsync(Document document, CancellationToken cancellationToken)
+    {
+        var existingChunks = await _db.DocumentChunks
+            .Where(x => x.DocumentId == document.Id)
+            .ToListAsync(cancellationToken);
+
+        _db.DocumentChunks.RemoveRange(existingChunks);
+
+        var dbDoc = await _db.Documents.FirstOrDefaultAsync(x => x.Id == document.Id, cancellationToken);
+        if (dbDoc != null)
+        {
+            dbDoc.ChunkingStrategy = document.ChunkingStrategy;
+        }
+
+        foreach (var chunk in document.Chunks)
+        {
+            _db.DocumentChunks.Add(chunk);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
 }
