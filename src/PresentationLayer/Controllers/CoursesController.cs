@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLayer.Services;
-using DataAccessLayer.Enums;
 using PresentationLayer.ViewModels;
 
 namespace PresentationLayer.Controllers;

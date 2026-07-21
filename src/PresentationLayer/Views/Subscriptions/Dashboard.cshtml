@@ -445,6 +445,14 @@
                 {
                     <div class="text-danger small">Create an active 0 VND package before creating Student accounts.</div>
                 }
+                else if (eligibleDefaultPlans.Count == 1 && eligibleDefaultPlans[0].IsDefault)
+                {
+                    var onlyPlan = eligibleDefaultPlans[0];
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <span class="badge text-bg-info">@onlyPlan.Code — @onlyPlan.Name</span>
+                        <span class="text-muted small">Only active 0 VND package, so it is the default. Create another 0 VND package to switch.</span>
+                    </div>
+                }
                 else
                 {
                     <form method="post"

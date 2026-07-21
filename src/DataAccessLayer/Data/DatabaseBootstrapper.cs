@@ -13,6 +13,10 @@ public static class DatabaseBootstrapper
     private const string FixedChunkOverlapKey = "FixedChunkOverlap";
     private const int DefaultFixedChunkSize = 1000;
     private const int DefaultFixedChunkOverlap = 150;
+    private const string DefaultPlanCode = "FREE";
+    private const string DefaultPlanName = "Free";
+    private const int DefaultPlanDurationDays = 30;
+    private const long DefaultPlanTokenQuota = 3000;
 
     public static async Task InitializeAsync(
         AppDbContext db,
@@ -22,7 +26,38 @@ public static class DatabaseBootstrapper
         await db.Database.MigrateAsync();
         await EnsureSchemaUpdatesAsync(db);
         await SeedSettingsAsync(db);
+        await SeedDefaultSubscriptionPlanAsync(db);
         await CreateBootstrapAdminAsync(db, configuration, hashPassword);
+    }
+
+    // Seeds a single active free package that new students are attached to.
+    // Idempotent by emptiness: it only runs when no plan exists yet, so once an
+    // admin has any package (or edits the free plan's quota), the seed is skipped
+    // and their values are preserved. Deleting every plan lets it restore on next start.
+    private static async Task SeedDefaultSubscriptionPlanAsync(AppDbContext db)
+    {
+        if (await db.SubscriptionPlans.AnyAsync())
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        db.SubscriptionPlans.Add(new SubscriptionPlan
+        {
+            Id = Guid.NewGuid(),
+            Code = DefaultPlanCode,
+            Name = DefaultPlanName,
+            Description = "Default free package for new students.",
+            Price = 0m,
+            DurationDays = DefaultPlanDurationDays,
+            TokenQuota = DefaultPlanTokenQuota,
+            SortOrder = 0,
+            IsActive = true,
+            IsDefault = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        });
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureSchemaUpdatesAsync(AppDbContext db)

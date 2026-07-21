@@ -2,7 +2,6 @@ using BusinessLayer.DTOs;
 using BusinessLayer.Indexing;
 using BusinessLayer.Parsing;
 using DataAccessLayer.Entities;
-using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
 
 namespace BusinessLayer.Services;
