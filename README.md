@@ -7,9 +7,11 @@ questions with retrieval-augmented generation (RAG).
 
 ## Features
 
-- Cookie authentication with `Student`, `Teacher`, and `Admin` roles.
-- Course/chapter CRUD and many-to-many Teacher assignment.
+- Cookie authentication with `Student`, `Teacher`, and `Admin` roles, plus Student self-registration (`/Account/Register`).
+- Batch Student account creation via CSV file upload (`/AdminUsers`).
+- Course/chapter CRUD and assignment-based Head Teacher (`IsHead`) document & chapter management.
 - Synchronous PDF, DOCX, PPTX, TXT, and MD indexing with duplicate-content detection.
+- Student session-bound file attachments (up to 3 files, ≤10MB each) integrated into dual RAG retrieval.
 - Admin-configured `paragraph`, `fixed`, or `sentence` chunking for new uploads.
 - Vector retrieval with Hugging Face embeddings, Gemini answers, and document citations.
 - SignalR chat with searchable, renamable, clearable, and deletable sessions.
@@ -117,10 +119,11 @@ browser return.
 
 | Route | Access | Purpose |
 |---|---|---|
-| `/chat` | All roles | RAG chat and session history |
-| `/documents` | All roles | Browse; assigned Teacher/Admin can upload and delete |
-| `/courses` | Teacher/Admin | Assigned-course or full course management |
-| `/AdminUsers` | Admin | Accounts, roles, lockout, password reset, deletion |
+| `/chat` | All roles | RAG chat, session history, and session file attachments |
+| `/Account/Register` | Anonymous | Student account self-registration |
+| `/documents` | All roles | Browse; assigned Head Teacher can upload and delete |
+| `/courses` | Teacher/Admin | Assigned-course or full course management and Head Teacher assignment |
+| `/AdminUsers` | Admin | Accounts, roles, CSV batch import, lockout, password reset, deletion |
 | `/settings` | Admin | Global chunking configuration |
 | `/benchmark` | Admin | Ground-truth and RAG experiments |
 | `/subscriptions` | Student | Current package and VNPay checkout |
