@@ -11,4 +11,9 @@ public interface IAuthService
         string currentPassword,
         string newPassword,
         CancellationToken cancellationToken = default);
+    Task<AuthenticatedUserDto> RegisterAsync(
+        string email,
+        string fullName,
+        string password,
+        CancellationToken cancellationToken = default);
 }

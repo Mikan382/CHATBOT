@@ -1,10 +1,14 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using BusinessLayer.AI;
 using BusinessLayer.DTOs;
+using BusinessLayer.Indexing;
+using BusinessLayer.Parsing;
 using BusinessLayer.Retrieval;
+using DataAccessLayer.Data;
 using DataAccessLayer.Entities;
 using DataAccessLayer.Enums;
 using DataAccessLayer.Repositories;
@@ -20,6 +24,9 @@ public class ChatService : IChatService
     private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly RetrievalService _retrievalService;
     private readonly IGeminiClient _geminiClient;
+    private readonly IDocumentTextExtractor _extractor;
+    private readonly DocumentIndexingService _indexingService;
+    private readonly AppDbContext _db;
     private readonly RagOptions _ragOptions;
     private readonly ILogger<ChatService> _logger;
 
@@ -29,6 +36,9 @@ public class ChatService : IChatService
         ISubscriptionRepository subscriptionRepository,
         RetrievalService retrievalService,
         IGeminiClient geminiClient,
+        IDocumentTextExtractor extractor,
+        DocumentIndexingService indexingService,
+        AppDbContext db,
         IOptions<RagOptions> ragOptions,
         ILogger<ChatService> logger)
     {
@@ -37,6 +47,9 @@ public class ChatService : IChatService
         _subscriptionRepository = subscriptionRepository;
         _retrievalService = retrievalService;
         _geminiClient = geminiClient;
+        _extractor = extractor;
+        _indexingService = indexingService;
+        _db = db;
         _ragOptions = ragOptions.Value;
         _logger = logger;
     }
@@ -134,6 +147,7 @@ public class ChatService : IChatService
         try
         {
             var ragResult = await GenerateRagAsync(
+                sessionId,
                 course.Id,
                 course.Name,
                 text,
@@ -214,7 +228,96 @@ public class ChatService : IChatService
         return await _chatRepository.DeleteSessionAsync(sessionId, userId, cancellationToken);
     }
 
+    public async Task<StudentDocumentUploadResultDto> UploadStudentDocumentAsync(
+        Guid sessionId,
+        Guid userId,
+        Guid courseId,
+        Stream stream,
+        string fileName,
+        long fileSize,
+        CancellationToken cancellationToken)
+    {
+        if (fileSize == 0)
+        {
+            throw new InvalidOperationException("File is empty.");
+        }
+
+        const long maxBytes = 10 * 1024 * 1024;
+        if (fileSize > maxBytes)
+        {
+            throw new InvalidOperationException("File exceeds the 10MB limit.");
+        }
+
+        var session = await _chatRepository.EnsureSessionAsync(sessionId, userId, courseId, cancellationToken);
+        if (session is null)
+        {
+            throw new InvalidOperationException("Chat session was not found.");
+        }
+
+        var currentDocsCount = await _db.StudentUploadedDocuments.CountAsync(x => x.ChatSessionId == sessionId, cancellationToken);
+        if (currentDocsCount >= 3)
+        {
+            throw new InvalidOperationException("You can upload a maximum of 3 attachments per chat session.");
+        }
+
+        var text = await _extractor.ExtractAsync(stream, fileName, cancellationToken);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new InvalidOperationException("Could not extract readable text from the uploaded document.");
+        }
+
+        var contentHash = DocumentContentHasher.Compute(text);
+        var existingDoc = await _db.StudentUploadedDocuments.FirstOrDefaultAsync(
+            x => x.ChatSessionId == sessionId && x.ContentHash == contentHash,
+            cancellationToken);
+        if (existingDoc is not null)
+        {
+            throw new InvalidOperationException("This document has already been uploaded to this session.");
+        }
+
+        var studentDoc = new StudentUploadedDocument
+        {
+            Id = Guid.NewGuid(),
+            ChatSessionId = sessionId,
+            UploadedByUserId = userId,
+            OriginalFileName = fileName,
+            FileType = Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant(),
+            FileSizeBytes = fileSize,
+            ContentText = text,
+            ContentHash = contentHash,
+            UploadedAtUtc = DateTime.UtcNow
+        };
+
+        await _indexingService.PopulateStudentChunksAsync(studentDoc, cancellationToken);
+        _db.StudentUploadedDocuments.Add(studentDoc);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return new StudentDocumentUploadResultDto(studentDoc.Id, studentDoc.OriginalFileName, studentDoc.Chunks.Count);
+    }
+
+    public async Task<IReadOnlyList<StudentDocumentDto>> ListStudentDocumentsAsync(
+        Guid sessionId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var docs = await _db.StudentUploadedDocuments
+            .Include(x => x.Chunks)
+            .Where(x => x.ChatSessionId == sessionId && x.UploadedByUserId == userId)
+            .OrderByDescending(x => x.UploadedAtUtc)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return docs.Select(d => new StudentDocumentDto(
+            d.Id,
+            d.OriginalFileName,
+            d.FileType,
+            d.FileSizeBytes,
+            d.Chunks.Count,
+            d.UploadedAtUtc)).ToList();
+    }
+
     private async Task<RagGenerationResult> GenerateRagAsync(
+        Guid sessionId,
         Guid courseId,
         string courseName,
         string text,
@@ -222,7 +325,7 @@ public class ChatService : IChatService
         List<CitationDto> citations,
         CancellationToken cancellationToken)
     {
-        var chunks = await _retrievalService.RetrieveAsync(text, courseId, cancellationToken);
+        var chunks = await _retrievalService.RetrieveAsync(text, courseId, sessionId, cancellationToken);
         citations.AddRange(chunks.Select(ToCitation));
         if (chunks.Count == 0)
         {

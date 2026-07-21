@@ -27,6 +27,7 @@ public class RetrievalService
     public async Task<IReadOnlyList<RetrievedChunkDto>> RetrieveAsync(
         string query,
         Guid? courseId,
+        Guid? sessionId,
         CancellationToken cancellationToken)
     {
         if (!_embeddingClient.IsConfigured)
@@ -43,6 +44,7 @@ public class RetrievalService
         var embeddings = await _embeddingRepository.ListByModelWithChunksAsync(
             _embeddingClient.ModelName,
             courseId,
+            sessionId,
             cancellationToken);
         if (embeddings.Count == 0)
         {
@@ -70,11 +72,13 @@ public class RetrievalService
             .Select(x =>
             {
                 var chunk = x.Embedding.DocumentChunk!;
+                var docId = chunk.DocumentId ?? chunk.StudentDocumentId ?? Guid.Empty;
+                var chapterTitle = chunk.Document?.Chapter?.Title ?? (chunk.StudentDocument != null ? "Uploaded Attachment" : "Unknown");
                 return new RetrievedChunkDto(
                     chunk.Id,
-                    chunk.DocumentId,
+                    docId,
                     chunk.SourceName,
-                    chunk.Document?.Chapter?.Title ?? "Unknown",
+                    chapterTitle,
                     chunk.ChunkIndex,
                     chunk.Content,
                     x.Score);

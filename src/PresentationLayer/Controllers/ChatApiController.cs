@@ -67,6 +67,45 @@ public class ChatApiController : ControllerBase
             : NotFound(new { success = false, error = "Session was not found." });
     }
 
+    [HttpPost("/api/chat/{sessionId:guid}/upload")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadStudentDocument(
+        Guid sessionId,
+        [FromForm] Guid courseId,
+        IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { success = false, error = "Please select a valid file to upload." });
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var result = await _chatService.UploadStudentDocumentAsync(
+                sessionId,
+                CurrentUserId(),
+                courseId,
+                stream,
+                file.FileName,
+                file.Length,
+                cancellationToken);
+            return Ok(new { success = true, document = result });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message });
+        }
+    }
+
+    [HttpGet("/api/chat/{sessionId:guid}/documents")]
+    public async Task<IActionResult> ListStudentDocuments(Guid sessionId, CancellationToken cancellationToken)
+    {
+        var documents = await _chatService.ListStudentDocumentsAsync(sessionId, CurrentUserId(), cancellationToken);
+        return Ok(new { success = true, documents });
+    }
+
     private Guid CurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);

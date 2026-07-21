@@ -154,6 +154,53 @@ public class AdminUsersController : BaseController
         return RedirectToAction("Index");
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ImportCsv(IFormFile? csvFile, CancellationToken cancellationToken)
+    {
+        if (csvFile is null || csvFile.Length == 0)
+        {
+            SetFlashError("Please select a valid CSV file to import.");
+            return RedirectToAction("Index");
+        }
+
+        var extension = Path.GetExtension(csvFile.FileName).ToLowerInvariant();
+        if (extension != ".csv")
+        {
+            SetFlashError("Only .csv files are supported for batch student import.");
+            return RedirectToAction("Index");
+        }
+
+        try
+        {
+            using var stream = csvFile.OpenReadStream();
+            var result = await _userAdminService.ImportStudentsFromCsvAsync(stream, cancellationToken);
+            if (result.SuccessCount > 0)
+            {
+                SetFlashSuccess($"Successfully imported {result.SuccessCount} student account(s) (Skipped {result.SkippedCount} existing). Default password: Student@123");
+            }
+            else if (result.SkippedCount > 0)
+            {
+                SetFlashError($"No new accounts created. {result.SkippedCount} account(s) already existed in the system.");
+            }
+            else
+            {
+                SetFlashError("Failed to import any student accounts. Please check your CSV file format.");
+            }
+
+            if (result.Errors.Count > 0)
+            {
+                SetFlashError($"Import warnings/errors: {string.Join(" | ", result.Errors.Take(3))}");
+            }
+        }
+        catch (Exception ex)
+        {
+            SetFlashError($"Failed to process CSV file: {ex.Message}");
+        }
+
+        return RedirectToAction("Index");
+    }
+
     private async Task ChangeLockoutAsync(Guid userId, bool locked, CancellationToken cancellationToken)
     {
         try

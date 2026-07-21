@@ -79,6 +79,7 @@ public class CourseRepository : ICourseRepository
             {
                 CourseId = course.Id,
                 TeacherUserId = teacherId.Value,
+                IsHead = true,
                 AssignedAtUtc = DateTime.UtcNow
             });
         }
@@ -118,6 +119,13 @@ public class CourseRepository : ICourseRepository
     {
         return await _db.CourseTeachers.AnyAsync(
             x => x.CourseId == courseId && x.TeacherUserId == teacherId,
+            cancellationToken);
+    }
+
+    public async Task<bool> TeacherIsHeadOfCourseAsync(Guid courseId, Guid teacherId, CancellationToken cancellationToken)
+    {
+        return await _db.CourseTeachers.AnyAsync(
+            x => x.CourseId == courseId && x.TeacherUserId == teacherId && x.IsHead,
             cancellationToken);
     }
 }

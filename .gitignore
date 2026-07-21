@@ -487,3 +487,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Reference Codebases
+Assigment1_PRN222/
+FPTUniRAG/

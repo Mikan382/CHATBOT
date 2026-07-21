@@ -61,6 +61,51 @@ public class AccountController : BaseController
         }
     }
 
+    [HttpGet]
+    [AllowAnonymous]
+    public IActionResult Register()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToAction("Index", "Chat");
+        }
+
+        return View(new RegisterViewModel());
+    }
+
+    [HttpPost]
+    [AllowAnonymous]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Register(RegisterViewModel model, CancellationToken cancellationToken)
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToAction("Index", "Chat");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            var user = await _authService.RegisterAsync(model.Email, model.FullName, model.Password, cancellationToken);
+            await SignInAsync(user, rememberMe: false);
+            SetFlashSuccess("Registration successful! Welcome to PRN222 Course Assistant.");
+            return RedirectToAction("Index", "Chat");
+        }
+        catch (Exception ex)
+        {
+            model.Error = UserFacingError(ex);
+            model.Password = "";
+            model.ConfirmPassword = "";
+            ModelState.Remove(nameof(RegisterViewModel.Password));
+            ModelState.Remove(nameof(RegisterViewModel.ConfirmPassword));
+            return View(model);
+        }
+    }
+
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]

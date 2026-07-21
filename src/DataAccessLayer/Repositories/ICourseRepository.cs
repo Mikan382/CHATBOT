@@ -12,4 +12,5 @@ public interface ICourseRepository
     Task<bool> CodeExistsAsync(string code, Guid? excludeId, CancellationToken cancellationToken);
     Task<bool> HasChaptersAsync(Guid courseId, CancellationToken cancellationToken);
     Task<bool> TeacherCanManageCourseAsync(Guid courseId, Guid teacherId, CancellationToken cancellationToken);
+    Task<bool> TeacherIsHeadOfCourseAsync(Guid courseId, Guid teacherId, CancellationToken cancellationToken);
 }

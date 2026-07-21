@@ -242,3 +242,8 @@ public record ActiveSubscriptionDetailDto(
     decimal Utilization,
     DateTime ActivatedAtUtc,
     DateTime? ExpiresAtUtc);
+
+public record StudentDocumentUploadResultDto(Guid Id, string FileName, int ChunksCount);
+
+public record StudentDocumentDto(Guid Id, string FileName, string FileType, long FileSizeBytes, int ChunksCount, DateTime UploadedAtUtc);
+

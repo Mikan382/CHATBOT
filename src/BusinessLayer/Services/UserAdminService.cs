@@ -272,4 +272,125 @@ public class UserAdminService : IUserAdminService
             UpdatedAtUtc = nowUtc
         };
     }
+
+    public async Task<BatchImportResultDto> ImportStudentsFromCsvAsync(
+        Stream fileStream,
+        CancellationToken cancellationToken)
+    {
+        var errors = new List<string>();
+        var totalRows = 0;
+        var successCount = 0;
+        var skippedCount = 0;
+        const string defaultPassword = "Student@123";
+
+        using var reader = new System.IO.StreamReader(fileStream, System.Text.Encoding.UTF8);
+        string? headerLine = await reader.ReadLineAsync(cancellationToken);
+        if (headerLine is null)
+        {
+            return new BatchImportResultDto(0, 0, 0, new[] { "The uploaded CSV file is empty." });
+        }
+
+        var nameIndex = 0;
+        var emailIndex = 1;
+        var headers = headerLine.Split(',', ';');
+        if (headers.Length >= 2)
+        {
+            var h0 = headers[0].Trim().ToLowerInvariant();
+            var h1 = headers[1].Trim().ToLowerInvariant();
+            if (h0.Contains("email") || h0.Contains("mail"))
+            {
+                emailIndex = 0;
+                nameIndex = 1;
+            }
+            else if (h1.Contains("name") || h1.Contains("fullname") || h1.Contains("ten") || h1.Contains("ho"))
+            {
+                nameIndex = 0;
+                emailIndex = 1;
+            }
+        }
+
+        string? line;
+        var lineNumber = 1;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        {
+            lineNumber++;
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var parts = line.Split(',', ';');
+            if (parts.Length < 2)
+            {
+                errors.Add($"Line {lineNumber}: Invalid format. Expected 'FullName, Email'.");
+                continue;
+            }
+
+            var colA = parts[0].Trim();
+            var colB = parts[1].Trim();
+            string rawName, rawEmail;
+
+            if (colA.Contains('@') && !colB.Contains('@'))
+            {
+                rawEmail = colA;
+                rawName = colB;
+            }
+            else if (colB.Contains('@') && !colA.Contains('@'))
+            {
+                rawEmail = colB;
+                rawName = colA;
+            }
+            else
+            {
+                rawName = nameIndex < parts.Length ? parts[nameIndex].Trim() : parts[0].Trim();
+                rawEmail = emailIndex < parts.Length ? parts[emailIndex].Trim() : parts[1].Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(rawEmail) || !rawEmail.Contains('@'))
+            {
+                errors.Add($"Line {lineNumber}: Invalid email '{rawEmail}'.");
+                continue;
+            }
+
+            totalRows++;
+            string email;
+            try
+            {
+                email = NormalizeEmail(rawEmail);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Line {lineNumber}: {ex.Message}");
+                continue;
+            }
+
+            var fullName = string.IsNullOrWhiteSpace(rawName) ? email.Split('@')[0] : rawName;
+
+            if (await _userRepository.EmailExistsAsync(email, null, cancellationToken))
+            {
+                skippedCount++;
+                continue;
+            }
+
+            try
+            {
+                var now = DateTime.UtcNow;
+                var user = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(),
+                    Email = email,
+                    DisplayName = fullName,
+                    Role = UserRoleNames.Student,
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                };
+                user.PasswordHash = _passwordHasher.HashPassword(user, defaultPassword);
+                var subscription = await CreateDefaultSubscriptionAsync(user.Id, now, cancellationToken);
+                await _userRepository.AddAsync(user, subscription, cancellationToken);
+                successCount++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Line {lineNumber} ({email}): {ex.Message}");
+            }
+        }
+
+        return new BatchImportResultDto(totalRows, successCount, skippedCount, errors);
+    }
 }

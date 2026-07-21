@@ -13,6 +13,11 @@ public abstract class BaseController : Controller
             : throw new InvalidOperationException("Current user ID is invalid.");
     }
 
+    protected string CurrentUserRole()
+    {
+        return User.FindFirstValue(ClaimTypes.Role) ?? "";
+    }
+
     protected void SetFlashSuccess(string message)
     {
         TempData["Success"] = message;
