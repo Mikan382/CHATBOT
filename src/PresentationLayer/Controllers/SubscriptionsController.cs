@@ -40,7 +40,7 @@ public class SubscriptionsController : BaseController
 
     [Authorize(Roles = "Admin")]
     [HttpGet]
-    public async Task<IActionResult> Dashboard(int? period, CancellationToken cancellationToken)
+    public async Task<IActionResult> Dashboard(int? period, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
     {
         var periodDays = period switch
         {
@@ -48,7 +48,7 @@ public class SubscriptionsController : BaseController
             0 => 0,
             _ => 30
         };
-        return View(await BuildDashboardModelAsync(periodDays, cancellationToken));
+        return View(await BuildDashboardModelAsync(periodDays, startDate, endDate, cancellationToken));
     }
 
     [Authorize(Roles = "Admin")]
@@ -62,13 +62,15 @@ public class SubscriptionsController : BaseController
     [Authorize(Roles = "Admin")]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreatePlan(SubscriptionPlanInput input, int? period, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreatePlan(SubscriptionPlanInput input, int? period, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
     {
         var periodDays = period switch { 7 => 7, 0 => 0, _ => 30 };
         if (!ModelState.IsValid)
         {
             return View("Dashboard", await BuildDashboardModelAsync(
                 periodDays,
+                startDate,
+                endDate,
                 cancellationToken,
                 createPlan: input,
                 error: "Please check the subscription package fields."));
@@ -92,24 +94,28 @@ public class SubscriptionsController : BaseController
         {
             return View("Dashboard", await BuildDashboardModelAsync(
                 periodDays,
+                startDate,
+                endDate,
                 cancellationToken,
                 createPlan: input,
                 error: UserFacingError(ex)));
         }
 
-        return RedirectToAction("Dashboard", new { period });
+        return RedirectToAction("Dashboard", new { period, startDate = startDate?.ToString("yyyy-MM-dd"), endDate = endDate?.ToString("yyyy-MM-dd") });
     }
 
     [Authorize(Roles = "Admin")]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdatePlan(SubscriptionPlanInput input, int? period, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdatePlan(SubscriptionPlanInput input, int? period, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
     {
         var periodDays = period switch { 7 => 7, 0 => 0, _ => 30 };
         if (!input.Id.HasValue || !ModelState.IsValid)
         {
             return View("Dashboard", await BuildDashboardModelAsync(
                 periodDays,
+                startDate,
+                endDate,
                 cancellationToken,
                 failedPlanUpdate: input,
                 error: "Please check the subscription package fields."));
@@ -134,18 +140,20 @@ public class SubscriptionsController : BaseController
         {
             return View("Dashboard", await BuildDashboardModelAsync(
                 periodDays,
+                startDate,
+                endDate,
                 cancellationToken,
                 failedPlanUpdate: input,
                 error: UserFacingError(ex)));
         }
 
-        return RedirectToAction("Dashboard", new { period });
+        return RedirectToAction("Dashboard", new { period, startDate = startDate?.ToString("yyyy-MM-dd"), endDate = endDate?.ToString("yyyy-MM-dd") });
     }
 
     [Authorize(Roles = "Admin")]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetDefaultPlan(Guid planId, int? period, CancellationToken cancellationToken)
+    public async Task<IActionResult> SetDefaultPlan(Guid planId, int? period, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
     {
         try
         {
@@ -157,11 +165,13 @@ public class SubscriptionsController : BaseController
             SetFlashError(UserFacingError(ex));
         }
 
-        return RedirectToAction("Dashboard", new { period });
+        return RedirectToAction("Dashboard", new { period, startDate = startDate?.ToString("yyyy-MM-dd"), endDate = endDate?.ToString("yyyy-MM-dd") });
     }
 
     private async Task<SubscriptionDashboardViewModel> BuildDashboardModelAsync(
         int periodDays,
+        DateTime? startDate,
+        DateTime? endDate,
         CancellationToken cancellationToken,
         SubscriptionPlanInput? createPlan = null,
         SubscriptionPlanInput? failedPlanUpdate = null,
@@ -169,11 +179,13 @@ public class SubscriptionsController : BaseController
     {
         return new SubscriptionDashboardViewModel
         {
-            Dashboard = await _subscriptionService.GetDashboardAsync(periodDays, cancellationToken),
+            Dashboard = await _subscriptionService.GetDashboardAsync(periodDays, startDate, endDate, cancellationToken),
             CreatePlan = createPlan ?? new SubscriptionPlanInput(),
             FailedPlanUpdate = failedPlanUpdate,
             Error = error,
-            PeriodDays = periodDays
+            PeriodDays = periodDays,
+            StartDate = startDate,
+            EndDate = endDate
         };
     }
 }

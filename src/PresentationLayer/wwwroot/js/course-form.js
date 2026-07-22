@@ -135,5 +135,25 @@
     noResults.hidden = visibleCount > 0;
   });
 
+  const strategySelect = document.getElementById("DefaultChunkingStrategy");
+  const fixedChunkOptions = document.querySelectorAll("[data-fixed-chunk-option]");
+
+  function updateChunkOptionsVisibility() {
+    if (!strategySelect || !fixedChunkOptions.length) return;
+    const isFixed = strategySelect.value === "fixed";
+    fixedChunkOptions.forEach((el) => {
+      const inputs = el.querySelectorAll("input");
+      inputs.forEach((input) => {
+        input.disabled = !isFixed;
+      });
+      el.style.opacity = isFixed ? "1" : "0.5";
+    });
+  }
+
+  if (strategySelect) {
+    strategySelect.addEventListener("change", updateChunkOptionsVisibility);
+    updateChunkOptionsVisibility();
+  }
+
   render();
 })();

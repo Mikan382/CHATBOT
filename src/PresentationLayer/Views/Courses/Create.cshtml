@@ -56,13 +56,15 @@
                                         <option value="intfloat/multilingual-e5-large">intfloat/multilingual-e5-large</option>
                                     </select>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-6" data-fixed-chunk-option>
                                     <label class="form-label" asp-for="DefaultChunkSize">Chunk Size (characters)</label>
                                     <input class="form-control" asp-for="DefaultChunkSize" placeholder="1000" type="number" min="100" max="2000" />
+                                    <div class="form-text text-muted small">Only applies to Fixed Size strategy.</div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-6" data-fixed-chunk-option>
                                     <label class="form-label" asp-for="DefaultChunkOverlap">Chunk Overlap (characters)</label>
                                     <input class="form-control" asp-for="DefaultChunkOverlap" placeholder="150" type="number" min="0" max="500" />
+                                    <div class="form-text text-muted small">Only applies to Fixed Size strategy.</div>
                                 </div>
                             </div>
                         </div>

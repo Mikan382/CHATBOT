@@ -36,13 +36,38 @@ public class SubscriptionService : ISubscriptionService
             _paymentGateway.IsConfigured);
     }
 
-    public async Task<SubscriptionDashboardDto> GetDashboardAsync(int periodDays, CancellationToken cancellationToken)
+    public async Task<SubscriptionDashboardDto> GetDashboardAsync(
+        int periodDays,
+        DateTime? startDate,
+        DateTime? endDate,
+        CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
-        var sinceUtc = periodDays > 0
-            ? now.AddDays(-periodDays)
-            : new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var untilUtc = now;
+        DateTime sinceUtc;
+        DateTime untilUtc;
+
+        if (startDate.HasValue && endDate.HasValue)
+        {
+            sinceUtc = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+            untilUtc = DateTime.SpecifyKind(endDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+        }
+        else if (startDate.HasValue)
+        {
+            sinceUtc = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+            untilUtc = now;
+        }
+        else if (endDate.HasValue)
+        {
+            untilUtc = DateTime.SpecifyKind(endDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+            sinceUtc = untilUtc.AddDays(-30);
+        }
+        else
+        {
+            sinceUtc = periodDays > 0
+                ? now.AddDays(-periodDays)
+                : new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            untilUtc = now;
+        }
         var pendingSince = now.Subtract(_paymentGateway.CheckoutLifetime);
 
         // Core data

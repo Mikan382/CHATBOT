@@ -5,7 +5,11 @@ namespace BusinessLayer.Services;
 public interface ISubscriptionService
 {
     Task<StudentSubscriptionPageDto> GetStudentPageAsync(Guid studentUserId, CancellationToken cancellationToken);
-    Task<SubscriptionDashboardDto> GetDashboardAsync(int periodDays, CancellationToken cancellationToken);
+    Task<SubscriptionDashboardDto> GetDashboardAsync(
+        int periodDays,
+        DateTime? startDate,
+        DateTime? endDate,
+        CancellationToken cancellationToken);
     Task<IReadOnlyList<ActiveSubscriptionDetailDto>> GetActiveSubscriptionDetailsAsync(CancellationToken cancellationToken);
     Task CreatePlanAsync(
         string code,

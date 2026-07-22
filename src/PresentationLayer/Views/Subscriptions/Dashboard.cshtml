@@ -45,13 +45,23 @@
         <div class="tab-pane fade show active" id="overview-pane" role="tabpanel" aria-labelledby="overview-tab">
 
             <!-- Time filter -->
-            <div class="mb-3">
+            <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
                 <div class="btn-group btn-group-sm" role="group" aria-label="Time period filter">
                     @foreach (var p in new[] { 7, 30, 0 })
                     {
-                        <a href="@PeriodLink(p)" class="btn @(IsActive(p) ? "btn-primary" : "btn-outline-secondary")">@PeriodLabel(p)</a>
+                        <a href="@PeriodLink(p)" class="btn @(IsActive(p) && !Model.StartDate.HasValue && !Model.EndDate.HasValue ? "btn-primary" : "btn-outline-secondary")">@PeriodLabel(p)</a>
                     }
                 </div>
+                <form method="get" asp-controller="Subscriptions" asp-action="Dashboard" class="d-flex align-items-center gap-2">
+                    <input type="date" class="form-control form-control-sm" name="startDate" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" placeholder="From Date" />
+                    <span class="text-muted small">to</span>
+                    <input type="date" class="form-control form-control-sm" name="endDate" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" placeholder="To Date" />
+                    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                    @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+                    {
+                        <a asp-controller="Subscriptions" asp-action="Dashboard" class="btn btn-sm btn-outline-secondary">Reset</a>
+                    }
+                </form>
             </div>
 
             <!-- KPI Cards -->
