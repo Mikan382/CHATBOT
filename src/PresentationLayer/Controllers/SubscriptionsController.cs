@@ -42,13 +42,17 @@ public class SubscriptionsController : BaseController
     [HttpGet]
     public async Task<IActionResult> Dashboard(int? period, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
     {
-        var periodDays = period switch
+        var periodDays = period == 7 ? 7 : 30;
+
+        string? error = null;
+        if (startDate.HasValue && endDate.HasValue && endDate.Value.Date < startDate.Value.Date)
         {
-            7 => 7,
-            0 => 0,
-            _ => 30
-        };
-        return View(await BuildDashboardModelAsync(periodDays, startDate, endDate, cancellationToken));
+            error = "'To' date must be on or after 'From' date.";
+            startDate = null;
+            endDate = null;
+        }
+
+        return View(await BuildDashboardModelAsync(periodDays, startDate, endDate, cancellationToken, error: error));
     }
 
     [Authorize(Roles = "Admin")]
@@ -64,7 +68,7 @@ public class SubscriptionsController : BaseController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreatePlan(SubscriptionPlanInput input, int? period, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
     {
-        var periodDays = period switch { 7 => 7, 0 => 0, _ => 30 };
+        var periodDays = period == 7 ? 7 : 30;
         if (!ModelState.IsValid)
         {
             return View("Dashboard", await BuildDashboardModelAsync(
@@ -109,7 +113,7 @@ public class SubscriptionsController : BaseController
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdatePlan(SubscriptionPlanInput input, int? period, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken)
     {
-        var periodDays = period switch { 7 => 7, 0 => 0, _ => 30 };
+        var periodDays = period == 7 ? 7 : 30;
         if (!input.Id.HasValue || !ModelState.IsValid)
         {
             return View("Dashboard", await BuildDashboardModelAsync(

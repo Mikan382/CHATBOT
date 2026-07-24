@@ -63,9 +63,7 @@ public class SubscriptionService : ISubscriptionService
         }
         else
         {
-            sinceUtc = periodDays > 0
-                ? now.AddDays(-periodDays)
-                : new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            sinceUtc = now.AddDays(-periodDays);
             untilUtc = now;
         }
         var pendingSince = now.Subtract(_paymentGateway.CheckoutLifetime);

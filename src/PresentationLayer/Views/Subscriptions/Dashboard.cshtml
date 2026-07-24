@@ -8,7 +8,8 @@
     var currentDefaultPlan = Model.Dashboard.Plans.FirstOrDefault(plan => plan.IsDefault);
     var d = Model.Dashboard;
     string PeriodLink(int p) => Url.Action("Dashboard", new { period = p == 30 ? (int?)null : p })!;
-    string PeriodLabel(int p) => p switch { 7 => "7 days", 0 => "This month", _ => "30 days" };
+    string PeriodLabel(int p) => p == 7 ? "7 days" : "30 days";
+    string PeriodTitle(int p) => p == 7 ? "Rolling last 7 days" : "Rolling last 30 days";
     bool IsActive(int p) => Model.PeriodDays == p;
 }
 
@@ -47,15 +48,15 @@
             <!-- Time filter -->
             <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
                 <div class="btn-group btn-group-sm" role="group" aria-label="Time period filter">
-                    @foreach (var p in new[] { 7, 30, 0 })
+                    @foreach (var p in new[] { 7, 30 })
                     {
-                        <a href="@PeriodLink(p)" class="btn @(IsActive(p) && !Model.StartDate.HasValue && !Model.EndDate.HasValue ? "btn-primary" : "btn-outline-secondary")">@PeriodLabel(p)</a>
+                        <a href="@PeriodLink(p)" class="btn @(IsActive(p) && !Model.StartDate.HasValue && !Model.EndDate.HasValue ? "btn-primary" : "btn-outline-secondary")" title="@PeriodTitle(p)">@PeriodLabel(p)</a>
                     }
                 </div>
-                <form method="get" asp-controller="Subscriptions" asp-action="Dashboard" class="d-flex align-items-center gap-2">
-                    <input type="date" class="form-control form-control-sm" name="startDate" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" placeholder="From Date" />
+                <form method="get" asp-controller="Subscriptions" asp-action="Dashboard" class="d-flex align-items-center gap-2" id="dateRangeForm">
+                    <input type="date" class="form-control form-control-sm" id="startDateInput" name="startDate" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" placeholder="From Date" max="@(Model.EndDate?.ToString("yyyy-MM-dd"))" />
                     <span class="text-muted small">to</span>
-                    <input type="date" class="form-control form-control-sm" name="endDate" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" placeholder="To Date" />
+                    <input type="date" class="form-control form-control-sm" id="endDateInput" name="endDate" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" placeholder="To Date" min="@(Model.StartDate?.ToString("yyyy-MM-dd"))" />
                     <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                     @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
                     {
@@ -743,6 +744,16 @@
             noDataMsg.textContent = "No revenue data for the selected period.";
             document.getElementById("trendChart").parentNode.appendChild(noDataMsg);
         }
+
+        // ===== Date range filter: keep from/to in sync so "to" can't precede "from" =====
+        const startDateInput = document.getElementById("startDateInput");
+        const endDateInput = document.getElementById("endDateInput");
+        startDateInput.addEventListener("change", () => {
+            endDateInput.min = startDateInput.value || "";
+        });
+        endDateInput.addEventListener("change", () => {
+            startDateInput.max = endDateInput.value || "";
+        });
 
         // ===== Scroll to needs attention =====
         document.querySelectorAll(".scroll-to-attention").forEach(link => {
