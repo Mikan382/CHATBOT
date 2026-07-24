@@ -54,7 +54,7 @@ public record CourseListDto(
     string Description,
     string Tools,
     int ChaptersCount,
-    string? TeacherName,
+    string? HeadTeacherName,
     string? DefaultChunkingStrategy = null,
     int? DefaultChunkSize = null,
     int? DefaultChunkOverlap = null,

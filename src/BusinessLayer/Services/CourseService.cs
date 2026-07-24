@@ -249,6 +249,7 @@ public class CourseService : ICourseService
             course.Tools,
             course.Chapters.Count,
             course.TeacherAssignments
+                .Where(x => x.IsHead)
                 .Select(x => x.Teacher?.DisplayName ?? x.Teacher?.Email)
                 .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),
             course.DefaultChunkingStrategy,
